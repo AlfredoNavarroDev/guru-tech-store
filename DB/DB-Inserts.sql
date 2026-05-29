@@ -1,3 +1,5 @@
+SET timezone = 'America/Lima';
+
 -- ============================================================
 -- DB-Inserts.sql — Datos de prueba
 -- Orden de inserción respeta triggers:
@@ -60,26 +62,26 @@ INSERT INTO Proveedores (id_proveedor, ruc, razon_social, contacto_nombre, telef
 -- ============================================================
 
 INSERT INTO Empleados (id_empleado, id_sede, tipo_documento, nro_documento, nombre_completo,
-                       telefono, sueldo_semanal_soles, estado, direccion_completa) VALUES
+                       telefono, sueldo_semanal_soles, estado, direccion_completa, password_hash) VALUES
 -- Dueño (sin sede asignada: tiene acceso a todas)
-(1,  NULL, 'DNI', '10001001', 'Roberto Sánchez Torres',  '987-001-001', 5000.00, 'activo',     'Av. Brasil 100, Lima'),
+(1,  NULL, 'DNI', '10001001', 'Roberto Sánchez Torres',  '987-001-001', 5000.00, 'activo',     'Av. Brasil 100, Lima',                '$2b$10$test.placeholder.hash.dev.only.xx'),
 -- Gerentes
-(2,  1, 'DNI', '10002001', 'Andrea López Ríos',       '987-002-001', 1800.00, 'activo',     'Jr. Lampa 210, Lima'),
-(3,  2, 'DNI', '10002002', 'Miguel Vargas Huanca',    '987-002-002', 1800.00, 'activo',     'Calle Berlín 45, Miraflores'),
-(4,  3, 'DNI', '10002003', 'Patricia Chávez Núñez',   '987-002-003', 1800.00, 'activo',     'Los Ficus 30, San Isidro'),
+(2,  1, 'DNI', '10002001', 'Andrea López Ríos',       '987-002-001', 1800.00, 'activo',     'Jr. Lampa 210, Lima',                  '$2b$10$test.placeholder.hash.dev.only.xx'),
+(3,  2, 'DNI', '10002002', 'Miguel Vargas Huanca',    '987-002-002', 1800.00, 'activo',     'Calle Berlín 45, Miraflores',           '$2b$10$test.placeholder.hash.dev.only.xx'),
+(4,  3, 'DNI', '10002003', 'Patricia Chávez Núñez',   '987-002-003', 1800.00, 'activo',     'Los Ficus 30, San Isidro',              '$2b$10$test.placeholder.hash.dev.only.xx'),
 -- Vendedores
-(5,  1, 'DNI', '10003001', 'Luis Mamani Quispe',      '987-003-001',  900.00, 'activo',     'Jr. Ayacucho 55, Lima'),
-(6,  2, 'DNI', '10003002', 'Carla Flores Medina',     '987-003-002',  900.00, 'activo',     'Av. Arequipa 720, Miraflores'),
-(7,  3, 'DNI', '10003003', 'Diego Ramos Torres',      '987-003-003',  900.00, 'activo',     'Av. Javier Prado 430, San Isidro'),
+(5,  1, 'DNI', '10003001', 'Luis Mamani Quispe',      '987-003-001',  900.00, 'activo',     'Jr. Ayacucho 55, Lima',                '$2b$10$test.placeholder.hash.dev.only.xx'),
+(6,  2, 'DNI', '10003002', 'Carla Flores Medina',     '987-003-002',  900.00, 'activo',     'Av. Arequipa 720, Miraflores',          '$2b$10$test.placeholder.hash.dev.only.xx'),
+(7,  3, 'DNI', '10003003', 'Diego Ramos Torres',      '987-003-003',  900.00, 'activo',     'Av. Javier Prado 430, San Isidro',      '$2b$10$test.placeholder.hash.dev.only.xx'),
 -- Técnicos
-(8,  1, 'DNI', '10004001', 'Fernando Ccallo Apaza',   '987-004-001', 1200.00, 'activo',     'Av. Colonial 800, Lima'),
-(9,  2, 'DNI', '10004002', 'Karina Solís Paredes',    '987-004-002', 1200.00, 'activo',     'Jr. Schell 120, Miraflores'),
-(10, 3, 'DNI', '10004003', 'Julio Condori Mamani',    '987-004-003', 1200.00, 'activo',     'Las Palmeras 18, San Isidro'),
+(8,  1, 'DNI', '10004001', 'Fernando Ccallo Apaza',   '987-004-001', 1200.00, 'activo',     'Av. Colonial 800, Lima',               '$2b$10$test.placeholder.hash.dev.only.xx'),
+(9,  2, 'DNI', '10004002', 'Karina Solís Paredes',    '987-004-002', 1200.00, 'activo',     'Jr. Schell 120, Miraflores',            '$2b$10$test.placeholder.hash.dev.only.xx'),
+(10, 3, 'DNI', '10004003', 'Julio Condori Mamani',    '987-004-003', 1200.00, 'activo',     'Las Palmeras 18, San Isidro',           '$2b$10$test.placeholder.hash.dev.only.xx'),
 -- Abastecedores
-(11, 1, 'DNI', '10005001', 'Sandra Huanca Puma',      '987-005-001',  950.00, 'activo',     'Av. Venezuela 340, Lima'),
-(12, 2, 'DNI', '10005002', 'Óscar Tineo Ríos',        '987-005-002',  950.00, 'activo',     'Jr. Recavarren 89, Miraflores'),
+(11, 1, 'DNI', '10005001', 'Sandra Huanca Puma',      '987-005-001',  950.00, 'activo',     'Av. Venezuela 340, Lima',              '$2b$10$test.placeholder.hash.dev.only.xx'),
+(12, 2, 'DNI', '10005002', 'Óscar Tineo Ríos',        '987-005-002',  950.00, 'activo',     'Jr. Recavarren 89, Miraflores',         '$2b$10$test.placeholder.hash.dev.only.xx'),
 -- Caso especial: vendedor suspendido
-(13, 3, 'DNI', '10003099', 'Jorge Palma Soto',        '987-003-099',  900.00, 'suspendido', 'Av. Conquistadores 72, San Isidro');
+(13, 3, 'DNI', '10003099', 'Jorge Palma Soto',        '987-003-099',  900.00, 'suspendido', 'Av. Conquistadores 72, San Isidro',     '$2b$10$test.placeholder.hash.dev.only.xx');
 
 INSERT INTO Empleado_Roles (id_empleado, id_rol) VALUES
 (1,  1), (2,  2), (3,  2), (4,  2),
@@ -418,28 +420,27 @@ INSERT INTO Pagos (id_reparacion, metodo_pago, monto, es_adelanto, fecha_pago) V
 
 -- ============================================================
 -- SECCIÓN 10: BOLETAS
--- Constraint: total = subtotal + igv
--- IGV 18%: subtotal = ROUND(total/1.18, 2), igv = total - subtotal
+-- total incluye IGV 18% (subtotal e igv no se almacenan en la tabla)
 -- ============================================================
 
 -- Boletas de ventas
-INSERT INTO Boletas (numero, fecha_emision, id_venta, subtotal, igv, total, estado) VALUES
-('B001-0001', '2026-02-10 11:32:00', 1,   84.75,  15.25, 100.00, 'emitida'),
-('B001-0002', '2026-02-12 15:02:00', 2,   42.37,   7.63,  50.00, 'emitida'),
-('B002-0001', '2026-02-15 10:47:00', 3,  114.41,  20.59, 135.00, 'emitida'),
-('B002-0002', '2026-02-18 16:22:00', 4,  116.95,  21.05, 138.00, 'emitida'),
-('B003-0001', '2026-02-20 12:02:00', 5,   50.85,   9.15,  60.00, 'emitida'),
-('B001-0003', '2026-03-01 09:32:00', 6,   97.46,  17.54, 115.00, 'emitida'),
-('B002-0003', '2026-03-05 14:02:00', 7,   76.27,  13.73,  90.00, 'emitida'),
-('B003-0002', '2026-03-10 11:02:00', 8,   72.03,  12.97,  85.00, 'emitida'),
-('B001-0004', '2026-03-12 17:32:00', 9,   38.14,   6.86,  45.00, 'emitida'),
-('B002-0004', '2026-03-15 13:17:00', 10,  84.75,  15.25, 100.00, 'emitida');
+INSERT INTO Boletas (numero, fecha_emision, id_venta, total, estado) VALUES
+('B001-0001', '2026-02-10 11:32:00', 1,  100.00, 'emitida'),
+('B001-0002', '2026-02-12 15:02:00', 2,   50.00, 'emitida'),
+('B002-0001', '2026-02-15 10:47:00', 3,  135.00, 'emitida'),
+('B002-0002', '2026-02-18 16:22:00', 4,  138.00, 'emitida'),
+('B003-0001', '2026-02-20 12:02:00', 5,   60.00, 'emitida'),
+('B001-0003', '2026-03-01 09:32:00', 6,  115.00, 'emitida'),
+('B002-0003', '2026-03-05 14:02:00', 7,   90.00, 'emitida'),
+('B003-0002', '2026-03-10 11:02:00', 8,   85.00, 'emitida'),
+('B001-0004', '2026-03-12 17:32:00', 9,   45.00, 'emitida'),
+('B002-0004', '2026-03-15 13:17:00', 10, 100.00, 'emitida');
 
 -- Boletas de reparaciones (solo las entregadas y la lista-para-entrega)
-INSERT INTO Boletas (numero, fecha_emision, id_reparacion, subtotal, igv, total, estado) VALUES
-('B001-0005', '2026-01-26 12:02:00', 1,  245.76,  44.24, 290.00, 'emitida'),
-('B002-0005', '2026-02-14 16:02:00', 3,   25.42,   4.58,  30.00, 'emitida'),
-('B003-0003', '2026-02-20 11:02:00', 6,  211.86,  38.14, 250.00, 'emitida');
+INSERT INTO Boletas (numero, fecha_emision, id_reparacion, total, estado) VALUES
+('B001-0005', '2026-01-26 12:02:00', 1, 290.00, 'emitida'),
+('B002-0005', '2026-02-14 16:02:00', 3,  30.00, 'emitida'),
+('B003-0003', '2026-02-20 11:02:00', 6, 250.00, 'emitida');
 
 
 -- ============================================================
@@ -461,3 +462,27 @@ SELECT setval(pg_get_serial_sequence('Compras_Refill',           'id_compra'),  
 SELECT setval(pg_get_serial_sequence('Ventas',                   'id_venta'),       (SELECT MAX(id_venta)       FROM Ventas));
 SELECT setval(pg_get_serial_sequence('Reparaciones',             'id_reparacion'),  (SELECT MAX(id_reparacion)  FROM Reparaciones));
 SELECT setval(pg_get_serial_sequence('Garantias',                'id_garantia'),    (SELECT MAX(id_garantia)    FROM Garantias));
+
+
+-- ============================================================
+-- SECCIÓN 12: CAMBIOS DE PRODUCTO
+-- Trigger: devuelve item_devuelto al stock; descuenta item_entregado.
+-- Stock sede 1 antes: item3=9, item4=9
+-- Stock sede 2 antes: item6=5, item8=2
+-- ============================================================
+
+INSERT INTO Cambios_Producto (
+  id_cambio, id_venta_origen, id_empleado, id_sede,
+  id_item_devuelto, cantidad, precio_devuelto,
+  id_item_entregado, precio_entregado,
+  diferencia_cobrada, metodo_pago_dif,
+  motivo, detalle, fecha_cambio
+) VALUES
+-- Cambio 1: Sede 1 — Cliente 2 (Venta 2) devuelve Funda iPhone 15 (item3, S/35),
+--           recibe Funda Samsung Galaxy S24 (item4, S/30). Sin cobro diferencial.
+(1, 2, 5, 1,  3, 1, 35.00,  4,  30.00,  0.00, NULL,   'defecto', 'Funda talla incorrecta para el modelo',    '2026-02-20 10:00:00'),
+-- Cambio 2: Sede 2 — Cliente 3 (Venta 3) devuelve Auriculares (item6, S/85),
+--           recibe Power bank 10000mAh (item8, S/110). Diferencia S/25 cobrada por yape.
+(2, 3, 6, 2,  6, 1, 85.00,  8, 110.00, 25.00, 'yape', 'defecto', 'Auriculares con falla en canal derecho',   '2026-03-08 11:00:00');
+
+SELECT setval(pg_get_serial_sequence('Cambios_Producto',         'id_cambio'),      (SELECT MAX(id_cambio)      FROM Cambios_Producto));

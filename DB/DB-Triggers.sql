@@ -1,3 +1,5 @@
+SET timezone = 'America/Lima';
+
 -- ============================================================================
 -- @Purpose: Triggers del sistema para integridad de datos, movimientos de
 --           inventario y auditoría en Logs_Sistema.
@@ -75,6 +77,23 @@ BEGIN
     p_id_referencia, p_id_empleado, p_id_sede,
     'estado: ' || p_estado_anterior || ' → ' || p_estado_nuevo
   );
+END;
+$$ LANGUAGE plpgsql;
+
+-- @Purpose: Retorna el id del empleado que inició la transacción actual, leído desde
+--           la variable de sesión 'app.actor_id' que el backend debe setear con:
+--             SET LOCAL app.actor_id = '<id_empleado>';
+--           Retorna NULL si la variable no está definida (seed, migraciones, etc.).
+CREATE OR REPLACE FUNCTION fn_get_actor_id()
+RETURNS INT AS $$
+DECLARE
+  v_setting TEXT;
+BEGIN
+  v_setting := current_setting('app.actor_id', true);
+  IF v_setting IS NULL OR v_setting = '' THEN
+    RETURN NULL;
+  END IF;
+  RETURN v_setting::INT;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -795,49 +814,6 @@ CREATE TRIGGER trg_garantias_log_estado
   AFTER UPDATE OF estado ON Garantias
   FOR EACH ROW EXECUTE FUNCTION trg_garantias_log_estado();
 
--- @Purpose: Loguea la anulación de una boleta (cuando estado cambia a 'anulada').
-CREATE OR REPLACE FUNCTION trg_boletas_log_anulacion()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_id_empleado INT := NULL;
-  v_id_sede     INT := NULL;
-  v_tipo_ref    VARCHAR;
-  v_id_ref      INT;
-BEGIN
-  -- Razonamiento: Solo loguear cuando se anula, no en otros cambios de estado.
-  IF OLD.estado = NEW.estado OR NEW.estado != 'anulada' THEN
-    RETURN NEW;
-  END IF;
-
-  IF NEW.id_venta IS NOT NULL THEN
-    v_id_ref   := NEW.id_venta;
-    v_tipo_ref := 'venta';
-    SELECT id_empleado, id_sede
-    INTO v_id_empleado, v_id_sede
-    FROM Ventas
-    WHERE id_venta = NEW.id_venta;
-  ELSE
-    v_id_ref   := NEW.id_reparacion;
-    v_tipo_ref := 'reparacion';
-    SELECT id_tecnico, id_sede
-    INTO v_id_empleado, v_id_sede
-    FROM Reparaciones
-    WHERE id_reparacion = NEW.id_reparacion;
-  END IF;
-
-  PERFORM fn_log_operacion(
-    'anulacion', 'Boletas', v_tipo_ref, v_id_ref,
-    v_id_empleado, v_id_sede,
-    'Boleta anulada: ' || NEW.numero
-  );
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_boletas_log_anulacion
-  AFTER UPDATE OF estado ON Boletas
-  FOR EACH ROW EXECUTE FUNCTION trg_boletas_log_anulacion();
 
 -- ============================================================================
 -- SECCIÓN 8: TRIGGER DE LOGS DE CAMBIO DE PRECIO
@@ -881,3 +857,355 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_items_log_precio
   AFTER UPDATE OF precio_compra_actual, precio_venta_actual ON Items
   FOR EACH ROW EXECUTE FUNCTION trg_items_log_precio();
+
+-- ============================================================================
+-- SECCIÓN 9: TRIGGER DE CAMBIOS DE PRODUCTO
+-- Gestiona el inventario al registrar un cambio de producto:
+--   1. Devuelve el item del cliente al stock de la sede (ingreso).
+--   2. Valida stock y descuenta atómicamente el item entregado (egreso).
+-- ============================================================================
+
+-- @Purpose: Al insertar un Cambio_Producto, devuelve id_item_devuelto al
+--           inventario de la sede y descuenta id_item_entregado atómicamente.
+--           Si el item entregado no tiene stock suficiente, cancela con RAISE.
+-- @SideEffects: 2 INSERT en Movimientos_Inventario, INSERT en Logs_Sistema.
+-- @Note: Usa AFTER INSERT para acceder al id_cambio generado (IDENTITY PK).
+CREATE OR REPLACE FUNCTION trg_cambio_producto_insert()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_id_inventario_dev INT;
+  v_id_inventario_ent INT;
+BEGIN
+  v_id_inventario_dev := fn_get_id_inventario(NEW.id_sede, NEW.id_item_devuelto);
+
+  -- Razonamiento: Si nunca hubo stock de ese item en la sede (raro pero posible),
+  --               crear el registro con cantidad 0 antes de sumar.
+  IF v_id_inventario_dev IS NULL THEN
+    INSERT INTO Inventario_Sedes (id_sede, id_item, cantidad_actual, stock_minimo)
+    VALUES (NEW.id_sede, NEW.id_item_devuelto, 0, 0)
+    ON CONFLICT (id_sede, id_item) DO NOTHING
+    RETURNING id_inventario INTO v_id_inventario_dev;
+
+    IF v_id_inventario_dev IS NULL THEN
+      v_id_inventario_dev := fn_get_id_inventario(NEW.id_sede, NEW.id_item_devuelto);
+    END IF;
+  END IF;
+
+  UPDATE Inventario_Sedes
+  SET cantidad_actual = cantidad_actual + NEW.cantidad
+  WHERE id_inventario = v_id_inventario_dev;
+
+  v_id_inventario_ent := fn_get_id_inventario(NEW.id_sede, NEW.id_item_entregado);
+
+  IF v_id_inventario_ent IS NULL THEN
+    RAISE EXCEPTION 'No existe inventario para el item % en la sede %',
+      NEW.id_item_entregado, NEW.id_sede;
+  END IF;
+
+  -- Razonamiento: Validación + descuento atómico (mismo patrón que ventas).
+  UPDATE Inventario_Sedes
+  SET cantidad_actual = cantidad_actual - NEW.cantidad
+  WHERE id_inventario = v_id_inventario_ent
+    AND cantidad_actual >= NEW.cantidad;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Stock insuficiente del item % en la sede % para procesar cambio (disponible: %, solicitado: %)',
+      NEW.id_item_entregado, NEW.id_sede,
+      (SELECT cantidad_actual FROM Inventario_Sedes WHERE id_inventario = v_id_inventario_ent),
+      NEW.cantidad;
+  END IF;
+
+  -- Razonamiento: Dos movimientos independientes: uno por item devuelto (positivo)
+  --               y otro por item entregado (negativo). Ambos referencian el cambio.
+  INSERT INTO Movimientos_Inventario (
+    id_inventario, tipo_movimiento, cantidad, id_referencia, id_empleado
+  ) VALUES (
+    v_id_inventario_dev, 'cambio', NEW.cantidad, NEW.id_cambio, NEW.id_empleado
+  );
+
+  INSERT INTO Movimientos_Inventario (
+    id_inventario, tipo_movimiento, cantidad, id_referencia, id_empleado
+  ) VALUES (
+    v_id_inventario_ent, 'cambio', -NEW.cantidad, NEW.id_cambio, NEW.id_empleado
+  );
+
+  PERFORM fn_log_operacion(
+    'creacion', 'Cambios_Producto', 'cambio',
+    NEW.id_cambio, NEW.id_empleado, NEW.id_sede,
+    'Item devuelto: ' || NEW.id_item_devuelto ||
+    ' → Item entregado: ' || NEW.id_item_entregado ||
+    ', Cantidad: ' || NEW.cantidad ||
+    CASE WHEN NEW.diferencia_cobrada > 0
+         THEN ', Diferencia cobrada: S/' || NEW.diferencia_cobrada
+         ELSE '' END
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_cambio_producto_insert
+  AFTER INSERT ON Cambios_Producto
+  FOR EACH ROW EXECUTE FUNCTION trg_cambio_producto_insert();
+
+-- ============================================================================
+-- SECCIÓN 10: TRIGGERS DE AUDITORÍA — SEDES Y EMPLEADOS
+-- Registran en Logs_Sistema INSERT, UPDATE y DELETE sobre Sedes y Empleados.
+-- El actor se obtiene con fn_get_actor_id() que lee la variable de sesión
+-- 'app.actor_id'; el backend debe setear SET LOCAL app.actor_id = '<id>'
+-- al inicio de cada transacción autenticada.
+-- ============================================================================
+
+-- @Purpose: Loguea la creación de una Sede.
+-- Motivo: sin este trigger los INSERT en Sedes no quedaban en Logs_Sistema.
+--         Usa fn_get_actor_id() para registrar al Dueño que ejecutó la operación.
+CREATE OR REPLACE FUNCTION trg_sedes_log_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM fn_log_operacion(
+    'creacion', 'Sedes', 'otro',
+    NEW.id_sede, fn_get_actor_id(), NEW.id_sede,
+    'Sede creada: ' || NEW.nombre
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sedes_log_insert
+  AFTER INSERT ON Sedes
+  FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_insert();
+
+-- @Purpose: Loguea modificaciones en una Sede (nombre, dirección, teléfono, horario,
+--           esta_habilitada). trg_sedes_updated_at solo toca updated_at; no registra qué cambió.
+-- Motivo: necesario para auditar habilitaciones/deshabilitaciones ejecutadas por el Dueño.
+CREATE OR REPLACE FUNCTION trg_sedes_log_update()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_detalle TEXT := '';
+BEGIN
+  IF OLD.nombre IS DISTINCT FROM NEW.nombre THEN
+    v_detalle := v_detalle || 'nombre: ' || OLD.nombre || ' → ' || NEW.nombre || '; ';
+  END IF;
+  IF OLD.direccion IS DISTINCT FROM NEW.direccion THEN
+    v_detalle := v_detalle || 'direccion: ' || COALESCE(OLD.direccion,'NULL') || ' → ' || COALESCE(NEW.direccion,'NULL') || '; ';
+  END IF;
+  IF OLD.telefono IS DISTINCT FROM NEW.telefono THEN
+    v_detalle := v_detalle || 'telefono: ' || COALESCE(OLD.telefono,'NULL') || ' → ' || COALESCE(NEW.telefono,'NULL') || '; ';
+  END IF;
+  IF OLD.hora_apertura IS DISTINCT FROM NEW.hora_apertura THEN
+    v_detalle := v_detalle || 'hora_apertura: ' || OLD.hora_apertura::text || ' → ' || NEW.hora_apertura::text || '; ';
+  END IF;
+  IF OLD.hora_cierre IS DISTINCT FROM NEW.hora_cierre THEN
+    v_detalle := v_detalle || 'hora_cierre: ' || OLD.hora_cierre::text || ' → ' || NEW.hora_cierre::text || '; ';
+  END IF;
+  -- Cambio de estado habilitada/deshabilitada se registra con tipo 'cambio_estado'
+  -- en el trigger trg_sedes_log_habilitada (ver más abajo).
+
+  IF v_detalle != '' THEN
+    PERFORM fn_log_operacion(
+      'actualizacion', 'Sedes', 'otro',
+      NEW.id_sede, fn_get_actor_id(), NEW.id_sede,
+      rtrim(v_detalle, '; ')
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sedes_log_update
+  AFTER UPDATE ON Sedes
+  FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_update();
+
+-- @Purpose: Loguea como 'cambio_estado' cuando esta_habilitada cambia en una Sede.
+-- Motivo: habilitar/deshabilitar una sede es una acción crítica del Dueño que merece
+--         su propio registro con tipo_accion='cambio_estado' para facilitar auditorías.
+CREATE OR REPLACE FUNCTION trg_sedes_log_habilitada()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.esta_habilitada IS DISTINCT FROM NEW.esta_habilitada THEN
+    PERFORM fn_log_cambio_estado(
+      'Sedes', 'otro', NEW.id_sede,
+      fn_get_actor_id(), NEW.id_sede,
+      CASE WHEN OLD.esta_habilitada THEN 'habilitada' ELSE 'deshabilitada' END,
+      CASE WHEN NEW.esta_habilitada THEN 'habilitada' ELSE 'deshabilitada' END
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sedes_log_habilitada
+  AFTER UPDATE OF esta_habilitada ON Sedes
+  FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_habilitada();
+
+-- @Purpose: Loguea la eliminación de una Sede.
+-- Motivo: sin este trigger los DELETE en Sedes no quedaban en Logs_Sistema.
+CREATE OR REPLACE FUNCTION trg_sedes_log_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM fn_log_operacion(
+    'eliminacion', 'Sedes', 'otro',
+    OLD.id_sede, fn_get_actor_id(), OLD.id_sede,
+    'Sede eliminada: ' || OLD.nombre
+  );
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sedes_log_delete
+  AFTER DELETE ON Sedes
+  FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_delete();
+
+-- @Purpose: Loguea la creación de un Empleado y captura el actor vía fn_get_actor_id().
+-- Motivo: sin este trigger los INSERT en Empleados no quedaban en Logs_Sistema.
+CREATE OR REPLACE FUNCTION trg_empleados_log_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM fn_log_operacion(
+    'creacion', 'Empleados', 'otro',
+    NEW.id_empleado, fn_get_actor_id(), NEW.id_sede,
+    'Empleado creado: ' || NEW.nombre_completo ||
+    ' (' || NEW.tipo_documento || ': ' || NEW.nro_documento || ')'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_empleados_log_insert
+  AFTER INSERT ON Empleados
+  FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_insert();
+
+-- @Purpose: Loguea modificaciones en un Empleado (estado, sede, sueldo, nombre).
+-- Motivo: trg_empleados_updated_at solo toca updated_at.
+--         Crítico para rastrear cambios de estado y reasignaciones de sede por el Dueño.
+CREATE OR REPLACE FUNCTION trg_empleados_log_update()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_detalle TEXT := '';
+BEGIN
+  IF OLD.estado IS DISTINCT FROM NEW.estado THEN
+    v_detalle := v_detalle || 'estado: ' || OLD.estado || ' → ' || NEW.estado || '; ';
+  END IF;
+  IF OLD.id_sede IS DISTINCT FROM NEW.id_sede THEN
+    v_detalle := v_detalle || 'id_sede: ' ||
+      COALESCE(OLD.id_sede::text,'NULL') || ' → ' ||
+      COALESCE(NEW.id_sede::text,'NULL') || '; ';
+  END IF;
+  IF OLD.sueldo_semanal_soles IS DISTINCT FROM NEW.sueldo_semanal_soles THEN
+    v_detalle := v_detalle || 'sueldo: ' || OLD.sueldo_semanal_soles || ' → ' || NEW.sueldo_semanal_soles || '; ';
+  END IF;
+  IF OLD.nombre_completo IS DISTINCT FROM NEW.nombre_completo THEN
+    v_detalle := v_detalle || 'nombre: ' || OLD.nombre_completo || ' → ' || NEW.nombre_completo || '; ';
+  END IF;
+
+  IF v_detalle != '' THEN
+    PERFORM fn_log_operacion(
+      'actualizacion', 'Empleados', 'otro',
+      NEW.id_empleado, fn_get_actor_id(), NEW.id_sede,
+      rtrim(v_detalle, '; ')
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_empleados_log_update
+  AFTER UPDATE ON Empleados
+  FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_update();
+
+-- @Purpose: Loguea la eliminación de un Empleado.
+-- Motivo: sin este trigger los DELETE en Empleados no quedaban en Logs_Sistema.
+--         OLD.id_sede preserva el contexto de sede aun después de la eliminación.
+CREATE OR REPLACE FUNCTION trg_empleados_log_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM fn_log_operacion(
+    'eliminacion', 'Empleados', 'otro',
+    OLD.id_empleado, fn_get_actor_id(), OLD.id_sede,
+    'Empleado eliminado: ' || OLD.nombre_completo ||
+    ' (' || OLD.tipo_documento || ': ' || OLD.nro_documento || ')'
+  );
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_empleados_log_delete
+  AFTER DELETE ON Empleados
+  FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_delete();
+
+-- ============================================================================
+-- SECCIÓN 11: GUARDS DE SEDE HABILITADA
+-- Bloquean INSERT en Ventas, Reparaciones y Compras_Refill si la sede destino
+-- tiene esta_habilitada = false. Solo el Dueño puede cambiar ese flag; estos
+-- guards son la consecuencia operativa de la deshabilitación.
+-- ============================================================================
+
+-- @Purpose: Bloquea nuevas ventas en sedes deshabilitadas.
+-- Motivo: deshabilitar una sede debe impedir inmediatamente operaciones comerciales
+--         sin necesidad de lógica adicional en el backend.
+CREATE OR REPLACE FUNCTION trg_ventas_check_sede_habilitada()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_habilitada BOOLEAN;
+BEGIN
+  SELECT esta_habilitada INTO v_habilitada
+  FROM Sedes
+  WHERE id_sede = NEW.id_sede;
+
+  IF NOT v_habilitada THEN
+    RAISE EXCEPTION 'La sede % está deshabilitada. No se pueden registrar ventas en ella.', NEW.id_sede;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_ventas_check_sede_habilitada
+  BEFORE INSERT ON Ventas
+  FOR EACH ROW EXECUTE FUNCTION trg_ventas_check_sede_habilitada();
+
+-- @Purpose: Bloquea nuevas reparaciones en sedes deshabilitadas.
+CREATE OR REPLACE FUNCTION trg_reparaciones_check_sede_habilitada()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_habilitada BOOLEAN;
+BEGIN
+  SELECT esta_habilitada INTO v_habilitada
+  FROM Sedes
+  WHERE id_sede = NEW.id_sede;
+
+  IF NOT v_habilitada THEN
+    RAISE EXCEPTION 'La sede % está deshabilitada. No se pueden registrar reparaciones en ella.', NEW.id_sede;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_reparaciones_check_sede_habilitada
+  BEFORE INSERT ON Reparaciones
+  FOR EACH ROW EXECUTE FUNCTION trg_reparaciones_check_sede_habilitada();
+
+-- @Purpose: Bloquea nuevas compras/refill con destino a una sede deshabilitada.
+CREATE OR REPLACE FUNCTION trg_compras_check_sede_habilitada()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_habilitada BOOLEAN;
+BEGIN
+  SELECT esta_habilitada INTO v_habilitada
+  FROM Sedes
+  WHERE id_sede = NEW.id_sede_destino;
+
+  IF NOT v_habilitada THEN
+    RAISE EXCEPTION 'La sede % está deshabilitada. No se pueden registrar compras con destino a ella.', NEW.id_sede_destino;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_compras_check_sede_habilitada
+  BEFORE INSERT ON Compras_Refill
+  FOR EACH ROW EXECUTE FUNCTION trg_compras_check_sede_habilitada();

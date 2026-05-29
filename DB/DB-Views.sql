@@ -1,3 +1,5 @@
+SET timezone = 'America/Lima';
+
 -- ============================================================
 -- DB-Views.sql
 -- Vistas organizadas por rol:
@@ -55,6 +57,7 @@ SELECT
     s.nombre                                                                   AS sede,
     s.direccion,
     s.telefono,
+    s.esta_habilitada,
     COUNT(DISTINCT e.id_empleado) FILTER (WHERE e.estado = 'activo')           AS empleados_activos,
     COALESCE(vps.total_ventas, 0)                                              AS total_ventas,
     COALESCE(vps.ingresos_ventas, 0)                                           AS ingresos_ventas,
@@ -65,7 +68,7 @@ FROM Sedes s
 LEFT JOIN Empleados e               ON e.id_sede = s.id_sede
 LEFT JOIN ventas_por_sede vps       ON vps.id_sede = s.id_sede
 LEFT JOIN reparaciones_por_sede rps ON rps.id_sede = s.id_sede
-GROUP BY s.id_sede, s.nombre, s.direccion, s.telefono,
+GROUP BY s.id_sede, s.nombre, s.direccion, s.telefono, s.esta_habilitada,
          vps.total_ventas, vps.ingresos_ventas,
          rps.total_reparaciones, rps.ingresos_reparaciones;
 
@@ -96,10 +99,7 @@ SELECT
     v.monto_descuento,
     v.tipo_descuento,
     b.numero                     AS nro_boleta,
-    b.subtotal                   AS boleta_subtotal,
-    b.igv                        AS boleta_igv,
-    b.total                      AS boleta_total,
-    b.estado                     AS estado_boleta
+    b.total                      AS boleta_total
 FROM Ventas v
 JOIN  Sedes s             ON s.id_sede      = v.id_sede
 JOIN  Empleados e         ON e.id_empleado  = v.id_empleado
@@ -196,14 +196,39 @@ SELECT
     e.sueldo_semanal_soles,
     e.es_extranjero,
     STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
+    e.created_by,
+    ec.nombre_completo                                          AS creado_por,
     e.created_at
 FROM Empleados e
-LEFT JOIN Sedes s          ON s.id_sede     = e.id_sede
+LEFT JOIN Sedes s           ON s.id_sede      = e.id_sede
 LEFT JOIN Empleado_Roles er ON er.id_empleado = e.id_empleado
-LEFT JOIN Roles r          ON r.id_rol      = er.id_rol
+LEFT JOIN Roles r           ON r.id_rol       = er.id_rol
+LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
 GROUP BY e.id_empleado, s.id_sede, s.nombre,
          e.nombre_completo, e.tipo_documento, e.nro_documento,
-         e.telefono, e.estado, e.sueldo_semanal_soles, e.es_extranjero, e.created_at;
+         e.telefono, e.estado, e.sueldo_semanal_soles, e.es_extranjero,
+         e.created_by, ec.nombre_completo, e.created_at;
+
+
+-- 6-bis. Listado plano de todas las Sedes (lectura sin filtro para CRUD global del Dueño)
+-- Motivo: v_dueno_resumen_sedes es una vista KPI agregada; el Dueño necesita una vista
+--         simple y directa de Sedes para operaciones de gestión (crear, editar, eliminar).
+--         Incluye esta_habilitada y el nombre del empleado que creó el registro.
+CREATE OR REPLACE VIEW v_dueno_sedes AS
+SELECT
+    s.id_sede,
+    s.nombre,
+    s.direccion,
+    s.telefono,
+    s.hora_apertura,
+    s.hora_cierre,
+    s.esta_habilitada,
+    s.created_by,
+    e.nombre_completo  AS creado_por,
+    s.created_at,
+    s.updated_at
+FROM Sedes s
+LEFT JOIN Empleados e ON e.id_empleado = s.created_by;
 
 
 -- ============================================================
@@ -319,14 +344,18 @@ SELECT
     e.estado,
     e.sueldo_semanal_soles,
     STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
+    e.created_by,
+    ec.nombre_completo                                          AS creado_por,
     e.created_at
 FROM Empleados e
-JOIN  Sedes s              ON s.id_sede     = e.id_sede
+JOIN  Sedes s               ON s.id_sede      = e.id_sede
 LEFT JOIN Empleado_Roles er ON er.id_empleado = e.id_empleado
-LEFT JOIN Roles r          ON r.id_rol      = er.id_rol
+LEFT JOIN Roles r           ON r.id_rol       = er.id_rol
+LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
 GROUP BY e.id_empleado, e.id_sede, s.nombre,
          e.nombre_completo, e.tipo_documento, e.nro_documento,
-         e.telefono, e.estado, e.sueldo_semanal_soles, e.created_at;
+         e.telefono, e.estado, e.sueldo_semanal_soles,
+         e.created_by, ec.nombre_completo, e.created_at;
 
 
 -- 10. Compras/refill por sede con detalle de ítems y costos
@@ -755,3 +784,50 @@ FROM Proveedores p
 LEFT JOIN Compras_Refill cr         ON cr.id_proveedor = p.id_proveedor
 LEFT JOIN Detalle_Compra_Refill dc  ON dc.id_compra    = cr.id_compra
 GROUP BY p.id_proveedor, p.ruc, p.razon_social, p.contacto_nombre, p.telefono;
+
+
+-- ============================================================
+-- SECCIÓN 7: DUEÑO + GERENTE — CAMBIOS DE PRODUCTO
+-- Dueño la consume sin filtro de sede.
+-- Gerente la consume con: WHERE id_sede = <su_sede>
+-- ============================================================
+
+-- 25. Historial de cambios de producto por sede
+CREATE OR REPLACE VIEW v_gerente_cambios AS
+SELECT
+    cp.id_cambio,
+    cp.id_sede,
+    s.nombre                    AS sede,
+    cp.fecha_cambio,
+    cp.id_venta_origen,
+    v.fecha_emision             AS fecha_venta_origen,
+    v.id_cliente,
+    c.nombre_completo           AS cliente,
+    c.telefono                  AS telefono_cliente,
+    cp.id_empleado,
+    e.nombre_completo           AS empleado,
+    cp.id_item_devuelto,
+    idev.sku                    AS sku_devuelto,
+    idev.nombre                 AS item_devuelto,
+    cp.precio_devuelto,
+    cp.id_item_entregado,
+    ient.sku                    AS sku_entregado,
+    ient.nombre                 AS item_entregado,
+    cp.precio_entregado,
+    cp.cantidad,
+    cp.diferencia_cobrada,
+    cp.metodo_pago_dif,
+    cp.referencia_transaccion,
+    cp.motivo,
+    cp.detalle,
+    g.fecha_inicio              AS garantia_inicio,
+    g.fecha_fin                 AS garantia_fin,
+    g.estado                    AS estado_garantia
+FROM Cambios_Producto cp
+JOIN  Sedes s           ON s.id_sede      = cp.id_sede
+JOIN  Ventas v          ON v.id_venta     = cp.id_venta_origen
+JOIN  Empleados e       ON e.id_empleado  = cp.id_empleado
+LEFT JOIN Clientes c    ON c.id_cliente   = v.id_cliente
+JOIN  Items idev        ON idev.id_item   = cp.id_item_devuelto
+JOIN  Items ient        ON ient.id_item   = cp.id_item_entregado
+LEFT JOIN Garantias g   ON g.id_garantia  = cp.id_garantia;
