@@ -1,0 +1,425 @@
+"use client"
+
+import { use, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import {
+  ArrowLeft,
+  Receipt,
+  User,
+  ShoppingBag,
+  CreditCard,
+  AlertCircle,
+  Store,
+  Calendar,
+  Tag,
+  FileText,
+  Ban,
+} from "lucide-react"
+import { BlurFade } from "@/components/ui/blur-fade"
+import { cn } from "@/lib/utils"
+import { getVenta, getPagos, type VentaVista, type Pago } from "@/lib/api/ventas"
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function formatSoles(n: number | string | null | undefined) {
+  return `S/ ${Number(n ?? 0).toFixed(2)}`
+}
+
+function metodoBadge(metodo: string) {
+  const map: Record<string, { label: string; cls: string }> = {
+    efectivo:      { label: "Efectivo",      cls: "bg-green-100 text-green-700" },
+    tarjeta:       { label: "Tarjeta",       cls: "bg-blue-50 text-blue-500" },
+    transferencia: { label: "Transferencia", cls: "bg-violet-100 text-violet-700" },
+    yape:          { label: "Yape",          cls: "bg-purple-100 text-purple-700" },
+    plin:          { label: "Plin",          cls: "bg-teal-100 text-teal-700" },
+    otro:          { label: "Otro",          cls: "bg-gray-100 text-gray-600" },
+  }
+  const found = map[metodo.toLowerCase()] ?? { label: metodo, cls: "bg-gray-100 text-gray-600" }
+  return (
+    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", found.cls)}>
+      {found.label}
+    </span>
+  )
+}
+
+// ─── skeleton ────────────────────────────────────────────────────────────────
+
+function SkeletonSection({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="animate-pulse space-y-2">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="h-10 w-full rounded-xl bg-gray-200" />
+      ))}
+    </div>
+  )
+}
+
+// ─── section card ─────────────────────────────────────────────────────────────
+
+function SectionCard({
+  icon: Icon,
+  title,
+  accent = "#3b82f6",
+  children,
+  delay,
+}: {
+  icon: React.ElementType
+  title: string
+  accent?: string
+  children: React.ReactNode
+  delay: number
+}) {
+  return (
+    <BlurFade delay={delay} duration={0.45}>
+      <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
+        <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ backgroundColor: `${accent}20` }}
+          >
+            <Icon className="h-4 w-4" style={{ color: accent }} />
+          </div>
+          <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        </div>
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+    </BlurFade>
+  )
+}
+
+// ─── table helpers ────────────────────────────────────────────────────────────
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <th
+      className={cn(
+        "py-2 text-xs font-medium uppercase tracking-wider text-gray-500",
+        right ? "text-right" : "text-left",
+      )}
+    >
+      {children}
+    </th>
+  )
+}
+
+function Td({ children, right, mono }: { children: React.ReactNode; right?: boolean; mono?: boolean }) {
+  return (
+    <td
+      className={cn(
+        "py-3 text-sm text-gray-700",
+        right ? "text-right" : "text-left",
+        mono && "font-mono tabular-nums",
+      )}
+    >
+      {children}
+    </td>
+  )
+}
+
+// ─── page ─────────────────────────────────────────────────────────────────────
+
+export default function VentaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const ventaId = Number(id)
+  const router = useRouter()
+
+  const [rows, setRows] = useState<VentaVista[]>([])
+  const [pagos, setPagos] = useState<Pago[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isNaN(ventaId)) {
+      setError("ID de venta inválido.")
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const [ventaRows, pagosData] = await Promise.all([
+          getVenta(ventaId),
+          getPagos(ventaId),
+        ])
+        if (!cancelled) {
+          setRows(ventaRows)
+          setPagos(pagosData)
+        }
+      } catch {
+        if (!cancelled) setError("No se pudo cargar el detalle de la venta.")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [ventaId])
+
+  // ─── derived ───────────────────────────────────────────────────────────────
+
+  const first = rows[0] ?? null
+  const subtotal = rows.reduce((s, r) => s + Number(r.importe), 0)
+  const descuento = Number(first?.monto_descuento ?? 0)
+  const totalVenta = Number(first?.total_venta ?? 0)
+
+  // ─── error / loading states ────────────────────────────────────────────────
+
+  if (error) {
+    return (
+      <div className="bg-bg-main min-h-full p-8">
+        <button
+          onClick={() => router.back()}
+          className="mb-8 flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a ventas
+        </button>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-red-200 bg-red-50 py-20 text-center">
+          <AlertCircle className="mb-3 h-10 w-10 text-red-500" />
+          <p className="mb-1 text-sm font-medium text-gray-900">Error al cargar</p>
+          <p className="mb-5 max-w-xs text-xs text-gray-500">{error}</p>
+          <button
+            onClick={() => { setError(null); setLoading(true); router.refresh() }}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── render ───────────────────────────────────────────────────────────────
+
+  return (
+    <div className="bg-bg-main min-h-full p-8">
+      {/* Back */}
+      <BlurFade delay={0} duration={0.4}>
+        <button
+          onClick={() => router.back()}
+          className="mb-6 flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-900"
+          aria-label="Volver a ventas"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a ventas
+        </button>
+      </BlurFade>
+
+      {/* Page header */}
+      <BlurFade delay={0.05} duration={0.45}>
+        <div className="mb-8">
+          {loading ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-7 w-48 rounded-xl bg-gray-200" />
+              <div className="h-4 w-72 rounded bg-gray-200" />
+            </div>
+          ) : first ? (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50">
+                  <Receipt className="h-5 w-5 text-blue-500" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900">Venta #{ventaId}</h1>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-500">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {formatDate(first.fecha_emision)}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" />
+                  {first.vendedor}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Store className="h-3.5 w-3.5" />
+                  {first.sede}
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">Venta no encontrada.</p>
+          )}
+        </div>
+      </BlurFade>
+
+      {/* Main grid */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+
+        {/* Left column: products + client + boleta */}
+        <div className="flex flex-col gap-5 xl:col-span-2">
+
+          {/* Products table */}
+          <SectionCard icon={ShoppingBag} title="Productos" accent="#3b82f6" delay={0.1}>
+            {loading ? (
+              <SkeletonSection rows={4} />
+            ) : rows.length === 0 ? (
+              <p className="text-sm text-gray-500">Sin productos.</p>
+            ) : (
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full min-w-[480px] border-separate border-spacing-0">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <Th>Producto</Th>
+                      <Th>SKU</Th>
+                      <Th right>Cant.</Th>
+                      <Th right>P. Unit.</Th>
+                      <Th right>Importe</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => (
+                      <tr key={`${row.id_venta}-${row.sku}-${i}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <Td>
+                          <span className="font-medium text-gray-900">{row.producto}</span>
+                        </Td>
+                        <Td>
+                          <span className="flex items-center gap-1.5 text-gray-500">
+                            <Tag className="h-3 w-3" />
+                            {row.sku}
+                          </span>
+                        </Td>
+                        <Td right mono>{row.cantidad}</Td>
+                        <Td right mono>{formatSoles(row.precio_unitario_momento)}</Td>
+                        <Td right mono>{formatSoles(row.importe)}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Client */}
+          <SectionCard icon={User} title="Cliente" accent="#8b5cf6" delay={0.15}>
+            {loading ? (
+              <SkeletonSection rows={1} />
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100">
+                  <User className="h-4.5 w-4.5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {first?.cliente ?? "Venta anónima"}
+                  </p>
+                  {!first?.cliente && (
+                    <p className="text-xs text-gray-500">Sin cliente registrado</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Boleta */}
+          <SectionCard icon={FileText} title="Boleta" accent="#10b981" delay={0.2}>
+            {loading ? (
+              <SkeletonSection rows={1} />
+            ) : first?.nro_boleta ? (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                  <FileText className="h-4.5 w-4.5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Número de boleta</p>
+                  <p className="font-mono text-sm font-semibold text-gray-900">{first.nro_boleta}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-gray-500">
+                <Ban className="h-4 w-4" />
+                <p className="text-sm">Sin boleta registrada</p>
+              </div>
+            )}
+          </SectionCard>
+        </div>
+
+        {/* Right column: summary + pagos */}
+        <div className="flex flex-col gap-5">
+
+          {/* Summary */}
+          <SectionCard icon={Receipt} title="Resumen" accent="#f59e0b" delay={0.1}>
+            {loading ? (
+              <SkeletonSection rows={3} />
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3 text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-mono tabular-nums text-gray-900">{formatSoles(subtotal)}</span>
+                </div>
+                {descuento > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Descuento</span>
+                    <span className="font-mono tabular-nums text-red-600">- {formatSoles(descuento)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-100 px-3 py-3 text-sm">
+                  <span className="font-semibold text-gray-900">Total</span>
+                  <span className="font-mono text-lg font-bold tabular-nums text-amber-700">
+                    {formatSoles(totalVenta)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Pagos */}
+          <SectionCard icon={CreditCard} title="Pagos" accent="#06b6d4" delay={0.15}>
+            {loading ? (
+              <SkeletonSection rows={2} />
+            ) : pagos.length === 0 ? (
+              <div className="flex items-center gap-3 text-gray-500">
+                <Ban className="h-4 w-4" />
+                <p className="text-sm">Sin pagos registrados</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pagos.map((pago) => (
+                  <div
+                    key={pago.id_pago}
+                    className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-1">
+                        {metodoBadge(pago.metodo_pago)}
+                        {pago.referencia_transaccion && (
+                          <p className="mt-1 truncate text-xs text-gray-500">
+                            Ref: {pago.referencia_transaccion}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          {new Date(pago.fecha_pago).toLocaleDateString("es-PE", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-blue-500">
+                        {formatSoles(pago.monto)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+        </div>
+      </div>
+    </div>
+  )
+}
