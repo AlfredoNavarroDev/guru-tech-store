@@ -3,25 +3,27 @@ SET timezone = 'America/Lima';
 -- ============================================================
 -- DB-Views.sql
 -- Vistas organizadas por rol:
---   1-5   : Dueño        (visión global de todas las sedes)
---   6-10  : Dueño+Gerente (por sede; dueño sin filtro, gerente filtra por id_sede)
+--   1-5   : Propietario        (visión global de todas las sedes)
+--   6-10  : Propietario+Gerente (por sede; propietario sin filtro, gerente filtra por id_sede)
 --   11-14 : Vendedor
 --   15-16 : Vendedor + Técnico (historial del cliente, sin costos de compra)
 --   17-20 : Técnico
 --   21-24 : Abastecedor
 --
 -- Regla de visibilidad de costos:
---   Dueño, Gerente, Abastecedor → ven precio_compra_actual y costo_unitario_momento
+--   Propietario, Gerente, Abastecedor → ven precio_compra_actual y costo_unitario_momento
+--     (solo en vistas de DETALLE; las vistas de resumen KPI como v_propietario_resumen_sedes
+--      exponen únicamente totales e ingresos agregados, sin columnas de costo por línea)
 --   Vendedor, Técnico           → solo ven precios de venta
 -- ============================================================
 
 
 -- ============================================================
--- SECCIÓN 1: DUEÑO
+-- SECCIÓN 1: PROPIETARIO
 -- ============================================================
 
 -- 1. Resumen KPI por sede
-CREATE OR REPLACE VIEW v_dueno_resumen_sedes AS
+CREATE OR REPLACE VIEW v_propietario_resumen_sedes AS
 WITH venta_totales AS (
     SELECT v.id_venta,
            v.id_sede,
@@ -74,7 +76,7 @@ GROUP BY s.id_sede, s.nombre, s.direccion, s.telefono, s.esta_habilitada,
 
 
 -- 2. Detalle de ventas global (todas las sedes)
-CREATE OR REPLACE VIEW v_dueno_ventas_global AS
+CREATE OR REPLACE VIEW v_propietario_ventas_global AS
 SELECT
     v.id_venta,
     s.id_sede,
@@ -112,7 +114,7 @@ LEFT JOIN Boletas b       ON b.id_venta     = v.id_venta;
 
 
 -- 3. Detalle de reparaciones global (todas las sedes)
-CREATE OR REPLACE VIEW v_dueno_reparaciones_global AS
+CREATE OR REPLACE VIEW v_propietario_reparaciones_global AS
 SELECT
     r.id_reparacion,
     s.id_sede,
@@ -157,7 +159,7 @@ LEFT JOIN Garantias g                  ON g.id_reparacion = r.id_reparacion;
 
 
 -- 4. Inventario global con margen y alerta de stock crítico
-CREATE OR REPLACE VIEW v_dueno_inventario_global AS
+CREATE OR REPLACE VIEW v_propietario_inventario_global AS
 SELECT
     s.id_sede,
     s.nombre                                              AS sede,
@@ -183,7 +185,7 @@ LEFT JOIN Categorias cat ON cat.id_categoria = i.id_categoria;
 
 
 -- 5. Todos los empleados con sus roles (todas las sedes)
-CREATE OR REPLACE VIEW v_dueno_empleados_global AS
+CREATE OR REPLACE VIEW v_propietario_empleados_global AS
 SELECT
     e.id_empleado,
     s.id_sede,
@@ -210,11 +212,11 @@ GROUP BY e.id_empleado, s.id_sede, s.nombre,
          e.created_by, ec.nombre_completo, e.created_at;
 
 
--- 6-bis. Listado plano de todas las Sedes (lectura sin filtro para CRUD global del Dueño)
--- Motivo: v_dueno_resumen_sedes es una vista KPI agregada; el Dueño necesita una vista
+-- 6-bis. Listado plano de todas las Sedes (lectura sin filtro para CRUD global del Propietario)
+-- Motivo: v_propietario_resumen_sedes es una vista KPI agregada; el Propietario necesita una vista
 --         simple y directa de Sedes para operaciones de gestión (crear, editar, eliminar).
 --         Incluye esta_habilitada y el nombre del empleado que creó el registro.
-CREATE OR REPLACE VIEW v_dueno_sedes AS
+CREATE OR REPLACE VIEW v_propietario_sedes AS
 SELECT
     s.id_sede,
     s.nombre,
@@ -232,8 +234,8 @@ LEFT JOIN Empleados e ON e.id_empleado = s.created_by;
 
 
 -- ============================================================
--- SECCIÓN 2: DUEÑO + GERENTE
--- Dueño las consume sin filtro de sede.
+-- SECCIÓN 2: PROPIETARIO + GERENTE
+-- Propietario las consume sin filtro de sede.
 -- Gerente las consume con: WHERE id_sede = <su_sede>
 -- ============================================================
 
@@ -469,7 +471,8 @@ SELECT
     dv.precio_unitario_momento,
     dv.importe,
     v.monto_descuento,
-    SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta,
+    -- Sale-header total repeated on every detail row; do NOT aggregate this column across rows of the same sale.
+    SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta_cabecera,
     b.numero                                                          AS nro_boleta
 FROM Ventas v
 JOIN  Sedes s             ON s.id_sede      = v.id_sede
@@ -523,7 +526,8 @@ SELECT
     dv.precio_unitario_momento,
     dv.importe,
     v.monto_descuento,
-    SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta,
+    -- Sale-header total repeated on every detail row; do NOT aggregate this column across rows of the same sale.
+    SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta_cabecera,
     b.numero                                                          AS nro_boleta,
     b.total                                                           AS boleta_total,
     g.fecha_inicio                                                    AS garantia_inicio,
@@ -787,8 +791,8 @@ GROUP BY p.id_proveedor, p.ruc, p.razon_social, p.contacto_nombre, p.telefono;
 
 
 -- ============================================================
--- SECCIÓN 7: DUEÑO + GERENTE — CAMBIOS DE PRODUCTO
--- Dueño la consume sin filtro de sede.
+-- SECCIÓN 7: PROPIETARIO + GERENTE — CAMBIOS DE PRODUCTO
+-- Propietario la consume sin filtro de sede.
 -- Gerente la consume con: WHERE id_sede = <su_sede>
 -- ============================================================
 
