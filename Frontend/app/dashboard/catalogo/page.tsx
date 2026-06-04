@@ -24,6 +24,7 @@ import {
   Receipt,
   PlusCircle,
 } from "lucide-react"
+import { RippleButton } from "@/components/ui/ripple-button"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { MagicCard } from "@/components/ui/magic-card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -33,8 +34,10 @@ import { Button } from "@/components/ui/button"
 import { getCatalogo, type CatalogoItem } from "@/lib/api/catalogo"
 import { getClientes, createCliente, type ClienteVista } from "@/lib/api/clientes"
 import { createVenta, createPago, emitirBoleta, type CreatePagoInput } from "@/lib/api/ventas"
-import { cn } from "@/lib/utils"
+import { cn, formatNum } from "@/lib/utils"
 import { toast } from "sonner"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -65,9 +68,7 @@ const TIPOS_DOC = ["DNI", "CE", "pasaporte"] as const
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(n: number) {
-  return n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+const fmt = (n: number) => formatNum(n)
 
 // ─── StockBadge ───────────────────────────────────────────────────────────────
 
@@ -102,7 +103,9 @@ function discountLabel(item: CatalogoItem): string {
 }
 
 function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) {
-  const hasPromo = item.precio_con_descuento != null && item.precio_con_descuento !== 0
+  const hasPromo = item.precio_con_descuento != null &&
+    item.precio_con_descuento !== 0 &&
+    Number(item.precio_con_descuento) < Number(item.precio_venta_actual)
   return (
     <BlurFade delay={delay} duration={0.4} className="h-full">
       <div className="relative overflow-hidden rounded-2xl h-full">
@@ -154,10 +157,12 @@ function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) 
                   </span>
                 )}
               </div>
-              <button
+              <RippleButton
                 type="button"
                 onClick={() => onAdd(item)}
                 disabled={cartQty >= item.stock_disponible}
+                rippleColor={inCart ? "rgba(2,6,23,0.15)" : "rgba(172,248,71,0.45)"}
+                duration="550ms"
                 className={cn(
                   "w-full flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40",
                   inCart
@@ -167,7 +172,7 @@ function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) 
               >
                 <ShoppingCart className="h-4 w-4" />
                 {inCart ? (cartQty >= item.stock_disponible ? "Stock agotado" : "Agregar más") : "Agregar"}
-              </button>
+              </RippleButton>
             </div>
           </div>
         </MagicCard>
@@ -202,35 +207,41 @@ function CartItemsList({ items, onUpdateQty, onRemove }: CartItemsListProps) {
             <p className="text-xs text-gray-500">S/ {fmt(c.precio_unitario_momento)} c/u</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
+            <RippleButton
               type="button"
               onClick={() => onUpdateQty(c.id_item, -1)}
               disabled={c.cantidad <= 1}
+              rippleColor="rgba(0,0,0,0.1)"
+              duration="400ms"
               className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
               aria-label="Reducir cantidad"
             >
               <Minus className="h-3 w-3" />
-            </button>
+            </RippleButton>
             <span className="w-6 text-center text-sm tabular-nums font-medium text-gray-900">{c.cantidad}</span>
-            <button
+            <RippleButton
               type="button"
               onClick={() => onUpdateQty(c.id_item, 1)}
               disabled={c.cantidad >= c.stock_disponible}
+              rippleColor="rgba(0,0,0,0.1)"
+              duration="400ms"
               className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
               aria-label="Incrementar cantidad"
             >
               <Plus className="h-3 w-3" />
-            </button>
+            </RippleButton>
           </div>
           <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900">S/ {fmt(c.importe)}</span>
-          <button
+          <RippleButton
             type="button"
             onClick={() => onRemove(c.id_item)}
+            rippleColor="rgba(239,68,68,0.2)"
+            duration="400ms"
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
             aria-label="Eliminar producto"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </RippleButton>
         </li>
       ))}
     </ul>
@@ -434,7 +445,9 @@ export default function CatalogoPage() {
           c.id_item === item.id_item ? { ...c, cantidad: newQty, importe: newQty * c.precio_unitario_momento } : c
         )
       }
-      const hasPromo = item.precio_con_descuento !== null && item.precio_con_descuento !== undefined
+      const hasPromo = item.precio_con_descuento !== null &&
+        item.precio_con_descuento !== undefined &&
+        Number(item.precio_con_descuento) < Number(item.precio_venta_actual)
       const precio = Number(hasPromo ? item.precio_con_descuento : item.precio_venta_actual)
       return [
         ...prev,
@@ -613,31 +626,14 @@ export default function CatalogoPage() {
     <div className="bg-bg-main min-h-full">
 
       {/* ══════════ SALE REGISTRATION MODAL ══════════ */}
-      <AnimatePresence>
-        {showSaleModal && (
-          <>
-            <motion.div
-              key="sale-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-              onClick={() => !submitting && setShowSaleModal(false)}
-            />
-
-            <motion.div
-              key="sale-modal"
-              initial={{ opacity: 0, y: 32 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 32 }}
-              transition={{ type: "spring", damping: 32, stiffness: 380 }}
-              className="fixed inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 pointer-events-none"
-            >
+      <BottomSheet
+        open={showSaleModal}
+        onClose={() => !submitting && setShowSaleModal(false)}
+        disabled={submitting}
+      >
               <div
-                className="pointer-events-auto relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col"
+                className="relative w-full bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col"
                 style={{ maxHeight: "92dvh" }}
-                onClick={(e) => e.stopPropagation()}
               >
                 {/* Mobile handle */}
                 <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
@@ -1071,10 +1067,7 @@ export default function CatalogoPage() {
                   </Button>
                 </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      </BottomSheet>
 
       <div className="flex">
         {/* ══════════ LEFT: product grid ══════════ */}
@@ -1339,14 +1332,13 @@ export default function CatalogoPage() {
                 </div>
               </div>
             )}
-            <Button
+            <InteractiveHoverButton
               onClick={openSaleModal}
               disabled={cartItems.length === 0}
-              className="h-11 w-full gap-2 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 shadow-[0_0_20px_rgba(172,248,71,0.3)]"
-            >
-              <Zap className="h-4 w-4" />
-              Realizar venta
-            </Button>
+              text="Realizar venta"
+              icon={<Zap className="h-4 w-4" />}
+              className="h-11 w-full rounded-xl bg-[#ACF847] text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+            />
           </div>
 
           {/* ── BOTTOM: Cart items ── */}
@@ -1482,14 +1474,13 @@ export default function CatalogoPage() {
                     <span className="text-base font-bold tabular-nums text-gray-900">S/ {fmt(subtotal)}</span>
                   </div>
                 )}
-                <Button
+                <InteractiveHoverButton
                   onClick={openSaleModal}
                   disabled={cartItems.length === 0}
-                  className="h-12 w-full gap-2 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] text-base font-bold disabled:cursor-not-allowed disabled:opacity-40 shadow-[0_0_20px_rgba(172,248,71,0.3)]"
-                >
-                  <Zap className="h-4 w-4" />
-                  Realizar venta
-                </Button>
+                  text="Realizar venta"
+                  icon={<Zap className="h-4 w-4" />}
+                  className="h-12 w-full rounded-xl bg-[#ACF847] text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+                />
               </div>
             </motion.div>
           </>
