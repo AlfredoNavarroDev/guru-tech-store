@@ -118,8 +118,13 @@ function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) 
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold leading-snug text-gray-900">{item.producto}</p>
               </div>
-              <div className="mt-0.5 shrink-0">
+              <div className="mt-0.5 shrink-0 flex flex-col items-end gap-1">
                 <StockBadge stock={item.stock_disponible} />
+                {hasPromo && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    {discountLabel(item)}
+                  </span>
+                )}
               </div>
             </div>
             <div className="mb-4 flex flex-wrap gap-1.5">
@@ -143,14 +148,9 @@ function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) 
                   S/ {fmt(Number(hasPromo ? item.precio_con_descuento : item.precio_venta_actual))}
                 </span>
                 {hasPromo && (
-                  <>
-                    <span className="text-sm text-gray-400 line-through tabular-nums">
-                      S/ {fmt(Number(item.precio_venta_actual))}
-                    </span>
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 shrink-0">
-                      {discountLabel(item)}
-                    </span>
-                  </>
+                  <span className="text-sm text-gray-400 line-through tabular-nums">
+                    S/ {fmt(Number(item.precio_venta_actual))}
+                  </span>
                 )}
               </div>
               <button
@@ -335,6 +335,10 @@ export default function CatalogoPage() {
     })
   }, [catalogoItems, selectedCategoria, selectedModelo, soloConPromo])
 
+  useEffect(() => {
+    setCatalogoPage(1)
+  }, [selectedCategoria, selectedModelo, soloConPromo])
+
   const subtotal = cartItems.reduce((s, c) => s + c.importe, 0)
   const totalItems = cartItems.reduce((s, c) => s + c.cantidad, 0)
   const montoDescuento = (() => {
@@ -347,8 +351,8 @@ export default function CatalogoPage() {
   const restante = Math.max(0, total - totalPagado)
   const vuelto = Math.max(0, totalPagado - total)
 
-  const catalogoTotalPages = Math.ceil(catalogoItems.length / CATALOGO_LIMIT)
-  const paginatedCatalogoItems = catalogoItems.slice(
+  const catalogoTotalPages = Math.ceil(filteredItems.length / CATALOGO_LIMIT)
+  const paginatedCatalogoItems = filteredItems.slice(
     (catalogoPage - 1) * CATALOGO_LIMIT,
     catalogoPage * CATALOGO_LIMIT,
   )
@@ -413,6 +417,11 @@ export default function CatalogoPage() {
     },
     [fetchItems, search]
   )
+
+  const handleCategoriaChange = useCallback((value: string) => {
+    setSelectedCategoria(value)
+    setSelectedModelo("")
+  }, [])
 
   const addToCart = useCallback((item: CatalogoItem) => {
     setCartItems((prev) => {
@@ -1118,9 +1127,9 @@ export default function CatalogoPage() {
           {!loading && !catalogoError && (
             <BlurFade delay={0.12} duration={0.4}>
               <p className="mb-4 text-xs text-gray-500">
-                {catalogoItems.length === 0
+                {filteredItems.length === 0
                   ? "Sin resultados"
-                  : `${catalogoItems.length} producto${catalogoItems.length !== 1 ? "s" : ""}`}
+                  : `${filteredItems.length} producto${filteredItems.length !== 1 ? "s" : ""}`}
               </p>
             </BlurFade>
           )}
