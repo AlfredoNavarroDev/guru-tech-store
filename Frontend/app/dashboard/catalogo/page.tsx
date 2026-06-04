@@ -102,7 +102,7 @@ function discountLabel(item: CatalogoItem): string {
 }
 
 function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) {
-  const hasPromo = item.precio_con_descuento !== null
+  const hasPromo = item.precio_con_descuento != null && item.precio_con_descuento !== 0
   return (
     <BlurFade delay={delay} duration={0.4} className="h-full">
       <div className="relative overflow-hidden rounded-2xl h-full">
@@ -1110,9 +1110,11 @@ export default function CatalogoPage() {
                     <div
                       role="switch"
                       aria-checked={soloConStock}
+                      tabIndex={0}
                       onClick={() => handleToggleStock(!soloConStock)}
+                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); handleToggleStock(!soloConStock) } }}
                       className={cn(
-                        "relative h-5 w-9 rounded-full transition-colors duration-200",
+                        "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
                         soloConStock ? "bg-[#020617]" : "bg-gray-200"
                       )}
                     >
@@ -1129,9 +1131,11 @@ export default function CatalogoPage() {
                     <div
                       role="switch"
                       aria-checked={soloConPromo}
+                      tabIndex={0}
                       onClick={() => setSoloConPromo((v) => !v)}
+                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setSoloConPromo((v) => !v) } }}
                       className={cn(
-                        "relative h-5 w-9 rounded-full transition-colors duration-200",
+                        "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1",
                         soloConPromo ? "bg-amber-500" : "bg-gray-200"
                       )}
                     >
@@ -1157,6 +1161,7 @@ export default function CatalogoPage() {
                       <select
                         value={selectedCategoria}
                         onChange={(e) => handleCategoriaChange(e.target.value)}
+                        aria-label="Filtrar por categoría"
                         className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Todas las categorías</option>
@@ -1173,6 +1178,7 @@ export default function CatalogoPage() {
                       <select
                         value={selectedModelo}
                         onChange={(e) => setSelectedModelo(e.target.value)}
+                        aria-label="Filtrar por modelo"
                         className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Todos los modelos</option>
