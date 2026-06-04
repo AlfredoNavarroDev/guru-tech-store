@@ -6,6 +6,7 @@ import {
   Package,
   Search,
   Tag,
+  Filter,
   AlertCircle,
   ShoppingCart,
   Trash2,
@@ -1091,36 +1092,114 @@ export default function CatalogoPage() {
           </BlurFade>
 
           <BlurFade delay={0.08} duration={0.5}>
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative max-w-sm flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  type="text"
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Buscar producto…"
-                  className="pl-9"
-                />
-              </div>
-              <label className="flex cursor-pointer items-center gap-2.5 select-none">
-                <div
-                  role="switch"
-                  aria-checked={soloConStock}
-                  onClick={() => handleToggleStock(!soloConStock)}
-                  className={cn(
-                    "relative h-5 w-9 rounded-full transition-colors duration-200",
-                    soloConStock ? "bg-[#020617]" : "bg-gray-200"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-                      soloConStock ? "translate-x-4" : "translate-x-0.5"
-                    )}
+            <div className="mb-6 flex flex-col gap-3">
+              {/* Row 1: search + toggles */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative max-w-sm flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    type="text"
+                    value={search}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Buscar producto…"
+                    className="pl-9"
                   />
                 </div>
-                <span className="text-sm text-gray-600">Solo con stock</span>
-              </label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex cursor-pointer items-center gap-2.5 select-none">
+                    <div
+                      role="switch"
+                      aria-checked={soloConStock}
+                      onClick={() => handleToggleStock(!soloConStock)}
+                      className={cn(
+                        "relative h-5 w-9 rounded-full transition-colors duration-200",
+                        soloConStock ? "bg-[#020617]" : "bg-gray-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                          soloConStock ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-600">Solo con stock</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2.5 select-none">
+                    <div
+                      role="switch"
+                      aria-checked={soloConPromo}
+                      onClick={() => setSoloConPromo((v) => !v)}
+                      className={cn(
+                        "relative h-5 w-9 rounded-full transition-colors duration-200",
+                        soloConPromo ? "bg-amber-500" : "bg-gray-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                          soloConPromo ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-600">En promoción</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Row 2: category + model selects */}
+              {(categorias.length > 0 || modelos.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Filter className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+
+                  {categorias.length > 0 && (
+                    <div className="relative">
+                      <select
+                        value={selectedCategoria}
+                        onChange={(e) => handleCategoriaChange(e.target.value)}
+                        className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Todas las categorías</option>
+                        {categorias.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+                    </div>
+                  )}
+
+                  {modelos.length > 0 && (
+                    <div className="relative">
+                      <select
+                        value={selectedModelo}
+                        onChange={(e) => setSelectedModelo(e.target.value)}
+                        className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Todos los modelos</option>
+                        {modelos.map((mod) => (
+                          <option key={mod} value={mod}>{mod}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+                    </div>
+                  )}
+
+                  {(selectedCategoria || selectedModelo || soloConPromo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategoria("")
+                        setSelectedModelo("")
+                        setSoloConPromo(false)
+                      }}
+                      className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+                    >
+                      <X className="h-3 w-3" />
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </BlurFade>
 
