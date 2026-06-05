@@ -1397,95 +1397,81 @@ export default function CatalogoPage() {
       </div>
 
       {/* Mobile cart drawer */}
-      <AnimatePresence>
-        {mobileCartOpen && (
-          <>
-            <motion.div
-              key="mobile-cart-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-              onClick={() => setMobileCartOpen(false)}
-            />
-            <motion.div
-              key="mobile-cart-drawer"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 300 }}
-              className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-3xl bg-white lg:hidden"
-              style={{ maxHeight: "85dvh" }}
-            >
-              <div className="flex justify-center pt-3 pb-1 shrink-0">
-                <div className="h-1 w-10 rounded-full bg-gray-200" />
-              </div>
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3 shrink-0">
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5 text-gray-400" />
-                  <h2 className="text-base font-semibold text-gray-900">Carrito</h2>
-                  {cartItems.length > 0 && (
-                    <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-500">
-                      {cartItems.length}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {cartItems.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setCartItems([])}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Vaciar
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setMobileCartOpen(false)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
-                    aria-label="Cerrar carrito"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0">
-                <div
-                  className="overflow-y-auto h-full"
-                  style={{
-                    maskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
-                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
-                  }}
+      <BottomSheet
+        open={mobileCartOpen}
+        onClose={() => setMobileCartOpen(false)}
+        wrapperClassName="lg:hidden"
+      >
+        <div
+          className="flex flex-col rounded-t-3xl sm:rounded-2xl bg-white"
+          style={{ maxHeight: "85dvh" }}
+        >
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="h-1 w-10 rounded-full bg-gray-200" />
+          </div>
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-gray-400" />
+              <h2 className="text-base font-semibold text-gray-900">Carrito</h2>
+              {cartItems.length > 0 && (
+                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-500">
+                  {cartItems.length}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {cartItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCartItems([])}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                 >
-                  <CartItemsList items={cartItems} onUpdateQty={updateQty} onRemove={removeItem} />
-                </div>
-              </div>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Vaciar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMobileCartOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
+                aria-label="Cerrar carrito"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
-              <div className="shrink-0 border-t border-gray-100 px-5 py-4 flex flex-col gap-3">
-                {cartItems.length > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      Subtotal ({totalItems} producto{totalItems !== 1 ? "s" : ""})
-                    </span>
-                    <span className="text-base font-bold tabular-nums text-gray-900">S/ {fmt(subtotal)}</span>
-                  </div>
-                )}
-                <InteractiveHoverButton
-                  onClick={openSaleModal}
-                  disabled={cartItems.length === 0}
-                  text="Realizar venta"
-                  icon={<Zap className="h-4 w-4" />}
-                  className="h-12 w-full rounded-xl bg-[#ACF847] text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
-                />
+          <div className="flex-1 min-h-0">
+            <div
+              className="overflow-y-auto h-full"
+              style={{
+                maskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
+              }}
+            >
+              <CartItemsList items={cartItems} onUpdateQty={updateQty} onRemove={removeItem} />
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-gray-100 px-5 py-4 flex flex-col gap-3">
+            {cartItems.length > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                  Subtotal ({totalItems} producto{totalItems !== 1 ? "s" : ""})
+                </span>
+                <span className="text-base font-bold tabular-nums text-gray-900">S/ {fmt(subtotal)}</span>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            )}
+            <InteractiveHoverButton
+              onClick={openSaleModal}
+              disabled={cartItems.length === 0}
+              text="Realizar venta"
+              icon={<Zap className="h-4 w-4" />}
+              className="h-12 w-full rounded-xl bg-[#ACF847] text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+            />
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   )
 }
