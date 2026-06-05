@@ -242,7 +242,7 @@ function DetailPanel({ v, ventaId, onClose, onNavigate, className }: DetailPanel
         </div>
         <button
           onClick={onClose}
-          className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          className="hidden sm:block rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           aria-label="Cerrar panel"
         >
           <X className="h-4 w-4" />

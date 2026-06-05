@@ -657,7 +657,7 @@ export default function CatalogoPage() {
                     <button
                       type="button"
                       onClick={() => setShowSaleModal(false)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+                      className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
                       aria-label="Cerrar"
                     >
                       <X className="h-4 w-4" />
@@ -1433,7 +1433,7 @@ export default function CatalogoPage() {
               <button
                 type="button"
                 onClick={() => setMobileCartOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
                 aria-label="Cerrar carrito"
               >
                 <X className="h-4 w-4" />
