@@ -663,6 +663,9 @@ export default function VentasPage() {
         wrapperClassName="lg:hidden"
         className="max-h-[85vh] overflow-y-auto"
       >
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-10 rounded-full bg-gray-200" />
+        </div>
         <DetailPanel
           v={selectedVenta}
           ventaId={selectedVentaId!}
