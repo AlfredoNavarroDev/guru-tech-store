@@ -4,12 +4,33 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Length,
   MaxLength,
-  ValidateIf,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 
-/** @purpose DTO para crear cliente. tipo_documento: DNI | CE | pasaporte. */
+const DOC_EXACT: Record<string, number> = { DNI: 8, CE: 12, pasaporte: 9 };
+
+@ValidatorConstraint({ name: 'documentoLength', async: false })
+class DocumentoLengthConstraint implements ValidatorConstraintInterface {
+  validate(nro: string, args: ValidationArguments): boolean {
+    const { tipo_documento } = args.object as CreateClienteDto;
+    const expected = DOC_EXACT[tipo_documento];
+    return expected == null || nro?.length === expected;
+  }
+
+  defaultMessage(args: ValidationArguments): string {
+    const { tipo_documento } = args.object as CreateClienteDto;
+    if (tipo_documento === 'DNI') return 'El DNI tiene 8 dígitos';
+    if (tipo_documento === 'CE') return 'El CE tiene 12 caracteres';
+    if (tipo_documento === 'pasaporte') return 'El pasaporte tiene 9 caracteres';
+    return 'Longitud de documento inválida';
+  }
+}
+
+// DTO para crear cliente. Soporta DNI, CE y pasaporte.
 export class CreateClienteDto {
   @ApiProperty({
     example: 'DNI',
@@ -20,16 +41,14 @@ export class CreateClienteDto {
   @IsIn(['DNI', 'CE', 'pasaporte'])
   tipo_documento: string;
 
-  @ApiProperty({ example: '12345678', description: 'DNI: 8 dígitos · CE: 12 caracteres · Pasaporte: 9 caracteres' })
+  @ApiProperty({
+    example: '12345678',
+    description: 'DNI: 8 dígitos · CE: 12 caracteres · Pasaporte: 9 caracteres',
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(30)
-  @ValidateIf((o) => o.tipo_documento === 'DNI')
-  @Length(8, 8, { message: 'El DNI debe tener exactamente 8 caracteres' })
-  @ValidateIf((o) => o.tipo_documento === 'CE')
-  @Length(12, 12, { message: 'El CE debe tener exactamente 12 caracteres' })
-  @ValidateIf((o) => o.tipo_documento === 'pasaporte')
-  @Length(9, 9, { message: 'El pasaporte debe tener exactamente 9 caracteres' })
+  @Validate(DocumentoLengthConstraint)
   nro_documento: string;
 
   @ApiProperty({ example: 'Juan Pérez García' })

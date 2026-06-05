@@ -15,7 +15,7 @@ import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
 import { Boleta } from './entities/boleta.entity';
 
-/** Fila de v_boleta_venta: una por ítem de la venta. */
+// Fila de v_boleta_venta: una por cada ítem de la venta.
 interface BolVistaRow {
   id_venta: number;
   id_sede: number;
@@ -37,13 +37,13 @@ interface BolVistaRow {
   importe: string;
 }
 
-/** Fila de pagos para el pie del comprobante. */
+// Fila de pagos para el pie del comprobante.
 interface PagoRow {
   metodo_pago: string;
   monto: string;
 }
 
-/** Datos inyectados en la plantilla Handlebars. */
+// Datos inyectados en la plantilla Handlebars.
 interface BoletaTemplateData {
   logoBase64: string;
   sedeNombre: string;
@@ -70,11 +70,7 @@ interface BoletaTemplateData {
   pagos: { metodo: string; monto: string }[];
 }
 
-/**
- * @purpose Emite boletas de venta, genera PDF con Puppeteer y sube a Cloudflare R2.
- * @dependencies TypeORM (Boleta), DataSource, ConfigService, S3Client, Puppeteer, Handlebars.
- * @side_effects Persiste boleta, genera PDF, sube a R2 en transacción atómica.
- */
+// Emite boletas de venta, genera PDF con Puppeteer y sube a Cloudflare R2.
 @Injectable()
 export class BoletasService implements OnModuleInit {
   private readonly logger = new Logger(BoletasService.name);
@@ -99,14 +95,14 @@ export class BoletasService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
-    // Compilar template Handlebars desde archivo externo (copiado a dist/ por nest-cli assets).
+    // Compila template Handlebars desde archivo externo.
     const source = readFileSync(
       join(__dirname, 'templates', 'boleta.hbs'),
       'utf8',
     );
     this.templateFn = Handlebars.compile<BoletaTemplateData>(source);
 
-    // Pre-fetch logo como base64 para embeber en el HTML (evita dependencia de red en Puppeteer).
+    // Pre-carga el logo como base64 para embeberlo en el HTML.
     const r2Public = this.config.get<string>('R2_PUBLIC_URL', '');
     if (r2Public) {
       const logoUrl = `${r2Public}/gts_logo.png`;
@@ -130,10 +126,7 @@ export class BoletasService implements OnModuleInit {
     }
   }
 
-  /**
-   * Emite boleta para una venta. Idempotente: una venta → una boleta.
-   * Flujo: validar → obtener datos → calcular total → transacción (persistir + PDF + R2).
-   */
+  // Emite boleta para una venta. Idempotente: una venta → una boleta.
   async emitir(idVenta: number): Promise<Boleta> {
     const existing = await this.boletaRepo.findOne({
       where: { id_venta: idVenta },
@@ -157,7 +150,7 @@ export class BoletasService implements OnModuleInit {
       url_pdf: null,
     });
 
-    // Transacción: si falla PDF o R2 → rollback, boleta no queda persistida.
+    // Transacción: si falla PDF o R2, hace rollback y la boleta no persiste.
     await this.dataSource.transaction(async (manager) => {
       boleta = await manager.save(Boleta, boleta);
       try {
@@ -192,7 +185,7 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  /** Renderiza HTML con datos reales de la venta. Sin PDF ni R2. Para preview en navegador. */
+  // Renderiza HTML con datos reales de la venta (sin PDF ni R2).
   async renderPreview(idVenta: number): Promise<string> {
     const { rows, pagosRows, head, total, subtotal } =
       await this.queryDatosVenta(idVenta);
@@ -208,7 +201,7 @@ export class BoletasService implements OnModuleInit {
     return this.templateFn(data);
   }
 
-  /** Renderiza HTML con datos mock. Sin BD. Para iterar el template en desarrollo. */
+  // Renderiza HTML con datos mock, sin BD. Para iterar el template en desarrollo.
   renderPreviewMock(): string {
     const data: BoletaTemplateData = {
       logoBase64: this.logoBase64,
@@ -264,7 +257,7 @@ export class BoletasService implements OnModuleInit {
     return this.templateFn(data);
   }
 
-  /** Busca boleta por venta. 404 si no existe. */
+  // Busca boleta por venta. Lanza 404 si no existe.
   async findByVenta(idVenta: number): Promise<Boleta> {
     const boleta = await this.boletaRepo.findOne({
       where: { id_venta: idVenta },
@@ -274,7 +267,7 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  /** Extrae y calcula todos los datos de la venta necesarios para la boleta. */
+  // Extrae y calcula todos los datos de la venta necesarios para la boleta.
   private async queryDatosVenta(idVenta: number): Promise<{
     rows: BolVistaRow[];
     pagosRows: PagoRow[];
@@ -312,7 +305,7 @@ export class BoletasService implements OnModuleInit {
     return { rows, pagosRows, head, total, subtotal };
   }
 
-  /** Construye el objeto de datos para la plantilla Handlebars. */
+  // Construye el objeto de datos para la plantilla Handlebars.
   private buildTemplateData(
     numero: string,
     fechaEmision: Date,
@@ -325,7 +318,7 @@ export class BoletasService implements OnModuleInit {
     const descuento = Number(head.monto_descuento);
     const tipo = head.tipo_descuento;
 
-    // Monto de descuento en soles (para mostrar en plantilla).
+    // Descuento expresado en soles para mostrar en la plantilla.
     const descuentoSoles = tipo === 'porcentaje' ? subtotal - total : descuento;
 
     return {
@@ -372,10 +365,7 @@ export class BoletasService implements OnModuleInit {
     }).format(n);
   }
 
-  /**
-   * Genera número correlativo: B{sede}-{secuencial} (ej: B001-0000001).
-   * COUNT sobre boletas existentes con mismo prefijo.
-   */
+  // Genera número correlativo B{sede}-{secuencial} (ej: B001-0000001).
   private async generarNumero(idSede: number): Promise<string> {
     const prefix = `B${String(idSede).padStart(3, '0')}`;
     const rows = await this.dataSource.query<{ total: string }[]>(
@@ -386,15 +376,16 @@ export class BoletasService implements OnModuleInit {
     return `${prefix}-${String(seq).padStart(7, '0')}`;
   }
 
-  /**
-   * Genera PDF con Puppeteer (headless Chrome).
-   * --no-sandbox necesario en Docker. try/finally → cierra navegador siempre.
-   */
+  // Genera PDF con Puppeteer (headless Chrome). --no-sandbox para Docker.
   private async generatePdf(html: string): Promise<Buffer> {
     const browser = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+      ],
     });
     try {
       const page = await browser.newPage();

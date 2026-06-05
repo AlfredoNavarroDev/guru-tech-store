@@ -44,7 +44,7 @@ function pctChange(hoy: number, ayer: number): { label: string; positive: boolea
   const diff = ((hoy - ayer) / ayer) * 100
   if (diff === 0) return { label: "= Igual", positive: true }
   const sign = diff >= 0 ? "+" : ""
-  return { label: `${sign}${diff.toFixed(1)}%`, positive: diff >= 0 }
+  return { label: `${sign}${diff.toFixed(1)}`, positive: diff >= 0 }
 }
 
 function moneyChange(hoy: number, ayer: number): { label: string; positive: boolean } {

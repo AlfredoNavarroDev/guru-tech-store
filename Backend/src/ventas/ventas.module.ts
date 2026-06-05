@@ -7,10 +7,7 @@ import { DetalleVenta } from './entities/detalle-venta.entity';
 import { PagosModule } from '../pagos/pagos.module';
 import { BoletasModule } from '../boletas/boletas.module';
 
-/**
- * @purpose Módulo de ventas. Registra Venta + DetalleVenta en TypeORM.
- * Importa PagosModule y BoletasModule para endpoints anidados.
- */
+// Módulo de ventas. Registra Venta y DetalleVenta. Importa PagosModule y BoletasModule.
 @Module({
   imports: [
     TypeOrmModule.forFeature([Venta, DetalleVenta]),

@@ -1,15 +1,12 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-/**
- * @purpose Entidad de empleado — unidad de autenticación del sistema.
- * Vinculado a una sede (id_sede) para filtrado multi-sede vía JWT.
- */
+// Entidad de empleado para autenticación. Vinculado a una sede para filtrado multi-sede vía JWT.
 @Entity('empleados')
 export class Empleado {
   @PrimaryGeneratedColumn({ name: 'id_empleado' })
   id_empleado: number;
 
-  // Nullable para admin global sin sede. En operación normal siempre tiene valor.
+  // Nullable para admin global sin sede.
   @Column({ name: 'id_sede', type: 'int', nullable: true })
   id_sede: number | null;
 

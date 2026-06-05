@@ -2,16 +2,13 @@ import { Controller, Get, Header, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BoletasService } from './boletas.service';
 
-/**
- * @purpose Rutas públicas de boletas (sin JWT). Preview en navegador para iterar template.
- * Rutas protegidas (/ventas/:id/boletas) viven en VentasController.
- */
+// Rutas públicas de boletas (sin JWT) para previsualizar templates en el navegador.
 @ApiTags('boletas')
 @Controller('boletas')
 export class BoletasController {
   constructor(private readonly boletasService: BoletasService) {}
 
-  /** DEV: Preview con datos mock. Sin BD. Para iterar el template. */
+  // Preview con datos mock, sin BD. Para iterar el template rápidamente.
   @Get('preview')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({
@@ -21,7 +18,7 @@ export class BoletasController {
     return this.boletasService.renderPreviewMock();
   }
 
-  /** DEV: Renderiza HTML del comprobante con datos reales de una venta. Sin PDF ni R2. */
+  // Renderiza HTML del comprobante con datos reales de una venta (sin PDF ni R2).
   @Get(':id/preview')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({ summary: 'Preview HTML del comprobante (dev, sin auth)' })

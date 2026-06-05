@@ -1,10 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
 
-/**
- * @purpose DTO de login. Usa nro_documento como identificador (DNI/CE)
- * en lugar de email — más práctico para empleados de tienda.
- */
+// DTO de login. Usa nro_documento como identificador (más práctico que email para empleados).
 export class LoginDto {
   @ApiProperty({
     example: '12345678',

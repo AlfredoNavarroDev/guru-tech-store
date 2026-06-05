@@ -15,17 +15,13 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
-/**
- * @purpose Endpoints de autenticación: login, refresh, logout.
- * @dependencies AuthService, JwtAuthGuard, CurrentUser.
- * Errores manejados por excepciones de dominio en common/exceptions.
- */
+// Endpoints de autenticación: login, refresh y logout.
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /** HU-01: Login con nro_documento + contraseña. Retorna par de tokens + datos de sesión. */
+  // HU-01: Login con nro_documento + contraseña. Retorna tokens y datos de sesión.
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'HU-01 — Inicio de sesión' })
@@ -33,7 +29,7 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  /** HU-23: Renueva access token con refresh token (rotación de tokens). */
+  // HU-23: Renueva access token con refresh token (rotación).
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'HU-23 — Renovar access token con refresh token' })
@@ -41,7 +37,7 @@ export class AuthController {
     return this.authService.refresh(dto.refresh_token);
   }
 
-  /** HU-02: Cierra sesión revocando refresh token. Requiere JWT válido. */
+  // HU-02: Cierra sesión revocando el refresh token. Requiere JWT válido.
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

@@ -13,15 +13,14 @@ import { PagosModule } from './pagos/pagos.module';
 
 @Module({
   imports: [
-    // ConfigModule global → ConfigService disponible en todos los módulos.
-    // Joi valida .env al arrancar; abortEarly → falla rápido en CI.
+    // ConfigModule global: valida .env con Joi al iniciar la app.
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: envValidationSchema,
       validationOptions: { abortEarly: true },
     }),
 
-    // forRootAsync → espera a que ConfigService cargue .env antes de conectar BD.
+    // TypeORM async: espera a ConfigService antes de conectar a PostgreSQL.
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -36,7 +35,7 @@ import { PagosModule } from './pagos/pagos.module';
           ssl: isProd ? { rejectUnauthorized: false } : false,
         };
 
-        // DATABASE_URL (Neon) tiene precedencia sobre vars individuales.
+        // DATABASE_URL (Neon) tiene prioridad sobre variables individuales.
         if (databaseUrl) {
           return { ...baseConfig, url: databaseUrl };
         }
@@ -52,7 +51,7 @@ import { PagosModule } from './pagos/pagos.module';
       },
     }),
 
-    // Módulos del Sprint 1 — flujo Vendedor.
+    // Módulos del Sprint 1 — flujo de Vendedor.
     AuthModule,
     ClientesModule,
     CatalogoModule,

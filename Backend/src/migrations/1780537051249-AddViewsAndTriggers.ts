@@ -4,9 +4,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
   name = 'AddViewsAndTriggers1780537051249';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // =====================================================================
-    // FUNCIONES HELPER
-    // =====================================================================
+    // Funciones helper reutilizables
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION fn_set_updated_at()
@@ -98,9 +96,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    // =====================================================================
-    // TRIGGERS updated_at
-    // =====================================================================
+    // Triggers para updated_at automático
 
     await queryRunner.query(`DROP TRIGGER IF EXISTS trg_sedes_updated_at ON sedes`);
     await queryRunner.query(`
@@ -172,9 +168,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    // =====================================================================
-    // TRIGGERS DE INVENTARIO — COMPRAS
-    // =====================================================================
+    // Triggers de inventario — compras
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_det_compra_insert()
@@ -342,9 +336,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_det_compra_delete()
     `);
 
-    // =====================================================================
-    // TRIGGERS DE INVENTARIO — VENTAS
-    // =====================================================================
+    // Triggers de inventario — ventas
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_det_venta_insert()
@@ -512,9 +504,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_det_venta_delete()
     `);
 
-    // =====================================================================
-    // TRIGGERS DE INVENTARIO — REPARACIONES
-    // =====================================================================
+    // Triggers de inventario — reparaciones
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_rep_repuestos_insert()
@@ -682,9 +672,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_rep_repuestos_delete()
     `);
 
-    // =====================================================================
-    // TRIGGER DE ACTUALIZACIÓN DE PRECIOS
-    // =====================================================================
+    // Trigger de actualización de precios
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_actualizar_precios_item()
@@ -707,9 +695,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_actualizar_precios_item()
     `);
 
-    // =====================================================================
-    // TRIGGERS DE CAMBIO DE ESTADO
-    // =====================================================================
+    // Triggers de cambio de estado
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_reparaciones_log_estado()
@@ -821,9 +807,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_garantias_log_estado()
     `);
 
-    // =====================================================================
-    // TRIGGER DE CAMBIO DE PRECIO
-    // =====================================================================
+    // Trigger de cambio de precio
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_items_log_precio()
@@ -863,9 +847,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_items_log_precio()
     `);
 
-    // =====================================================================
-    // TRIGGER DE CAMBIOS DE PRODUCTO
-    // =====================================================================
+    // Trigger de cambios de producto
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_cambio_producto_insert()
@@ -945,9 +927,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_cambio_producto_insert()
     `);
 
-    // =====================================================================
-    // TRIGGERS DE AUDITORÍA — SEDES
-    // =====================================================================
+    // Triggers de auditoría — sedes
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_sedes_log_insert()
@@ -1057,9 +1037,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_delete()
     `);
 
-    // =====================================================================
-    // TRIGGERS DE AUDITORÍA — EMPLEADOS
-    // =====================================================================
+    // Triggers de auditoría — empleados
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_empleados_log_insert()
@@ -1146,9 +1124,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_delete()
     `);
 
-    // =====================================================================
-    // GUARDS DE SEDE HABILITADA
-    // =====================================================================
+    // Guard de sede habilitada
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION trg_ventas_check_sede_habilitada()
@@ -1231,9 +1207,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
         FOR EACH ROW EXECUTE FUNCTION trg_compras_check_sede_habilitada()
     `);
 
-    // =====================================================================
-    // VISTAS — PROPIETARIO
-    // =====================================================================
+    // Vistas — propietario
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_propietario_resumen_sedes AS
@@ -1443,9 +1417,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       LEFT JOIN Empleados e ON e.id_empleado = s.created_by
     `);
 
-    // =====================================================================
-    // VISTAS — GERENTE
-    // =====================================================================
+    // Vistas — gerente
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_gerente_ventas AS
@@ -1635,9 +1607,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       LEFT JOIN Garantias g   ON g.id_garantia  = cp.id_garantia
     `);
 
-    // =====================================================================
-    // VISTAS — VENDEDOR
-    // =====================================================================
+    // Vistas — vendedor
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_vendedor_catalogo AS
@@ -1772,9 +1742,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
                c.nro_documento, c.telefono, c.direccion_completa, c.es_extranjero
     `);
 
-    // =====================================================================
-    // VISTAS — HISTORIAL CLIENTE (vendedor + técnico)
-    // =====================================================================
+    // Vistas — historial cliente (vendedor + técnico)
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_historial_cliente_ventas AS
@@ -1855,9 +1823,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       LEFT JOIN Garantias g                  ON g.id_reparacion = r.id_reparacion
     `);
 
-    // =====================================================================
-    // VISTAS — TÉCNICO
-    // =====================================================================
+    // Vistas — técnico
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_tecnico_reparaciones_activas AS
@@ -1959,9 +1925,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       ORDER BY orden
     `);
 
-    // =====================================================================
-    // VISTAS — ABASTECEDOR
-    // =====================================================================
+    // Vistas — abastecedor
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_abastecedor_stock_actual AS
@@ -2059,9 +2023,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       GROUP BY p.id_proveedor, p.ruc, p.razon_social, p.contacto_nombre, p.telefono
     `);
 
-    // =====================================================================
-    // VISTA — BOLETAS
-    // =====================================================================
+    // Vista — boletas
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_boleta_venta AS

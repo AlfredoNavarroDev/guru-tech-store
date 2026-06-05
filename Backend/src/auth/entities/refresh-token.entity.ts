@@ -5,18 +5,14 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-/**
- * @purpose Persiste hash del refresh token para permitir revocación.
- * JWT es stateless → sin BD no se puede revocar antes de expiración.
- * Guarda solo HASH (bcrypt), nunca el token en claro.
- */
+// Persiste hash del refresh token para permitir revocación. Guarda solo hash (bcrypt), nunca el token en claro.
 @Entity('refreshtokens')
 export class RefreshToken {
-  // bigint → evita overflow con alta rotación de tokens.
+  // bigint evita overflow con alta rotación de tokens.
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  // Sin relación TypeORM → entidad liviana, join solo cuando se necesita.
+  // Sin relación TypeORM: entidad liviana, join solo cuando se necesita.
   @Column({ name: 'id_empleado', type: 'int', nullable: false })
   id_empleado: number;
 

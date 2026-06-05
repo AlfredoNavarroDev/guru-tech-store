@@ -3,10 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PagosService } from './pagos.service';
 import { Pago } from './entities/pago.entity';
 
-/**
- * @purpose Módulo de pagos. Sin controlador propio → rutas en VentasController.
- * Exporta PagosService para reutilizar en otros módulos (ej: reparaciones).
- */
+// Módulo de pagos. Sin controlador propio; exporta PagosService para otros módulos.
 @Module({
   imports: [TypeOrmModule.forFeature([Pago])],
   providers: [PagosService],

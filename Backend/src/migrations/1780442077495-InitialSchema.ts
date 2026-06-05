@@ -4,9 +4,7 @@ export class InitialSchema1780442077495 implements MigrationInterface {
   name = 'InitialSchema1780442077495';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // =====================================================================
-    // TABLAS
-    // =====================================================================
+    // Creación de todas las tablas del sistema
 
     await queryRunner.query(`
       CREATE TABLE sedes (
@@ -396,9 +394,7 @@ export class InitialSchema1780442077495 implements MigrationInterface {
       )
     `);
 
-    // =====================================================================
-    // FK CONSTRAINTS
-    // =====================================================================
+    // Foreign Keys
 
     await queryRunner.query(`ALTER TABLE refreshtokens ADD CONSTRAINT fk_refresh_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado) ON DELETE CASCADE`);
     await queryRunner.query(`ALTER TABLE empleados ADD CONSTRAINT fk_empleado_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
@@ -445,9 +441,7 @@ export class InitialSchema1780442077495 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE sedes ADD CONSTRAINT fk_sedes_created_by FOREIGN KEY (created_by) REFERENCES empleados (id_empleado) ON DELETE SET NULL`);
     await queryRunner.query(`ALTER TABLE empleados ADD CONSTRAINT fk_empleados_created_by FOREIGN KEY (created_by) REFERENCES empleados (id_empleado) ON DELETE SET NULL`);
 
-    // =====================================================================
-    // ÍNDICES
-    // =====================================================================
+    // Índices
 
     await queryRunner.query(`CREATE INDEX idx_ventas_sede_fecha ON ventas (id_sede, fecha_emision)`);
     await queryRunner.query(`CREATE INDEX idx_ventas_cliente ON ventas (id_cliente)`);

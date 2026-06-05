@@ -107,7 +107,6 @@ const EMPTY_FORM: CreateClienteInput = {
   nombre_completo: "",
   telefono: "",
   direccion_completa: "",
-  es_extranjero: false,
 }
 
 interface CreateFormProps {
@@ -123,17 +122,7 @@ function CreateForm({ onSuccess, onCancel }: CreateFormProps) {
   function set<K extends keyof CreateClienteInput>(key: K, value: CreateClienteInput[K]) {
     setForm((prev) => {
       const next = { ...prev, [key]: value }
-      // Reset doc number when type changes to avoid mismatched length
       if (key === "tipo_documento") {
-        next.nro_documento = ""
-      }
-      // DNI es solo para nacionales → si elige DNI, forzar es_extranjero=false
-      if (key === "tipo_documento" && value === "DNI") {
-        next.es_extranjero = false
-      }
-      // Extranjero no puede tener DNI → si activa extranjero, cambiar a CE
-      if (key === "es_extranjero" && value === true && next.tipo_documento === "DNI") {
-        next.tipo_documento = "CE"
         next.nro_documento = ""
       }
       return next
@@ -158,18 +147,12 @@ function CreateForm({ onSuccess, onCancel }: CreateFormProps) {
       setFormError("El nombre completo es requerido.")
       return
     }
-    if (form.es_extranjero && form.tipo_documento === "DNI") {
-      setFormError("Un cliente extranjero no puede tener DNI como tipo de documento.")
-      return
-    }
-
     const dto: CreateClienteInput = {
       tipo_documento: form.tipo_documento,
       nro_documento: form.nro_documento.trim(),
       nombre_completo: form.nombre_completo.trim(),
       ...(form.telefono?.trim() ? { telefono: form.telefono.trim() } : {}),
       ...(form.direccion_completa?.trim() ? { direccion_completa: form.direccion_completa.trim() } : {}),
-      es_extranjero: form.es_extranjero,
     }
 
     setSubmitting(true)
@@ -300,31 +283,6 @@ function CreateForm({ onSuccess, onCancel }: CreateFormProps) {
                   className={inputCls}
                 />
               </div>
-            </div>
-
-            {/* es_extranjero */}
-            <div className="mt-4">
-              <label className="flex cursor-pointer select-none items-center gap-2.5">
-                <div
-                  role="switch"
-                  aria-checked={form.es_extranjero}
-                  aria-label="Es extranjero"
-                  onClick={() => !submitting && set("es_extranjero", !form.es_extranjero)}
-                  className={cn(
-                    "relative h-5 w-9 rounded-full transition-colors duration-200",
-                    form.es_extranjero ? "bg-[#020617]" : "bg-gray-200",
-                    submitting && "pointer-events-none opacity-50",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-                      form.es_extranjero ? "translate-x-4" : "translate-x-0.5",
-                    )}
-                  />
-                </div>
-                <span className="text-sm text-gray-600">Extranjero</span>
-              </label>
             </div>
 
             {/* error */}

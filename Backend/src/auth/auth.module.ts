@@ -9,23 +9,20 @@ import { Empleado } from './entities/empleado.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
-/**
- * @purpose Configura Passport + JWT asíncrono (secreto desde .env).
- * Exporta JwtModule/PassportModule para que otros módulos protejan rutas.
- */
+// Configura Passport + JWT asíncrono. Exporta JwtModule para que otros módulos protejan rutas.
 @Module({
   imports: [
     // Estrategia JWT por defecto para todas las rutas protegidas.
     PassportModule.register({ defaultStrategy: 'jwt' }),
 
-    // registerAsync → lee JWT_SECRET del .env en runtime, no en compile-time.
+    // registerAsync lee JWT_SECRET del .env en runtime.
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          // Access token de vida corta. Cast requerido por @nestjs/jwt.
+          // Access token de vida corta.
           expiresIn: config.get<string>(
             'JWT_EXPIRES_IN',
             '7d',
@@ -34,13 +31,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       }),
     }),
 
-    // Entidades para @InjectRepository en AuthService.
+    // Entidades usadas con @InjectRepository en AuthService.
     TypeOrmModule.forFeature([Empleado, RefreshToken]),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
 
-  // Otros módulos verifican tokens sin reconfigurar.
+  // Exporta JwtModule y PassportModule para que otros módulos verifiquen tokens.
   exports: [JwtModule, PassportModule],
 })
 export class AuthModule {}

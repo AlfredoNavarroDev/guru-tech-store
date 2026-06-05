@@ -36,6 +36,7 @@ interface SidebarProps {
 export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(true)
+  const [isDesktop, setIsDesktop] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_collapsed")
@@ -43,6 +44,14 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
       setCollapsed(saved === "true")
     }
     // No saved preference → stays collapsed (true default)
+  }, [])
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
   }, [])
 
   useEffect(() => {
@@ -57,13 +66,20 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
     localStorage.setItem("sidebar_collapsed", String(next))
   }
 
+  const sidebarVariants = {
+    open: { x: 0, transition: { type: "tween" as const, duration: 0.3, ease: [0, 0, 0.2, 1] as [number, number, number, number] } },
+    closed: { x: "-100%", transition: { type: "tween" as const, duration: 0.22, ease: [0.4, 0, 1, 1] as [number, number, number, number] } },
+  }
+
   return (
-    <aside
+    <motion.aside
+      initial={false}
+      variants={sidebarVariants}
+      animate={isDesktop ? "open" : mobileOpen ? "open" : "closed"}
       className={cn(
         "fixed left-0 top-0 z-50 h-screen flex-col border-r border-white/5 bg-[#020617] shadow-2xl",
-        "transition-[transform,width] duration-300 ease-in-out",
-        mobileOpen ? "translate-x-0" : "-translate-x-full",
-        "lg:relative lg:flex lg:translate-x-0 lg:shadow-none",
+        "transition-[width] duration-300 ease-in-out",
+        "lg:relative lg:flex lg:shadow-none",
         isCollapsed ? "w-[304px] lg:w-[72px]" : "w-[304px] lg:w-64",
         "flex overflow-hidden"
       )}
@@ -81,13 +97,15 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
               transition={{ duration: 0.15 }}
               className="hidden lg:flex w-full items-center justify-center"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md">
-                <img
-                  src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
-                  alt="Guru Tech Store"
-                  className="h-8 w-8 object-contain"
-                />
-              </div>
+              <motion.button
+                onClick={toggleCollapse}
+                whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.1)" }}
+                whileTap={{ scale: 0.92 }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] hover:text-white"
+                aria-label="Expandir sidebar"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </motion.button>
             </motion.div>
           ) : (
             <motion.div
@@ -264,6 +282,6 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
           <TooltipContent side="right">Cerrar sesión</TooltipContent>
         </Tooltip>
       </div>
-    </aside>
+    </motion.aside>
   )
 }

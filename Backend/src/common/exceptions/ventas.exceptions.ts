@@ -1,21 +1,21 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
-/** 404 — Venta no encontrada por ID. */
+/** 404 — Venta no encontrada. */
 export class VentaNotFoundException extends AppException {
   constructor(id: number) {
     super('VENTA_NOT_FOUND', `Venta ${id} no encontrada`, HttpStatus.NOT_FOUND);
   }
 }
 
-/** 409 — Ítem supera stock disponible. Mensaje incluye producto y cantidades. */
+/** 409 — Stock insuficiente para el ítem solicitado. */
 export class StockInsuficienteException extends AppException {
   constructor(message: string) {
     super('STOCK_INSUFICIENTE', message, HttpStatus.CONFLICT);
   }
 }
 
-/** 400 — Importe del ítem no coincide con precio_unitario × cantidad. */
+/** 400 — Importe no coincide con precio_unitario × cantidad. */
 export class ImporteInvalidoException extends AppException {
   constructor(idItem: number, expected: number, received: number) {
     super(
@@ -26,7 +26,7 @@ export class ImporteInvalidoException extends AppException {
   }
 }
 
-/** 400 — Descuento > 0 sin justificación (regla de auditoría). */
+/** 400 — Descuento > 0 requiere justificación obligatoria. */
 export class DescuentoSinJustificacionException extends AppException {
   constructor() {
     super(

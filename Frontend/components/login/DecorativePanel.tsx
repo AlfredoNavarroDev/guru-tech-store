@@ -9,7 +9,7 @@ const features = [
 
 export function DecorativePanel() {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-800 h-full flex flex-col justify-between p-12">
+    <div className="relative overflow-hidden bg-[#020617] h-full flex flex-col justify-between p-12">
       <AnimatedGridPattern
         className="absolute inset-0 fill-white/5 stroke-white/5 text-white/5"
         numSquares={20}
@@ -18,12 +18,14 @@ export function DecorativePanel() {
       />
 
       {/* Top: logo + brand */}
-      <div className="relative z-10 flex flex-col gap-3">
-        <img
-          src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
-          alt="Guru Tech Store"
-          className="h-12 w-12 rounded-xl object-contain"
-        />
+      <div className="relative z-10 flex items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-lg">
+          <img
+            src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
+            alt="Guru Tech Store"
+            className="h-10 w-10 object-contain"
+          />
+        </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
             GURU TECH STORE
@@ -41,7 +43,7 @@ export function DecorativePanel() {
         <div className="flex flex-col gap-3">
           {features.map((f) => (
             <div key={f} className="flex items-center gap-3">
-              <Check className="h-4 w-4 shrink-0 text-blue-200" />
+              <Check className="h-4 w-4 shrink-0 text-[#ACF847]" />
               <span className="text-sm text-white/90">{f}</span>
             </div>
           ))}

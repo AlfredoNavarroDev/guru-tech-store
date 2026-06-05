@@ -1,24 +1,13 @@
-// reflect-metadata debe importarse antes que cualquier decorador de TypeORM,
-// porque los decoradores (@Entity, @Column, etc.) se apoyan en la API de
-// metadatos que este polyfill agrega al runtime de Node.js.
+// reflect-metadata requerido por los decoradores de TypeORM (@Entity, @Column).
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 
-// Se carga el .env manualmente porque este archivo se ejecuta FUERA del ciclo
-// de vida de NestJS (CLI de migraciones, scripts de seed). ConfigModule no
-// está disponible aquí, así que dotenv.config() lee el archivo .env directamente.
+// Carga .env manualmente: este archivo se usa fuera del ciclo de NestJS (CLI de migraciones, seeds).
 dotenv.config();
 
-// AppDataSource es la instancia de conexión que usa la CLI de TypeORM para
-// ejecutar migraciones (`typeorm migration:run`) y que los scripts de seed
-// importan para obtener un QueryRunner con transacción controlada.
-//
-// IMPORTANTE: Este archivo existe de forma separada a la configuración de
-// TypeOrmModule en app.module.ts por un motivo arquitectónico: la CLI de
-// TypeORM y los scripts Node.js puros no tienen acceso al contenedor de IoC
-// de NestJS. Ambas configuraciones (aquí y en AppModule) deben mantenerse
-// sincronizadas al agregar nuevas entidades o cambiar credenciales.
+// DataSource para CLI de TypeORM y scripts de seed.
+// Separado de AppModule porque la CLI no tiene acceso al contenedor de NestJS.
 const isProd = process.env.NODE_ENV === 'production';
 const databaseUrl = process.env.DATABASE_URL;
 

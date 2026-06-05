@@ -260,6 +260,7 @@ export default function CatalogoPage() {
   const [selectedCategoria, setSelectedCategoria] = useState<string>("")
   const [selectedModelo, setSelectedModelo] = useState<string>("")
   const [soloConPromo, setSoloConPromo] = useState(false)
+  const [selectedMarca, setSelectedMarca] = useState<string>("")
   const [catalogoPage, setCatalogoPage] = useState(1)
   const CATALOGO_LIMIT = 12
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -325,27 +326,48 @@ export default function CatalogoPage() {
     [catalogoItems]
   )
 
-  const modelos = useMemo(
+  const marcas = useMemo(
     () =>
       Array.from(
         new Set(
           catalogoItems
             .filter((i) => !selectedCategoria || i.categoria === selectedCategoria)
-            .map((i) => i.modelo)
+            .map((i) => i.marca)
             .filter((m): m is string => m !== null && m !== "")
         )
       ).sort(),
     [catalogoItems, selectedCategoria]
   )
 
+  const modelos = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          catalogoItems
+            .filter((i) => !selectedCategoria || i.categoria === selectedCategoria)
+            .filter((i) => !selectedMarca || i.marca === selectedMarca)
+            .map((i) => i.modelo)
+            .filter((m): m is string => m !== null && m !== "")
+        )
+      ).sort(),
+    [catalogoItems, selectedCategoria, selectedMarca]
+  )
+
   const filteredItems = useMemo(() => {
     return catalogoItems.filter((item) => {
       if (selectedCategoria && item.categoria !== selectedCategoria) return false
+      if (selectedMarca && item.marca !== selectedMarca) return false
       if (selectedModelo && item.modelo !== selectedModelo) return false
-      if (soloConPromo && item.precio_con_descuento === null) return false
+      if (soloConPromo) {
+        const hasPromo =
+          item.precio_con_descuento != null &&
+          item.precio_con_descuento !== 0 &&
+          Number(item.precio_con_descuento) < Number(item.precio_venta_actual)
+        if (!hasPromo) return false
+      }
       return true
     })
-  }, [catalogoItems, selectedCategoria, selectedModelo, soloConPromo])
+  }, [catalogoItems, selectedCategoria, selectedMarca, selectedModelo, soloConPromo])
 
   const subtotal = cartItems.reduce((s, c) => s + c.importe, 0)
   const totalItems = cartItems.reduce((s, c) => s + c.cantidad, 0)
@@ -428,6 +450,7 @@ export default function CatalogoPage() {
 
   const handleCategoriaChange = useCallback((value: string) => {
     setSelectedCategoria(value)
+    setSelectedMarca("")
     setSelectedModelo("")
     setCatalogoPage(1)
   }, [])
@@ -764,7 +787,7 @@ export default function CatalogoPage() {
                   </section>
 
                   {/* ── Cliente ── */}
-                  <section>
+                  <section className="min-w-0">
                     <div className="mb-3 flex items-center gap-2">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Cliente</h3>
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400">Opcional</span>
@@ -793,7 +816,7 @@ export default function CatalogoPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-2">
+                      <div className="flex min-w-0 flex-col gap-2">
                         {/* Search existing */}
                         <div className="relative" ref={clienteDropdownRef}>
                           <div className="relative">
@@ -837,7 +860,7 @@ export default function CatalogoPage() {
                         <button
                           type="button"
                           onClick={() => setShowCreateForm((v) => !v)}
-                          className="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50"
+                          className="flex w-full items-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50"
                         >
                           <UserPlus className="h-4 w-4" />
                           Crear cliente nuevo
@@ -856,10 +879,10 @@ export default function CatalogoPage() {
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
                               transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
+                              className="w-full overflow-hidden"
                             >
-                              <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                                <div className="flex gap-2">
+                              <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <div className="flex min-w-0 gap-2">
                                   <div className="relative w-28 shrink-0">
                                     <select
                                       value={newTipoDoc}
@@ -877,7 +900,7 @@ export default function CatalogoPage() {
                                     placeholder="Nro. documento *"
                                     value={newNroDoc}
                                     onChange={(e) => setNewNroDoc(e.target.value)}
-                                    className="h-9 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="h-9 min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   />
                                 </div>
                                 <input
@@ -887,20 +910,20 @@ export default function CatalogoPage() {
                                   onChange={(e) => setNewNombre(e.target.value)}
                                   className="h-9 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
-                                <div className="flex gap-2">
+                                <div className="flex min-w-0 gap-2">
                                   <input
                                     type="tel"
                                     placeholder="Teléfono"
                                     value={newTelefono}
                                     onChange={(e) => setNewTelefono(e.target.value)}
-                                    className="h-9 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="h-9 min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   />
                                   <input
                                     type="text"
                                     placeholder="Dirección"
                                     value={newDireccion}
                                     onChange={(e) => setNewDireccion(e.target.value)}
-                                    className="h-9 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="h-9 min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   />
                                 </div>
                                 <Button
@@ -1141,8 +1164,8 @@ export default function CatalogoPage() {
                 </div>
               </div>
 
-              {/* Row 2: category + model selects */}
-              {(categorias.length > 0 || modelos.length > 0) && (
+              {/* Row 2: category + brand + model selects */}
+              {(categorias.length > 0 || marcas.length > 0 || modelos.length > 0) && (
                 <div className="flex flex-wrap items-center gap-2">
                   <Filter className="h-3.5 w-3.5 text-gray-400 shrink-0" />
 
@@ -1157,6 +1180,23 @@ export default function CatalogoPage() {
                         <option value="">Todas las categorías</option>
                         {categorias.map((cat) => (
                           <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+                    </div>
+                  )}
+
+                  {marcas.length > 0 && (
+                    <div className="relative">
+                      <select
+                        value={selectedMarca}
+                        onChange={(e) => { setSelectedMarca(e.target.value); setSelectedModelo(""); setCatalogoPage(1) }}
+                        aria-label="Filtrar por marca"
+                        className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Todas las marcas</option>
+                        {marcas.map((m) => (
+                          <option key={m} value={m}>{m}</option>
                         ))}
                       </select>
                       <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
@@ -1180,11 +1220,12 @@ export default function CatalogoPage() {
                     </div>
                   )}
 
-                  {(selectedCategoria || selectedModelo || soloConPromo) && (
+                  {(selectedCategoria || selectedMarca || selectedModelo || soloConPromo) && (
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedCategoria("")
+                        setSelectedMarca("")
                         setSelectedModelo("")
                         setSoloConPromo(false)
                         setCatalogoPage(1)

@@ -1,4 +1,4 @@
-/** Fija TZ antes de imports → Date() y drivers PostgreSQL usan process.env.TZ al iniciar. */
+// Fija zona horaria de Perú antes de cualquier import.
 process.env.TZ = 'America/Lima';
 
 import { NestFactory } from '@nestjs/core';
@@ -10,7 +10,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // ValidationPipe global: whitelist + forbidNonWhitelisted + transform.
+  // ValidationPipe global: descarta campos no declarados y transforma tipos.
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -19,17 +19,17 @@ async function bootstrap() {
     }),
   );
 
-  // GlobalExceptionFilter: serializa errores en envelope JSON uniforme.
+  // Filtro global que unifica el formato JSON de errores.
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // CORS para frontend Next.js (distinto dominio en dev/prod).
+  // Habilita CORS para el frontend Next.js.
   app.enableCors();
 
-  // Prefijo global /api + versionado URI /v1.
+  // Prefijo /api con versionado URI v1 por defecto.
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
-  // Swagger en /api/docs con Bearer Auth para probar endpoints protegidos.
+  // Swagger disponible en /api/docs con autenticación Bearer.
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Guru Tech Dev — Vendedor Sprint 1')
     .setDescription('REST API para el rol Vendedor')
@@ -42,7 +42,7 @@ async function bootstrap() {
     SwaggerModule.createDocument(app, swaggerConfig),
   );
 
-  // Puerto desde .env; default 3000.
+  // Puerto desde variable de entorno, por defecto 3000.
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
 }

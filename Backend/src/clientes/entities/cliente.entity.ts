@@ -6,43 +6,40 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-/**
- * @purpose Entidad de cliente. No se elimina (sin soft-delete)
- * → preserva relaciones con Ventas históricas.
- */
+// Entidad de cliente. No se elimina para preservar relaciones con ventas históricas.
 @Entity('clientes')
 export class Cliente {
   @PrimaryGeneratedColumn({ name: 'id_cliente' })
   id_cliente: number;
 
-  /** DNI | CE | pasaporte. Validado en DTO, no aquí. */
+  // DNI | CE | pasaporte. Validado en el DTO.
   @Column({ name: 'tipo_documento' })
   tipo_documento: string;
 
-  /** Único junto con tipo_documento. Unicidad compuesta en servicio. */
+  // Único junto con tipo_documento (unicidad compuesta validada en servicio).
   @Column({ name: 'nro_documento' })
   nro_documento: string;
 
   @Column({ name: 'nombre_completo' })
   nombre_completo: string;
 
-  /** Opcional: no todos los clientes dan teléfono. */
+  // Opcional. No todos los clientes proporcionan teléfono.
   @Column({ type: 'varchar', nullable: true })
   telefono: string | null;
 
-  /** Opcional. tipo 'text' → sin límite de longitud. */
+  // Dirección opcional. Tipo text sin límite de longitud.
   @Column({ name: 'direccion_completa', nullable: true, type: 'text' })
   direccion_completa: string | null;
 
-  /** true si tipo_documento ≠ DNI. Reportes SUNAT para no domiciliados. */
+  // true si tipo_documento ≠ DNI. Útil para reportes SUNAT de no domiciliados.
   @Column({ name: 'es_extranjero', nullable: true, default: false })
   es_extranjero: boolean;
 
-  /** timestamptz → correcto independientemente del huso horario. */
+  // timestamptz para manejo correcto de husos horarios.
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   created_at: Date;
 
-  /** null hasta la primera modificación. */
+  // null hasta la primera modificación.
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz', nullable: true })
   updated_at: Date | null;
 }

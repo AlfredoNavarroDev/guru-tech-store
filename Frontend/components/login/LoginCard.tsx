@@ -4,8 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { IdCard, Lock, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react"
-import { AnimatedGradientText } from "@/components/ui/animated-gradient-text"
-import { MagicCard } from "@/components/ui/magic-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -58,18 +56,16 @@ export function LoginCard() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-block">
-            <h1 className="text-3xl font-bold">
-              <AnimatedGradientText colorFrom="#3b82f6" colorTo="#60a5fa" speed={0.6} className="text-3xl font-bold">
-                Guru Tech Store
-              </AnimatedGradientText>
+            <h1 className="text-3xl font-extrabold text-text-heading">
+              Guru Tech Store
             </h1>
           </Link>
-          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-gray-400">
+          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-text-muted">
             Portal de Gestión
           </p>
         </div>
 
-        <MagicCard className="rounded-2xl border border-gray-200 shadow-lg" gradientColor="rgba(59,130,246,0.08)" cardBg="#ffffff">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
           <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-5 sm:p-8">
             <div>
               <p className="text-xl font-semibold text-gray-900">Autorizar acceso</p>
@@ -140,7 +136,7 @@ export function LoginCard() {
             <Button
               type="submit"
               disabled={loading}
-              className="mt-1 w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl"
+              className="mt-1 w-full py-6 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] font-bold rounded-xl shadow-[0_0_16px_rgba(172,248,71,0.25)] disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -152,7 +148,7 @@ export function LoginCard() {
               )}
             </Button>
           </form>
-        </MagicCard>
+        </div>
 
         <div className="mt-6 flex flex-col items-center gap-4">
           <Link

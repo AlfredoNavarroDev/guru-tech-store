@@ -17,6 +17,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+      - NEXT_PUBLIC_API_URL=http://${HOST_IP:-localhost}:3001/api/v1
+      - HOST_IP=${HOST_IP:-}
     depends_on:
       - backend

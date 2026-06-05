@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
-/** @purpose Filtros de búsqueda de clientes. search → busca en nombre y documento. */
+// Filtros de búsqueda de clientes. search busca tanto en nombre como en documento.
 export class QueryClienteDto {
   @ApiPropertyOptional({
     description:

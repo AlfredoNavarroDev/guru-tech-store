@@ -2,12 +2,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 
-/**
- * @purpose Filtros de catálogo (todos opcionales, acumulativos AND).
- * con_stock → @Transform convierte 'true' string a boolean.
- */
+// Filtros de catálogo (todos opcionales, acumulativos AND).
 export class QueryCatalogoDto {
-  /** @Type → convierte query string a número. */
+  // @Type convierte query string a número.
   @ApiPropertyOptional({ description: 'Filtrar por id_categoria' })
   @IsOptional()
   @Type(() => Number)
@@ -20,13 +17,13 @@ export class QueryCatalogoDto {
   @IsInt()
   marca?: number;
 
-  /** Búsqueda parcial por nombre (ILIKE en SQL). */
+  // Búsqueda parcial por nombre (ILIKE en SQL).
   @ApiPropertyOptional({ description: 'Buscar por nombre (parcial)' })
   @IsOptional()
   @IsString()
   nombre?: string;
 
-  /** true → solo productos con stock_disponible > 0. */
+  // true → solo productos con stock_disponible > 0.
   @ApiPropertyOptional({
     description: 'Solo items con stock > 0',
     example: true,

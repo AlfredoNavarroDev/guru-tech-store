@@ -66,8 +66,19 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 56px;
+}
+
 body {
   font-family: var(--font-jakarta, 'Plus Jakarta Sans', Arial, sans-serif);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* ─── Magic UI Keyframes ─── */

@@ -37,10 +37,7 @@ export class ResumenHoyDto {
   recientes: VentaRecienteDto[];
 }
 
-/**
- * @purpose Línea de detalle en respuesta. Omite costo_unitario_momento
- * (dato interno de margen, no debe exponerse al vendedor/cliente).
- */
+// Línea de detalle en respuesta. Omite costo_unitario_momento (dato interno de margen).
 export class DetalleVentaResponseDto {
   @ApiProperty()
   id_detalle_v: number;
@@ -67,10 +64,7 @@ export class DetalleVentaResponseDto {
   created_at: Date;
 }
 
-/**
- * @purpose Respuesta de POST /ventas. Cabecera + detalles.
- * No expone entidad TypeORM directamente → evita acoplamiento y campos internos.
- */
+// Respuesta de POST /ventas. Cabecera + detalles. No expone la entidad TypeORM directamente.
 export class VentaResponseDto {
   @ApiProperty()
   id_venta: number;
@@ -78,7 +72,7 @@ export class VentaResponseDto {
   @ApiProperty()
   fecha_emision: Date;
 
-  /** null = venta anónima (sin cliente registrado). */
+  // null = venta anónima (sin cliente registrado).
   @ApiProperty({ nullable: true })
   id_cliente: number | null;
 
@@ -91,18 +85,18 @@ export class VentaResponseDto {
   @ApiProperty()
   monto_descuento: number;
 
-  /** null si la venta no tuvo descuento. */
+  // null si la venta no tuvo descuento.
   @ApiProperty({ nullable: true })
   tipo_descuento: string | null;
 
-  /** null si la venta no tuvo descuento. */
+  // null si la venta no tuvo descuento.
   @ApiProperty({ nullable: true })
   justificacion_descuento: string | null;
 
   @ApiProperty()
   created_at: Date;
 
-  /** null hasta el primer UPDATE. */
+  // null hasta el primer UPDATE.
   @ApiProperty({ nullable: true })
   updated_at: Date | null;
 

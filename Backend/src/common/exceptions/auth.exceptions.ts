@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
-/** 401 — Credenciales incorrectas (nro_documento o password). */
+/** 401 — Credenciales incorrectas. */
 export class InvalidCredentialsException extends AppException {
   constructor() {
     super(
@@ -12,7 +12,7 @@ export class InvalidCredentialsException extends AppException {
   }
 }
 
-/** 401 — Refresh token no existe en BD, expirado o revocado. */
+/** 401 — Refresh token inválido o expirado. */
 export class InvalidRefreshTokenException extends AppException {
   constructor() {
     super(

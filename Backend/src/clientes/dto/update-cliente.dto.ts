@@ -1,8 +1,5 @@
 import { PartialType } from '@nestjs/swagger';
 import { CreateClienteDto } from './create-cliente.dto';
 
-/**
- * @purpose DTO de actualización parcial (PATCH).
- * PartialType → todos los campos opcionales, validaciones heredadas.
- */
+// DTO de actualización parcial (PATCH). Todos los campos son opcionales.
 export class UpdateClienteDto extends PartialType(CreateClienteDto) {}

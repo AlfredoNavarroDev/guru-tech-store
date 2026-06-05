@@ -3,24 +3,18 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 
-/**
- * @purpose Guard RBAC: verifica que el usuario tenga al menos un rol requerido.
- * Usar después de JwtAuthGuard. Lee roles del @Roles() vía Reflector.
- * getAllAndOverride → handler sobreescribe clase.
- */
+/** Guard RBAC: verifica que el usuario tenga al menos un rol requerido. Usar tras JwtAuthGuard. */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    // Roles requeridos desde @Roles() en handler o clase.
     const required = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
     if (!required || required.length === 0) return true;
 
-    // user poblado por JwtAuthGuard. Sin él → undefined → acceso denegado.
     const { user } = context.switchToHttp().getRequest<{ user: JwtPayload }>();
 
     // Lógica OR: basta un rol. Cambiar some → every para AND.

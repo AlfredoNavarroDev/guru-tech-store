@@ -14,14 +14,8 @@ import {
   InvalidRefreshTokenException,
 } from '../common/exceptions';
 
-/**
- * @purpose Autenticación con doble token (access + refresh).
- * @dependencies JwtService, ConfigService, DataSource, TypeORM repos.
- * @side_effects Persiste y revoca refresh tokens en BD.
- *
- * El refresh token se guarda hasheado en BD para permitir revocación
- * en logout, cierre forzado de sesión o detección de tokens robados.
- */
+// Autenticación con doble token (access + refresh).
+// El refresh token se guarda hasheado en BD para permitir revocación en logout.
 @Injectable()
 export class AuthService {
   constructor(
@@ -31,22 +25,17 @@ export class AuthService {
     private readonly refreshTokenRepo: Repository<RefreshToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    // DataSource se usa para consultas SQL crudas que involucran tablas
-    // fuera del contexto de AuthModule (Sedes, Empleado_Roles, Roles).
-    // Evita crear dependencias circulares importando otros módulos.
+    // DataSource para consultas SQL a tablas fuera de AuthModule (Sedes, Roles).
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Autentica empleado por nro_documento + contraseña.
-   * Devuelve access token, refresh token, roles y sede.
-   */
+  // Autentica por nro_documento + contraseña. Retorna tokens, roles y sede.
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const empleado = await this.empleadoRepo.findOne({
       where: { nro_documento: dto.nro_documento },
     });
 
-    // Mismo error para "no existe" e "inactivo" → evita enumeración de usuarios.
+    // Mismo error para "no existe" e "inactivo" — evita enumeración de usuarios.
     if (!empleado || empleado.estado !== 'activo') {
       throw new InvalidCredentialsException();
     }
@@ -56,7 +45,7 @@ export class AuthService {
 
     const roles = await this.getRoles(empleado.id_empleado);
 
-    // Sede en respuesta → frontend la muestra sin llamada extra.
+    // Sede en la respuesta para que el frontend la muestre sin llamada extra.
     const sedeRows = await this.dataSource.query<{ nombre: string }[]>(
       `SELECT nombre FROM Sedes WHERE id_sede = $1`,
       [empleado.id_sede],
@@ -84,10 +73,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * Rotación de tokens: revoca el refresh token actual y emite uno nuevo.
-   * Si se reusa un token ya revocado → posible robo detectado.
-   */
+  // Rotación de tokens: revoca el actual y emite uno nuevo.
   async refresh(token: string): Promise<AuthResponseDto> {
     let decoded: { sub: number; type: string };
 
@@ -98,7 +84,7 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-    // type: 'refresh' evita que un access token se use como refresh token.
+    // type: 'refresh' evita que un access token se use como refresh.
     if (decoded.type !== 'refresh') {
       throw new InvalidRefreshTokenException();
     }
@@ -118,7 +104,7 @@ export class AuthService {
     const match = await bcrypt.compare(token, record.token_hash);
     if (!match) throw new InvalidRefreshTokenException();
 
-    // Revocar antes de emitir → si falla a mitad, el viejo ya no sirve.
+    // Revocar antes de emitir: si falla a mitad, el viejo ya no sirve.
     record.revoked = true;
     await this.refreshTokenRepo.save(record);
 
@@ -126,7 +112,7 @@ export class AuthService {
       where: { id_empleado: decoded.sub },
     });
 
-    // Si el empleado fue desactivado con sesión abierta → se niega renovación.
+    // Si el empleado fue desactivado con sesión abierta, se niega la renovación.
     if (!empleado || empleado.estado !== 'activo') {
       throw new InvalidRefreshTokenException();
     }
@@ -159,16 +145,13 @@ export class AuthService {
     };
   }
 
-  /**
-   * Cierra sesión revocando el refresh token activo.
-   * Silencioso ante tokens inválidos/expirados → no revela estado de sesión.
-   */
+  // Cierra sesión revocando el refresh token activo. Silencioso ante tokens inválidos.
   async logout(userId: number, refreshTokenRaw: string): Promise<void> {
     const record = await this.refreshTokenRepo.findOne({
       where: { id_empleado: userId, revoked: false },
     });
 
-    // Sin token activo o ya expirado → nada que revocar.
+    // Sin token activo o ya expirado: nada que revocar.
     if (!record || record.expires_at <= new Date()) return;
 
     const match = await bcrypt.compare(refreshTokenRaw, record.token_hash);
@@ -178,10 +161,7 @@ export class AuthService {
     await this.refreshTokenRepo.save(record);
   }
 
-  /**
-   * Genera y persiste refresh token (JWT + hash bcrypt en BD).
-   * Solo se guarda el hash, nunca el token en claro.
-   */
+  // Genera y persiste refresh token (JWT firmado + hash bcrypt en BD).
   private async issueRefreshToken(id_empleado: number): Promise<string> {
     const refreshExpiresIn = this.configService.get<string>(
       'REFRESH_EXPIRES_IN',
@@ -208,10 +188,7 @@ export class AuthService {
     return refreshTokenRaw;
   }
 
-  /**
-   * Convierte '30d' | '1h' | '15m' | '60s' → Date absoluto.
-   * Fallback: 30 días si el formato no coincide.
-   */
+  // Convierte '30d' | '1h' | '15m' | '60s' a Date absoluto. Fallback: 30 días.
   private parseExpiry(expiresIn: string): Date {
     const match = /^(\d+)([dhms])$/.exec(expiresIn);
     if (!match) return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // fallback 30d
@@ -228,10 +205,7 @@ export class AuthService {
     return new Date(Date.now() + value * multipliers[unit]);
   }
 
-  /**
-   * Obtiene roles del empleado desde Empleado_Roles.
-   * Van en el JWT para que los guards autoricen sin consultar BD.
-   */
+  // Obtiene roles del empleado desde Empleado_Roles para incluirlos en el JWT.
   private async getRoles(id_empleado: number): Promise<string[]> {
     const rows = await this.dataSource.query<{ nombre_rol: string }[]>(
       `SELECT r.nombre_rol FROM Empleado_Roles er

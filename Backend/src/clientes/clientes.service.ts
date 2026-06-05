@@ -10,7 +10,7 @@ import {
   ClienteNotFoundException,
 } from '../common/exceptions';
 
-/** Registros de la vista v_vendedor_clientes. */
+// Estructura de fila de la vista v_vendedor_clientes.
 interface ClienteVista {
   id_cliente: number;
   nombre_completo: string;
@@ -23,23 +23,16 @@ interface ClienteVista {
   ultima_compra: Date | null;
 }
 
-/**
- * @purpose Servicio de clientes. Lectura → vista v_vendedor_clientes.
- * Escritura → TypeORM con validación de unicidad (tipo + nro documento).
- */
+// Servicio de clientes. Lectura desde vista, escritura con TypeORM + validación de unicidad.
 @Injectable()
 export class ClientesService {
   constructor(
     @InjectRepository(Cliente)
     private readonly clienteRepo: Repository<Cliente>,
-    // DataSource para SQL crudo contra vistas.
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Lista clientes con filtros opcionales (nombre, documento).
-   * SQL parametrizado incremental; ILIKE → case-insensitive.
-   */
+  // Lista clientes con filtros opcionales. SQL parametrizado con ILIKE case-insensitive.
   async findAll(query: QueryClienteDto): Promise<ClienteVista[]> {
     let sql = `SELECT * FROM v_vendedor_clientes WHERE 1=1`;
     const params: (string | number)[] = [];
@@ -64,7 +57,7 @@ export class ClientesService {
     return this.dataSource.query<ClienteVista[]>(sql, params);
   }
 
-  /** Cliente por ID desde vista (incluye total compras). 404 si no existe. */
+  // Obtiene cliente por ID desde la vista (incluye total compras). Lanza 404 si no existe.
   async findOne(id: number): Promise<ClienteVista> {
     const rows = await this.dataSource.query<ClienteVista[]>(
       `SELECT * FROM v_vendedor_clientes WHERE id_cliente = $1`,
@@ -74,10 +67,7 @@ export class ClientesService {
     return rows[0];
   }
 
-  /**
-   * Crea cliente validando unicidad (tipo_documento + nro_documento).
-   * Validación en app → mensaje descriptivo, no error críptico de BD.
-   */
+  // Crea cliente validando unicidad (tipo_documento + nro_documento) en la app.
   async create(dto: CreateClienteDto): Promise<Cliente> {
     const exists = await this.clienteRepo.findOne({
       where: {
@@ -98,10 +88,7 @@ export class ClientesService {
     return this.clienteRepo.save(cliente);
   }
 
-  /**
-   * Actualiza cliente (patch parcial). Object.assign → solo campos presentes.
-   * Si cambia tipo_documento, recalcula es_extranjero.
-   */
+  // Actualiza cliente (patch parcial). Si cambia tipo_documento, recalcula es_extranjero.
   async update(id: number, dto: UpdateClienteDto): Promise<Cliente> {
     const cliente = await this.clienteRepo.findOne({
       where: { id_cliente: id },

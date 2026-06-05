@@ -4,14 +4,11 @@ import { BoletasController } from './boletas.controller';
 import { BoletasService } from './boletas.service';
 import { Boleta } from './entities/boleta.entity';
 
-/**
- * @purpose Módulo de boletas. Exporta BoletasService para VentasModule.
- * Rutas HTTP en VentasController (/ventas/:id/boletas).
- */
+// Módulo de boletas. Exporta BoletasService para que VentasModule lo consuma.
 @Module({
   imports: [TypeOrmModule.forFeature([Boleta])],
   controllers: [BoletasController],
   providers: [BoletasService],
-  exports: [BoletasService], // VentasModule llama emitir() y findByVenta().
+  exports: [BoletasService],
 })
 export class BoletasModule {}

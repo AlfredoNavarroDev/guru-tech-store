@@ -8,7 +8,7 @@ export default function LoginPage() {
         <div className="hidden lg:flex lg:w-1/2">
           <DecorativePanel />
         </div>
-        <div className="flex w-full items-center justify-center bg-white lg:w-1/2">
+        <div className="flex w-full items-center justify-center bg-[#F4F7F9] lg:w-1/2">
           <LoginCard />
         </div>
       </div>

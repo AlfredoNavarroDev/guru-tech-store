@@ -1,16 +1,4 @@
-/**
- * Seed 02 — Empleados y roles asignados
- *
- * Pobla: Empleados, Empleado_Roles
- * Omitido: técnicos y abastecedores (externos al flujo vendedor Sprint 1)
- * Dependencias: seed-01 (Sedes, Roles)
- *
- * Contraseña de todos los empleados: Vendedor123!
- * Los hashes son bcrypt cost=10 del password anterior.
- *
- * Este seed debe ejecutarse DESPUÉS de seed-01 porque la columna id_sede
- * de Empleados referencia la tabla Sedes con FK.
- */
+/** Seed 02 — Empleados y roles. Contraseña: Vendedor123! (bcrypt cost=10). Depende de seed-01. */
 
 import { QueryRunner } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -18,17 +6,12 @@ import * as bcrypt from 'bcrypt';
 export async function seedEmpleados(qr: QueryRunner): Promise<void> {
   console.log('\n[Seed 02] Empleados...');
 
-  // Generar hash una sola vez y reutilizarlo para todos.
-  // bcrypt cost=10 es el estándar seguro y el mismo que usa AuthService.
-  // Generarlo aquí (en lugar de poner el hash hardcodeado) garantiza que el
-  // algoritmo de verificación en producción y el seed siempre sean consistentes.
+  // Hash generado en runtime para consistencia con AuthService
   console.log('  Generando hash bcrypt (cost=10) para "Vendedor123!"...');
   const hash = await bcrypt.hash('Vendedor123!', 10);
   console.log('  Hash generado: ' + hash.substring(0, 29) + '...');
 
-  // ── Empleados ─────────────────────────────────────────────────────────────
-  // Propietario: id_sede NULL porque tiene acceso a todas las sedes
-  // Vendedores: uno por sede para probar JWT payload con id_sede correcto
+  // Propietario sin sede (acceso global), vendedores uno por sede
   console.log('  Insertando Empleados...');
   await qr.query(
     `INSERT INTO Empleados
@@ -40,7 +23,6 @@ export async function seedEmpleados(qr: QueryRunner): Promise<void> {
      (4,  1,    'DNI', '10003099', 'Jorge Palma Soto (inactivo)', '987-003-099', 900.00, 'suspendido', $1)`,
     [hash],
   );
-  // Empleado 4 suspendido: sirve para probar que el login retorna 401
   console.log('  OK - 4 empleados (ids 1-4)');
   console.log('    id=1  propietario       DNI 10001001  sin sede');
   console.log('    id=2  vendedor    DNI 10003001  sede 1');
@@ -49,9 +31,7 @@ export async function seedEmpleados(qr: QueryRunner): Promise<void> {
     '    id=4  suspendido  DNI 10003099  sede 1 → login debe retornar 401',
   );
 
-  // ── Empleado_Roles ────────────────────────────────────────────────────────
-  // Asignación de roles para que AuthService.getRoles devuelva array correcto
-  // en el JWT payload. Un empleado puede tener múltiples roles (tabla N:M).
+  // Roles para JWT payload (tabla N:M)
   console.log('  Insertando Empleado_Roles...');
   await qr.query(`
     INSERT INTO Empleado_Roles (id_empleado, id_rol) VALUES
@@ -62,8 +42,6 @@ export async function seedEmpleados(qr: QueryRunner): Promise<void> {
   `);
   console.log('  OK - roles asignados');
 
-  // ── Reset sequences ───────────────────────────────────────────────────────
-  // Permite que el siguiente empleado creado en tiempo de ejecución reciba id=5.
   await qr.query(
     `SELECT setval(pg_get_serial_sequence('Empleados', 'id_empleado'), 4)`,
   );

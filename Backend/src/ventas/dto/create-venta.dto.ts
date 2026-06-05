@@ -13,10 +13,7 @@ import {
 } from 'class-validator';
 import { CreateDetalleVentaDto } from './create-detalle-venta.dto';
 
-/**
- * @purpose DTO para crear venta (cabecera + detalles en un solo request).
- * id_empleado e id_sede vienen del JWT, no del body.
- */
+// DTO para crear venta (cabecera + detalles en un solo request). id_empleado e id_sede vienen del JWT.
 export class CreateVentaDto {
   @ApiPropertyOptional({
     example: 5,
@@ -27,7 +24,7 @@ export class CreateVentaDto {
   @IsInt()
   id_cliente?: number;
 
-  // ArrayMinSize(1) + ValidateNested → al menos un ítem validado.
+  // Al menos un ítem requerido, cada uno validado anidado.
   @ApiProperty({ type: [CreateDetalleVentaDto], description: 'Mínimo 1 item' })
   @IsArray()
   @ArrayMinSize(1)
@@ -35,7 +32,7 @@ export class CreateVentaDto {
   @Type(() => CreateDetalleVentaDto)
   items: CreateDetalleVentaDto[];
 
-  // Validación cruzada descuento-justificación → en VentasService (más legible).
+  // Validación cruzada descuento-justificación se hace en VentasService.
   @ApiPropertyOptional({ example: 10.0 })
   @IsOptional()
   @Type(() => Number)

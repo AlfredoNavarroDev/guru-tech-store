@@ -8,10 +8,7 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CatalogoService } from './catalogo.service';
 import { QueryCatalogoDto } from './dto/query-catalogo.dto';
 
-/**
- * @purpose Solo lectura: catálogo filtrado por sede del vendedor (HU-05).
- * id_sede desde JWT → no se puede consultar otra sede.
- */
+// Solo lectura: catálogo filtrado por sede del vendedor (HU-05).
 @ApiTags('catalogos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -20,7 +17,7 @@ import { QueryCatalogoDto } from './dto/query-catalogo.dto';
 export class CatalogoController {
   constructor(private readonly catalogoService: CatalogoService) {}
 
-  /** HU-05: Productos con stock en sede del vendedor. */
+  // HU-05: Productos con stock disponible en la sede del vendedor.
   @Get()
   @ApiOperation({
     summary: 'HU-05 — Productos con stock disponible en la sede del vendedor',

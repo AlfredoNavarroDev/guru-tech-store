@@ -20,7 +20,7 @@ import {
   VentaNotFoundException,
 } from '../common/exceptions';
 
-/** Vista SQL que une Ventas + Detalle_Venta + Items + Clientes + Boletas. */
+// Estructura de la vista que une Ventas + Detalle_Venta + Items + Clientes + Boletas.
 export interface VentaVista {
   id_venta: number;
   id_sede: number;
@@ -40,18 +40,12 @@ export interface VentaVista {
   nro_boleta: string | null;
 }
 
-/** Tipo para parsear COUNT(*) que PostgreSQL devuelve como string. */
+// Tipo para parsear COUNT(*) que PostgreSQL devuelve como string.
 interface CountRow {
   total: string;
 }
 
-/**
- * @purpose Servicio principal de ventas.
- * @dependencies TypeORM repos (Venta, DetalleVenta), DataSource.
- * @side_effects Crea ventas en transacción atómica, valida importes y stock.
- *
- * PagosService → abonos. BoletasService → PDF fiscal.
- */
+// Servicio principal de ventas. Crea ventas en transacción atómica, valida importes y stock.
 @Injectable()
 export class VentasService {
   constructor(
@@ -59,14 +53,10 @@ export class VentasService {
     private readonly ventaRepo: Repository<Venta>,
     @InjectRepository(DetalleVenta)
     private readonly detalleRepo: Repository<DetalleVenta>,
-    // DataSource para transacciones y SQL crudo (vista v_vendedor_ventas).
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Crea venta + detalles en transacción atómica.
-   * Valida: descuento con justificación, importe = precio × cantidad (±0.01).
-   */
+  // Crea venta + detalles en transacción atómica. Valida descuento con justificación e importe.
   async create(
     dto: CreateVentaDto,
     user: JwtPayload,
@@ -168,10 +158,7 @@ export class VentasService {
     };
   }
 
-  /**
-   * Historial paginado del vendedor. SQL dinámico sobre v_vendedor_ventas.
-   * CTE paged_ids → OFFSET/LIMIT sobre ventas, no filas de detalle.
-   */
+  // Historial paginado del vendedor. CTE para paginar ventas distintas, no filas de detalle.
   async findAll(
     user: JwtPayload,
     query: QueryVentasDto,
@@ -237,10 +224,7 @@ export class VentasService {
     };
   }
 
-  /**
-   * Detalle de una venta (múltiples filas de la vista = una por ítem).
-   * Filtro id_empleado → vendedor no ve ventas ajenas.
-   */
+  // Detalle de una venta (múltiples filas de la vista, una por ítem). Filtra por vendedor.
   async findOne(id: number, user: JwtPayload): Promise<VentaVista[]> {
     const rows = await this.dataSource.query<VentaVista[]>(
       `SELECT * FROM v_vendedor_ventas WHERE id_venta = $1 AND id_empleado = $2`,
@@ -250,7 +234,7 @@ export class VentasService {
     return rows;
   }
 
-  /** KPIs del día: ventas, ingresos, clientes (hoy vs ayer) + 5 recientes. */
+  // KPIs del día: ventas, ingresos, clientes (hoy vs ayer) + 5 ventas recientes.
   async getResumenHoy(user: JwtPayload): Promise<ResumenHoyDto> {
     interface StatsRow {
       ventas_hoy: string;

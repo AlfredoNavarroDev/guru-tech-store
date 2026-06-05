@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
-/** 404 — Cliente no encontrado por ID. */
+/** 404 — Cliente no encontrado. */
 export class ClienteNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -12,7 +12,7 @@ export class ClienteNotFoundException extends AppException {
   }
 }
 
-/** 422 — Cliente extranjero no puede tener DNI. */
+/** 422 — Extranjero no puede usar DNI como tipo de documento. */
 export class ClienteDocumentoInvalidoException extends AppException {
   constructor() {
     super(
@@ -23,7 +23,7 @@ export class ClienteDocumentoInvalidoException extends AppException {
   }
 }
 
-/** 409 — Documento duplicado (tipo + número ya existe). */
+/** 409 — Documento duplicado. */
 export class ClienteDuplicadoException extends AppException {
   constructor(tipoDoc: string, nroDoc: string) {
     super(

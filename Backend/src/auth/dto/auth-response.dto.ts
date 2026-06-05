@@ -1,22 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-/**
- * @purpose Respuesta unificada de login y refresh.
- * Incluye tokens + datos de sesión → frontend no necesita llamada extra.
- */
+// Respuesta unificada de login y refresh. Incluye tokens + datos de sesión.
 export class AuthResponseDto {
-  // Vida corta (JWT_EXPIRES_IN). Se envía en Authorization: Bearer <token>.
+  // Token JWT de acceso (vida corta).
   @ApiProperty({ description: 'Token JWT de acceso' })
   access_token: string;
 
-  // Vida larga (REFRESH_EXPIRES_IN, default 30d). Solo para /auth/refresh.
+  // Refresh token para renovar el access token (vida larga).
   @ApiProperty({ description: 'Refresh token para renovar el access token' })
   refresh_token: string;
 
   @ApiProperty({ description: 'Nombre del empleado' })
   nombre: string;
 
-  // Ej: ['vendedor']. Frontend los usa para menú; guards los leen del JWT.
+  // Roles para que el frontend renderice menú; los guards los leen del JWT.
   @ApiProperty({ description: 'Roles del empleado' })
   roles: string[];
 
@@ -24,7 +21,7 @@ export class AuthResponseDto {
   @ApiProperty({ description: 'ID de la sede del empleado' })
   id_sede: number;
 
-  // Nombre legible para UI.
+  // Nombre legible de la sede para UI.
   @ApiProperty({ description: 'Nombre de la sede del empleado' })
   sede: string;
 }

@@ -8,8 +8,7 @@ dotenv.config();
 
 const DB_DIR = path.join(__dirname, '../../../DB');
 
-// Orden estricto: Tables primero (FKs e índices), luego Views (dependen de tablas),
-// luego Triggers (dependen de tablas y Views).
+// Orden estricto: tablas primero, luego vistas, luego triggers
 const SQL_FILES = ['DB-Tables.sql', 'DB-Views.sql', 'DB-Triggers.sql'];
 
 async function migrate(): Promise<void> {

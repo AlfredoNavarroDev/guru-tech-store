@@ -17,7 +17,6 @@ export interface CreateClienteInput {
   nombre_completo: string
   telefono?: string
   direccion_completa?: string
-  es_extranjero?: boolean
 }
 
 export interface QueryClientes {

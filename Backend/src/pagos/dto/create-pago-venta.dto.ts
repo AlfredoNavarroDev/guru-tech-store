@@ -9,12 +9,9 @@ import {
   Min,
 } from 'class-validator';
 
-/**
- * @purpose DTO para registrar pago en venta. id_venta desde ruta, no body.
- * Métodos de pago sincronizados con CHECK constraint de BD.
- */
+// DTO para registrar pago en venta. id_venta viene de la ruta, no del body.
 export class CreatePagoVentaDto {
-  /** Métodos sincronizados con CHECK constraint de BD. */
+  // Métodos sincronizados con CHECK constraint de BD.
   @ApiProperty({
     example: 'efectivo',
     enum: ['efectivo', 'tarjeta', 'transferencia', 'yape', 'plin', 'otro'],
@@ -22,14 +19,14 @@ export class CreatePagoVentaDto {
   @IsIn(['efectivo', 'tarjeta', 'transferencia', 'yape', 'plin', 'otro'])
   metodo_pago: string;
 
-  /** Min(0.01) → no permite pagos de S/0.00. BD también tiene CHECK (monto > 0). */
+  // Min(0.01) evita pagos de S/0.00. BD también tiene CHECK (monto > 0).
   @ApiProperty({ example: 150.0, description: 'Monto del pago (> 0)' })
   @Type(() => Number)
   @IsNumber()
   @Min(0.01)
   monto: number;
 
-  /** Voucher o nro de operación. Obligatorio para métodos electrónicos (Sprint 2). */
+  // Voucher o nro de operación. Obligatorio para métodos electrónicos en Sprint 2.
   @ApiPropertyOptional({
     example: 'OP-123456',
     description: 'Voucher o nro de operación',
