@@ -661,18 +661,22 @@ export default function VentasPage() {
         open={selectedVentaId !== null}
         onClose={() => setSelectedVentaId(null)}
         wrapperClassName="lg:hidden"
-        className="max-h-[85vh] overflow-y-auto"
       >
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-gray-200" />
+        <div
+          className="flex flex-col bg-white rounded-t-2xl border border-gray-200 border-b-0 border-x-0 shadow-xl"
+          style={{ maxHeight: "85dvh" }}
+        >
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="h-1 w-10 rounded-full bg-gray-200" />
+          </div>
+          <DetailPanel
+            v={selectedVenta}
+            ventaId={selectedVentaId!}
+            onClose={() => setSelectedVentaId(null)}
+            onNavigate={() => router.push(`/dashboard/ventas/${selectedVentaId}`)}
+            className="w-full flex-1 min-h-0 rounded-none border-none shadow-none bg-transparent"
+          />
         </div>
-        <DetailPanel
-          v={selectedVenta}
-          ventaId={selectedVentaId!}
-          onClose={() => setSelectedVentaId(null)}
-          onNavigate={() => router.push(`/dashboard/ventas/${selectedVentaId}`)}
-          className="w-full rounded-b-none rounded-t-2xl border-x-0 border-b-0 shadow-xl"
-        />
       </BottomSheet>
     </div>
   )
