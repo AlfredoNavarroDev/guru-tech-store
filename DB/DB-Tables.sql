@@ -12,7 +12,7 @@ CREATE TABLE Sedes (
   -- Permite deshabilitar una sede sin eliminarla; los triggers bloquean operaciones
   -- (ventas, reparaciones, compras) sobre sedes con esta_habilitada = false.
   esta_habilitada boolean NOT NULL DEFAULT true,
-  -- Empleado (Dueño) que creó el registro; NULL en datos de seed o migración inicial.
+  -- Empleado (Propietario) que creó el registro; NULL en datos de seed o migración inicial.
   created_by int,
   updated_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -68,9 +68,14 @@ CREATE TABLE Empleados (
   password_hash varchar(255) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz,
-  -- Empleado (Dueño o Gerente) que dio de alta este registro; NULL en datos de seed.
+  -- Empleado (Propietario o Gerente) que dio de alta este registro; NULL en datos de seed.
   created_by int,
-  CONSTRAINT uq_empleado_doc UNIQUE (tipo_documento, nro_documento)
+  CONSTRAINT uq_empleado_doc UNIQUE (tipo_documento, nro_documento),
+  CONSTRAINT chk_nro_doc_len_empleado CHECK (
+    (tipo_documento = 'DNI'       AND char_length(nro_documento) = 8)
+    OR (tipo_documento = 'CE'        AND char_length(nro_documento) = 12)
+    OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) = 9)
+  )
 );
 
 CREATE TABLE Empleado_Roles (
@@ -89,7 +94,12 @@ CREATE TABLE Clientes (
   es_extranjero boolean DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz,
-  CONSTRAINT uq_cliente_doc UNIQUE (tipo_documento, nro_documento)
+  CONSTRAINT uq_cliente_doc UNIQUE (tipo_documento, nro_documento),
+  CONSTRAINT chk_nro_doc_len_cliente CHECK (
+    (tipo_documento = 'DNI'       AND char_length(nro_documento) = 8)
+    OR (tipo_documento = 'CE'        AND char_length(nro_documento) = 12)
+    OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) = 9)
+  )
 );
 
 -- TERCERA PARTE
@@ -226,6 +236,7 @@ CREATE TABLE Detalle_Venta (
   id_item int NOT NULL,
   cantidad int NOT NULL CHECK (cantidad > 0),
   precio_unitario_momento decimal(12, 2) NOT NULL CHECK (precio_unitario_momento >= 0),
+  precio_normal_momento decimal(12, 2) NULL CHECK (precio_normal_momento >= 0),
   costo_unitario_momento decimal(12, 2) NOT NULL CHECK (costo_unitario_momento >= 0),
   importe decimal(12, 2) NOT NULL CHECK (importe >= 0),
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -453,7 +464,21 @@ CREATE TABLE Logs_Sistema (
   detalle_cambio text
 );
 
+-- Tabla de refresh tokens para revocación JWT server-side (HU-23)
+CREATE TABLE RefreshTokens (
+  id          BIGSERIAL PRIMARY KEY,
+  id_empleado INTEGER NOT NULL,
+  token_hash  TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  revoked     BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- NOVENA PARTE
+
+-- === FK: RefreshTokens ===
+ALTER TABLE RefreshTokens
+ADD FOREIGN KEY (id_empleado) REFERENCES Empleados (id_empleado) ON DELETE CASCADE;
 
 -- === FK: Empleados ===
 ALTER TABLE Empleados
@@ -574,7 +599,7 @@ ALTER TABLE Logs_Sistema
 ADD FOREIGN KEY (id_sede) REFERENCES Sedes (id_sede);
 
 -- === FK: Sedes.created_by ===
--- ON DELETE SET NULL: si el Dueño creador es eliminado, el campo queda NULL sin perder la sede.
+-- ON DELETE SET NULL: si el Propietario creador es eliminado, el campo queda NULL sin perder la sede.
 ALTER TABLE Sedes
 ADD FOREIGN KEY (created_by) REFERENCES Empleados (id_empleado) ON DELETE SET NULL;
 
@@ -665,3 +690,10 @@ CREATE INDEX idx_cambios_venta_origen ON Cambios_Producto (id_venta_origen);
 CREATE INDEX idx_cambios_sede_fecha ON Cambios_Producto (id_sede, fecha_cambio);
 CREATE INDEX idx_cambios_item_devuelto ON Cambios_Producto (id_item_devuelto);
 CREATE INDEX idx_cambios_item_entregado ON Cambios_Producto (id_item_entregado);
+
+-- === Índices: RefreshTokens ===
+-- Búsqueda de tokens activos por empleado (login / logout / refresh).
+CREATE INDEX idx_refresh_tokens_empleado ON RefreshTokens (id_empleado);
+-- Limpieza periódica de tokens expirados no revocados.
+CREATE INDEX idx_refresh_tokens_expiry ON RefreshTokens (expires_at)
+WHERE revoked = false;

@@ -1,0 +1,269 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {
+  LayoutDashboard, Receipt, Grid3X3, UserRound,
+  LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
+} from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+interface AuthSession {
+  nombre: string
+  id_sede: number
+  roles: string[]
+  sede: string
+}
+
+const navLinks = [
+  { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
+  { href: "/dashboard/ventas", label: "Ventas", icon: Receipt },
+  { href: "/dashboard/catalogo", label: "Catálogo", icon: Grid3X3 },
+  { href: "/dashboard/clientes", label: "Clientes", icon: UserRound },
+]
+
+interface SidebarProps {
+  session: AuthSession | null
+  onLogout: () => void
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }: SidebarProps) {
+  const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar_collapsed")
+    if (saved !== null) {
+      setCollapsed(saved === "true")
+    }
+    // No saved preference → stays collapsed (true default)
+  }, [])
+
+  useEffect(() => {
+    onMobileClose?.()
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isCollapsed = collapsed && !mobileOpen
+
+  const toggleCollapse = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem("sidebar_collapsed", String(next))
+  }
+
+  return (
+    <aside
+      className={cn(
+        "fixed left-0 top-0 z-50 h-screen flex-col border-r border-white/5 bg-[#020617] shadow-2xl",
+        "transition-[transform,width] duration-300 ease-in-out",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        "lg:relative lg:flex lg:translate-x-0 lg:shadow-none",
+        isCollapsed ? "w-[304px] lg:w-[72px]" : "w-[304px] lg:w-64",
+        "flex overflow-hidden"
+      )}
+    >
+      {/* ── Header ── */}
+      <div className="flex h-20 shrink-0 items-center border-b border-white/10 overflow-hidden">
+        {/* Desktop: collapse-aware */}
+        <AnimatePresence initial={false} mode="wait">
+          {isCollapsed ? (
+            <motion.div
+              key="header-collapsed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="hidden lg:flex w-full items-center justify-center"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md">
+                <img
+                  src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
+                  alt="Guru Tech Store"
+                  className="h-8 w-8 object-contain"
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="header-expanded"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="hidden lg:flex w-full items-center gap-3 px-4"
+            >
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-lg">
+                <img
+                  src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
+                  alt="Guru Tech Store"
+                  className="h-10 w-10 object-contain"
+                />
+              </div>
+              <span className="flex-1 truncate text-sm font-semibold text-white">Guru Tech Store</span>
+              <motion.button
+                onClick={toggleCollapse}
+                whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.1)" }}
+                whileTap={{ scale: 0.92 }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#94A3B8] hover:text-white"
+                aria-label="Colapsar sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Mobile: logo in circle + brand in single row */}
+        <div className="lg:hidden flex w-full items-center gap-3 px-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-lg">
+            <img
+              src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
+              alt="Guru Tech Store"
+              className="h-10 w-10 object-contain"
+            />
+          </div>
+          <span className="flex-1 truncate text-sm font-semibold text-white">Guru Tech Store</span>
+        </div>
+      </div>
+
+      {/* ── Nueva venta CTA ── */}
+      <div className={cn("px-3 pt-4 overflow-hidden", isCollapsed && "lg:flex lg:justify-center lg:px-0")}>
+        <AnimatePresence initial={false}>
+          {isCollapsed ? (
+            <motion.div
+              key="cta-icon"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              className="hidden lg:flex lg:justify-center"
+            >
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link href="/dashboard/catalogo" className="inline-flex">
+                      <Button size="icon" className="h-10 w-10 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  }
+                />
+                <TooltipContent side="right">Nueva venta</TooltipContent>
+              </Tooltip>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="cta-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Link href="/dashboard/catalogo">
+                <Button className="w-full gap-2.5 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
+                  <Zap className="h-4 w-4" />
+                  Nueva venta
+                </Button>
+              </Link>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="mx-4 my-4 border-t border-white/10" />
+
+      {/* ── Nav links ── */}
+      <nav className="flex flex-1 flex-col gap-1 p-3 pt-2">
+        {navLinks.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
+
+          return (
+            <Tooltip key={href} disabled={!isCollapsed}>
+              <TooltipTrigger render={<div className="w-full" />}>
+                <Link
+                  href={href}
+                  onClick={onMobileClose}
+                  className={cn(
+                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm",
+                    active
+                      ? "text-[#020617] font-semibold shadow-[0_0_16px_rgba(6,182,212,0.45),0_0_6px_rgba(6,182,212,0.65)]"
+                      : "text-[#94A3B8] font-bold hover:text-white overflow-hidden"
+                  )}
+                >
+                  {active && (
+                    <motion.div
+                      layoutId="nav-active-bg"
+                      className="pointer-events-none absolute inset-0 rounded-xl bg-[#06B6D4]"
+                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                    />
+                  )}
+                  {!active && (
+                    <div className="pointer-events-none absolute inset-0 rounded-xl bg-white/0 transition-colors duration-150 group-hover:bg-white/5" />
+                  )}
+                  <Icon className="relative z-10 h-[18px] w-[18px] shrink-0" />
+                  <AnimatePresence initial={false}>
+                    {!isCollapsed && (
+                      <motion.span
+                        key={`label-${href}`}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={{ duration: 0.15 }}
+                        className="relative z-10 truncate whitespace-nowrap"
+                      >
+                        {label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{label}</TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </nav>
+
+      {/* ── Logout ── */}
+      <div className="shrink-0 border-t border-white/10 p-3">
+
+        <Tooltip disabled={!isCollapsed}>
+          <TooltipTrigger
+            render={
+              <motion.button
+                onClick={onLogout}
+                whileHover={{ backgroundColor: "rgba(127,29,29,0.2)" }}
+                whileTap={{ scale: 0.97 }}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#94A3B8] transition-colors hover:text-red-400",
+                  isCollapsed && "lg:justify-center"
+                )}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                <AnimatePresence initial={false}>
+                  {!isCollapsed && (
+                    <motion.span
+                      key="logout-label"
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -6 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      Cerrar sesión
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            }
+          />
+          <TooltipContent side="right">Cerrar sesión</TooltipContent>
+        </Tooltip>
+      </div>
+    </aside>
+  )
+}

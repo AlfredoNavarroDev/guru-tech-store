@@ -2,6 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
+/**
+ * @purpose DTO reutilizable para paginación page-based.
+ * @Type → convierte query params string a número antes de validar.
+ * @Max(100) → protege contra peticiones que carguen miles de registros.
+ */
 export class PaginationDto {
   @ApiPropertyOptional({ example: 1, description: 'Página (inicia en 1)' })
   @IsOptional()
@@ -19,6 +24,7 @@ export class PaginationDto {
   limit: number = 20;
 }
 
+/** Envelope estándar para cualquier listado paginado. */
 export interface PaginatedResult<T> {
   items: T[];
   total: number;

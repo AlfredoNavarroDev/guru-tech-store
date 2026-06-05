@@ -3,36 +3,84 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import * as Handlebars from 'handlebars';
 import * as puppeteer from 'puppeteer';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
 import { Boleta } from './entities/boleta.entity';
-import { CreateBoletaVentaDto } from './dto/create-boleta-venta.dto';
 
-interface VentaRow {
+/** Fila de v_boleta_venta: una por ítem de la venta. */
+interface BolVistaRow {
   id_venta: number;
   id_sede: number;
-  sede: string;
+  sede_nombre: string;
+  sede_direccion: string | null;
+  sede_telefono: string | null;
   vendedor: string;
-  cliente: string | null;
-  doc_cliente: string | null;
   fecha_emision: Date;
-}
-
-interface DetalleRow {
+  monto_descuento: string;
+  tipo_descuento: string | null;
+  id_cliente: number | null;
+  cliente_nombre: string | null;
+  cliente_tipo_doc: string | null;
+  cliente_nro_doc: string | null;
   producto: string;
+  sku: string;
   cantidad: number;
-  precio_unitario_momento: number;
-  importe: number;
+  precio_unitario_momento: string;
+  importe: string;
 }
 
+/** Fila de pagos para el pie del comprobante. */
+interface PagoRow {
+  metodo_pago: string;
+  monto: string;
+}
+
+/** Datos inyectados en la plantilla Handlebars. */
+interface BoletaTemplateData {
+  logoBase64: string;
+  sedeNombre: string;
+  sedeDireccion: string;
+  sedeTelefono: string;
+  numero: string;
+  fechaEmision: string;
+  vendedor: string;
+  clienteNombre: string | null;
+  clienteTipoDoc: string | null;
+  clienteNroDoc: string | null;
+  detalles: {
+    producto: string;
+    sku: string;
+    cantidad: number;
+    precioUnitario: string;
+    importe: string;
+  }[];
+  subtotal: string;
+  tieneDescuento: boolean;
+  descuento: string;
+  descuentoLabel: string;
+  total: string;
+  pagos: { metodo: string; monto: string }[];
+}
+
+/**
+ * @purpose Emite boletas de venta, genera PDF con Puppeteer y sube a Cloudflare R2.
+ * @dependencies TypeORM (Boleta), DataSource, ConfigService, S3Client, Puppeteer, Handlebars.
+ * @side_effects Persiste boleta, genera PDF, sube a R2 en transacción atómica.
+ */
 @Injectable()
-export class BoletasService {
+export class BoletasService implements OnModuleInit {
   private readonly logger = new Logger(BoletasService.name);
   private s3: S3Client;
+  private templateFn: Handlebars.TemplateDelegate<BoletaTemplateData>;
+  private logoBase64 = '';
 
   constructor(
     @InjectRepository(Boleta)
@@ -50,7 +98,43 @@ export class BoletasService {
     });
   }
 
-  async emitir(idVenta: number, dto: CreateBoletaVentaDto): Promise<Boleta> {
+  async onModuleInit(): Promise<void> {
+    // Compilar template Handlebars desde archivo externo (copiado a dist/ por nest-cli assets).
+    const source = readFileSync(
+      join(__dirname, 'templates', 'boleta.hbs'),
+      'utf8',
+    );
+    this.templateFn = Handlebars.compile<BoletaTemplateData>(source);
+
+    // Pre-fetch logo como base64 para embeber en el HTML (evita dependencia de red en Puppeteer).
+    const r2Public = this.config.get<string>('R2_PUBLIC_URL', '');
+    if (r2Public) {
+      const logoUrl = `${r2Public}/gts_logo.png`;
+      try {
+        const res = await fetch(logoUrl);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          this.logoBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+          this.logger.log('Logo cargado como base64 correctamente');
+        } else {
+          this.logger.warn(
+            `Logo no encontrado en R2 (${res.status}), el PDF omitirá el logo`,
+          );
+        }
+      } catch (err) {
+        this.logger.warn(
+          'Error al pre-cargar logo, el PDF omitirá el logo',
+          err,
+        );
+      }
+    }
+  }
+
+  /**
+   * Emite boleta para una venta. Idempotente: una venta → una boleta.
+   * Flujo: validar → obtener datos → calcular total → transacción (persistir + PDF + R2).
+   */
+  async emitir(idVenta: number): Promise<Boleta> {
     const existing = await this.boletaRepo.findOne({
       where: { id_venta: idVenta },
     });
@@ -60,49 +144,35 @@ export class BoletasService {
       );
     }
 
-    const ventaRows = await this.dataSource.query<VentaRow[]>(
-      `SELECT v.id_venta, v.id_sede, s.nombre AS sede,
-              e.nombre_completo AS vendedor,
-              c.nombre_completo AS cliente,
-              c.nro_documento   AS doc_cliente,
-              v.fecha_emision
-       FROM Ventas v
-       JOIN Sedes s ON s.id_sede = v.id_sede
-       JOIN Empleados e ON e.id_empleado = v.id_empleado
-       LEFT JOIN Clientes c ON c.id_cliente = v.id_cliente
-       WHERE v.id_venta = $1`,
-      [idVenta],
-    );
-    if (!ventaRows.length)
-      throw new NotFoundException(`Venta ${idVenta} no encontrada`);
-    const venta = ventaRows[0];
-
-    const detalles = await this.dataSource.query<DetalleRow[]>(
-      `SELECT i.nombre AS producto, dv.cantidad,
-              dv.precio_unitario_momento, dv.importe
-       FROM Detalle_Venta dv
-       JOIN Items i ON i.id_item = dv.id_item
-       WHERE dv.id_venta = $1`,
-      [idVenta],
-    );
-
-    const numero = await this.generarNumero(venta.id_sede);
+    const { rows, pagosRows, head, total, subtotal } =
+      await this.queryDatosVenta(idVenta);
+    const numero = await this.generarNumero(head.id_sede);
 
     let boleta = this.boletaRepo.create({
       numero,
       id_venta: idVenta,
       id_reparacion: null,
-      total: dto.total,
+      total,
       estado: 'emitida',
       url_pdf: null,
     });
 
+    // Transacción: si falla PDF o R2 → rollback, boleta no queda persistida.
     await this.dataSource.transaction(async (manager) => {
       boleta = await manager.save(Boleta, boleta);
       try {
-        const html = this.renderHtml(boleta, venta, detalles);
+        const data = this.buildTemplateData(
+          numero,
+          new Date(),
+          head,
+          rows,
+          pagosRows,
+          subtotal,
+          total,
+        );
+        const html = this.templateFn(data);
         const pdfBuffer = await this.generatePdf(html);
-        const key = `boletas/${boleta.numero}.pdf`;
+        const key = `boletas/ventas/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
             Bucket: this.config.get<string>('R2_BUCKET_NAME'),
@@ -122,6 +192,79 @@ export class BoletasService {
     return boleta;
   }
 
+  /** Renderiza HTML con datos reales de la venta. Sin PDF ni R2. Para preview en navegador. */
+  async renderPreview(idVenta: number): Promise<string> {
+    const { rows, pagosRows, head, total, subtotal } =
+      await this.queryDatosVenta(idVenta);
+    const data = this.buildTemplateData(
+      'PREVIEW',
+      new Date(),
+      head,
+      rows,
+      pagosRows,
+      subtotal,
+      total,
+    );
+    return this.templateFn(data);
+  }
+
+  /** Renderiza HTML con datos mock. Sin BD. Para iterar el template en desarrollo. */
+  renderPreviewMock(): string {
+    const data: BoletaTemplateData = {
+      logoBase64: this.logoBase64,
+      sedeNombre: 'Sede Central - Miraflores',
+      sedeDireccion: 'Av. Larco 345, Miraflores, Lima',
+      sedeTelefono: '01-234-5678',
+      numero: 'B001-0000001',
+      fechaEmision: new Date().toLocaleString('es-PE', {
+        timeZone: 'America/Lima',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      vendedor: 'Carlos Mendoza Ríos',
+      clienteNombre: 'Ana García López',
+      clienteTipoDoc: 'DNI',
+      clienteNroDoc: '45678901',
+      detalles: [
+        {
+          producto: 'Laptop ASUS VivoBook 15',
+          sku: 'LAP-ASUS-VB15',
+          cantidad: 1,
+          precioUnitario: '2,499.00',
+          importe: '2,499.00',
+        },
+        {
+          producto: 'Mouse Logitech M170 Inalámbrico',
+          sku: 'ACC-LOG-M170',
+          cantidad: 2,
+          precioUnitario: '45.00',
+          importe: '90.00',
+        },
+        {
+          producto: 'Mochila Targus 15.6"',
+          sku: 'ACC-TRG-156',
+          cantidad: 1,
+          precioUnitario: '129.00',
+          importe: '129.00',
+        },
+      ],
+      subtotal: '2,718.00',
+      tieneDescuento: true,
+      descuento: '218.00',
+      descuentoLabel: '',
+      total: '2,500.00',
+      pagos: [
+        { metodo: 'Efectivo', monto: '500.00' },
+        { metodo: 'Yape', monto: '2,000.00' },
+      ],
+    };
+    return this.templateFn(data);
+  }
+
+  /** Busca boleta por venta. 404 si no existe. */
   async findByVenta(idVenta: number): Promise<Boleta> {
     const boleta = await this.boletaRepo.findOne({
       where: { id_venta: idVenta },
@@ -131,6 +274,108 @@ export class BoletasService {
     return boleta;
   }
 
+  /** Extrae y calcula todos los datos de la venta necesarios para la boleta. */
+  private async queryDatosVenta(idVenta: number): Promise<{
+    rows: BolVistaRow[];
+    pagosRows: PagoRow[];
+    head: BolVistaRow;
+    total: number;
+    subtotal: number;
+  }> {
+    const rows = await this.dataSource.query<BolVistaRow[]>(
+      `SELECT * FROM v_boleta_venta WHERE id_venta = $1`,
+      [idVenta],
+    );
+    if (!rows.length)
+      throw new NotFoundException(`Venta ${idVenta} no encontrada`);
+
+    const pagosRows = await this.dataSource.query<PagoRow[]>(
+      `SELECT metodo_pago, monto FROM Pagos WHERE id_venta = $1 ORDER BY fecha_pago ASC`,
+      [idVenta],
+    );
+
+    const head = rows[0];
+    const subtotal = rows.reduce((s, r) => s + Number(r.importe), 0);
+    const descuento = Number(head.monto_descuento);
+    const tipo = head.tipo_descuento;
+
+    let total: number;
+    if (tipo === 'porcentaje') {
+      total = subtotal * (1 - descuento / 100);
+    } else if (tipo === 'monto_fijo') {
+      total = subtotal - descuento;
+    } else {
+      total = subtotal;
+    }
+    total = Math.max(0, parseFloat(total.toFixed(2)));
+
+    return { rows, pagosRows, head, total, subtotal };
+  }
+
+  /** Construye el objeto de datos para la plantilla Handlebars. */
+  private buildTemplateData(
+    numero: string,
+    fechaEmision: Date,
+    head: BolVistaRow,
+    rows: BolVistaRow[],
+    pagosRows: PagoRow[],
+    subtotal: number,
+    total: number,
+  ): BoletaTemplateData {
+    const descuento = Number(head.monto_descuento);
+    const tipo = head.tipo_descuento;
+
+    // Monto de descuento en soles (para mostrar en plantilla).
+    const descuentoSoles = tipo === 'porcentaje' ? subtotal - total : descuento;
+
+    return {
+      logoBase64: this.logoBase64,
+      sedeNombre: head.sede_nombre,
+      sedeDireccion: head.sede_direccion ?? '',
+      sedeTelefono: head.sede_telefono ?? '',
+      numero,
+      fechaEmision: fechaEmision.toLocaleString('es-PE', {
+        timeZone: 'America/Lima',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      vendedor: head.vendedor,
+      clienteNombre: head.cliente_nombre,
+      clienteTipoDoc: head.cliente_tipo_doc,
+      clienteNroDoc: head.cliente_nro_doc,
+      detalles: rows.map((r) => ({
+        producto: r.producto,
+        sku: r.sku,
+        cantidad: r.cantidad,
+        precioUnitario: this.fmtMoney(Number(r.precio_unitario_momento)),
+        importe: this.fmtMoney(Number(r.importe)),
+      })),
+      subtotal: this.fmtMoney(subtotal),
+      tieneDescuento: descuento > 0,
+      descuento: this.fmtMoney(descuentoSoles),
+      descuentoLabel: tipo === 'porcentaje' ? `${descuento}%` : '',
+      total: this.fmtMoney(total),
+      pagos: pagosRows.map((p) => ({
+        metodo: p.metodo_pago.charAt(0).toUpperCase() + p.metodo_pago.slice(1),
+        monto: this.fmtMoney(Number(p.monto)),
+      })),
+    };
+  }
+
+  private fmtMoney(n: number): string {
+    return new Intl.NumberFormat('es-PE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  }
+
+  /**
+   * Genera número correlativo: B{sede}-{secuencial} (ej: B001-0000001).
+   * COUNT sobre boletas existentes con mismo prefijo.
+   */
   private async generarNumero(idSede: number): Promise<string> {
     const prefix = `B${String(idSede).padStart(3, '0')}`;
     const rows = await this.dataSource.query<{ total: string }[]>(
@@ -141,53 +386,15 @@ export class BoletasService {
     return `${prefix}-${String(seq).padStart(7, '0')}`;
   }
 
-  private renderHtml(
-    boleta: Boleta,
-    venta: VentaRow,
-    detalles: DetalleRow[],
-  ): string {
-    const filas = detalles
-      .map(
-        (d) =>
-          `<tr>
-            <td>${d.producto}</td>
-            <td style="text-align:center">${String(d.cantidad)}</td>
-            <td style="text-align:right">S/ ${Number(d.precio_unitario_momento).toFixed(2)}</td>
-            <td style="text-align:right">S/ ${Number(d.importe).toFixed(2)}</td>
-          </tr>`,
-      )
-      .join('');
-
-    return `<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8"><style>
-  body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
-  h1 { font-size: 1.4rem; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-  th { background: #f0f0f0; padding: 6px; text-align: left; }
-  td { padding: 5px; border-bottom: 1px solid #ddd; }
-  .total { font-weight: bold; font-size: 1.1rem; text-align: right; margin-top: 10px; }
-</style></head>
-<body>
-  <h1>BOLETA DE VENTA</h1>
-  <p><strong>N°:</strong> ${boleta.numero}</p>
-  <p><strong>Fecha:</strong> ${new Date(boleta.fecha_emision).toLocaleString('es-PE')}</p>
-  <p><strong>Sede:</strong> ${venta.sede}</p>
-  <p><strong>Vendedor:</strong> ${venta.vendedor}</p>
-  <p><strong>Cliente:</strong> ${venta.cliente ?? 'Consumidor final'}</p>
-  <table>
-    <thead><tr><th>Producto</th><th>Cant.</th><th>P. Unitario</th><th>Importe</th></tr></thead>
-    <tbody>${filas}</tbody>
-  </table>
-  <p class="total">TOTAL: S/ ${Number(boleta.total).toFixed(2)}</p>
-</body>
-</html>`;
-  }
-
+  /**
+   * Genera PDF con Puppeteer (headless Chrome).
+   * --no-sandbox necesario en Docker. try/finally → cierra navegador siempre.
+   */
   private async generatePdf(html: string): Promise<Buffer> {
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
     try {
       const page = await browser.newPage();

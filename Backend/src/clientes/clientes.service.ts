@@ -1,15 +1,16 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Cliente } from './entities/cliente.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { QueryClienteDto } from './dto/query-cliente.dto';
+import {
+  ClienteDuplicadoException,
+  ClienteNotFoundException,
+} from '../common/exceptions';
 
+/** Registros de la vista v_vendedor_clientes. */
 interface ClienteVista {
   id_cliente: number;
   nombre_completo: string;
@@ -22,42 +23,61 @@ interface ClienteVista {
   ultima_compra: Date | null;
 }
 
+/**
+ * @purpose Servicio de clientes. Lectura → vista v_vendedor_clientes.
+ * Escritura → TypeORM con validación de unicidad (tipo + nro documento).
+ */
 @Injectable()
 export class ClientesService {
   constructor(
     @InjectRepository(Cliente)
     private readonly clienteRepo: Repository<Cliente>,
+    // DataSource para SQL crudo contra vistas.
     private readonly dataSource: DataSource,
   ) {}
 
+  /**
+   * Lista clientes con filtros opcionales (nombre, documento).
+   * SQL parametrizado incremental; ILIKE → case-insensitive.
+   */
   async findAll(query: QueryClienteDto): Promise<ClienteVista[]> {
     let sql = `SELECT * FROM v_vendedor_clientes WHERE 1=1`;
     const params: (string | number)[] = [];
     let idx = 1;
 
-    if (query.nombre) {
-      sql += ` AND nombre_completo ILIKE $${idx++}`;
-      params.push(`%${query.nombre}%`);
-    }
-    if (query.nro_documento) {
-      sql += ` AND nro_documento = $${idx++}`;
-      params.push(query.nro_documento);
+    if (query.search) {
+      sql += ` AND (nombre_completo ILIKE $${idx} OR nro_documento ILIKE $${idx})`;
+      params.push(`%${query.search}%`);
+      idx++;
+    } else {
+      if (query.nombre) {
+        sql += ` AND nombre_completo ILIKE $${idx++}`;
+        params.push(`%${query.nombre}%`);
+      }
+      if (query.nro_documento) {
+        sql += ` AND nro_documento ILIKE $${idx++}`;
+        params.push(`%${query.nro_documento}%`);
+      }
     }
 
     sql += ` ORDER BY nombre_completo`;
     return this.dataSource.query<ClienteVista[]>(sql, params);
   }
 
+  /** Cliente por ID desde vista (incluye total compras). 404 si no existe. */
   async findOne(id: number): Promise<ClienteVista> {
     const rows = await this.dataSource.query<ClienteVista[]>(
       `SELECT * FROM v_vendedor_clientes WHERE id_cliente = $1`,
       [id],
     );
-    if (!rows.length)
-      throw new NotFoundException(`Cliente ${id} no encontrado`);
+    if (!rows.length) throw new ClienteNotFoundException(id);
     return rows[0];
   }
 
+  /**
+   * Crea cliente validando unicidad (tipo_documento + nro_documento).
+   * Validación en app → mensaje descriptivo, no error críptico de BD.
+   */
   async create(dto: CreateClienteDto): Promise<Cliente> {
     const exists = await this.clienteRepo.findOne({
       where: {
@@ -66,20 +86,31 @@ export class ClientesService {
       },
     });
     if (exists) {
-      throw new ConflictException(
-        `Ya existe un cliente con ${dto.tipo_documento} ${dto.nro_documento}`,
+      throw new ClienteDuplicadoException(
+        dto.tipo_documento,
+        dto.nro_documento,
       );
     }
-    const cliente = this.clienteRepo.create(dto);
+    const cliente = this.clienteRepo.create({
+      ...dto,
+      es_extranjero: dto.tipo_documento !== 'DNI',
+    });
     return this.clienteRepo.save(cliente);
   }
 
+  /**
+   * Actualiza cliente (patch parcial). Object.assign → solo campos presentes.
+   * Si cambia tipo_documento, recalcula es_extranjero.
+   */
   async update(id: number, dto: UpdateClienteDto): Promise<Cliente> {
     const cliente = await this.clienteRepo.findOne({
       where: { id_cliente: id },
     });
-    if (!cliente) throw new NotFoundException(`Cliente ${id} no encontrado`);
+    if (!cliente) throw new ClienteNotFoundException(id);
     Object.assign(cliente, dto);
+    if (dto.tipo_documento !== undefined) {
+      cliente.es_extranjero = dto.tipo_documento !== 'DNI';
+    }
     return this.clienteRepo.save(cliente);
   }
 }

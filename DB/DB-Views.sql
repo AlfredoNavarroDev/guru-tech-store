@@ -1,20 +1,18 @@
 SET timezone = 'America/Lima';
 
 -- ============================================================
--- DB-Views.sql
--- Vistas organizadas por rol:
---   1-5   : Propietario        (visión global de todas las sedes)
---   6-10  : Propietario+Gerente (por sede; propietario sin filtro, gerente filtra por id_sede)
---   11-14 : Vendedor
---   15-16 : Vendedor + Técnico (historial del cliente, sin costos de compra)
---   17-20 : Técnico
---   21-24 : Abastecedor
+-- DB-Views.sql — 26 vistas organizadas por rol:
+--   1-6   : Propietario        (visión global de todas las sedes)
+--   7-12  : Gerente            (filtra por id_sede; propietario sin filtro)
+--   13-16 : Vendedor
+--   17-18 : Vendedor + Técnico (historial del cliente, sin costos de compra)
+--   19-22 : Técnico
+--   23-26 : Abastecedor
 --
--- Regla de visibilidad de costos:
---   Propietario, Gerente, Abastecedor → ven precio_compra_actual y costo_unitario_momento
---     (solo en vistas de DETALLE; las vistas de resumen KPI como v_propietario_resumen_sedes
---      exponen únicamente totales e ingresos agregados, sin columnas de costo por línea)
---   Vendedor, Técnico           → solo ven precios de venta
+-- Visibilidad de costos:
+--   Propietario, Gerente, Abastecedor → ven precio_compra y costo_unitario
+--     (solo en vistas de detalle; las KPI muestran totales agregados sin costo por línea)
+--   Vendedor, Técnico → solo ven precios de venta
 -- ============================================================
 
 
@@ -212,10 +210,8 @@ GROUP BY e.id_empleado, s.id_sede, s.nombre,
          e.created_by, ec.nombre_completo, e.created_at;
 
 
--- 6-bis. Listado plano de todas las Sedes (lectura sin filtro para CRUD global del Propietario)
--- Motivo: v_propietario_resumen_sedes es una vista KPI agregada; el Propietario necesita una vista
---         simple y directa de Sedes para operaciones de gestión (crear, editar, eliminar).
---         Incluye esta_habilitada y el nombre del empleado que creó el registro.
+-- 6-bis. Listado plano de Sedes para CRUD global del Propietario.
+-- v_propietario_resumen_sedes es KPI agregada; esta vista es para gestión (crear, editar, eliminar).
 CREATE OR REPLACE VIEW v_propietario_sedes AS
 SELECT
     s.id_sede,
@@ -469,9 +465,10 @@ SELECT
     i.sku,
     dv.cantidad,
     dv.precio_unitario_momento,
+    dv.precio_normal_momento,
     dv.importe,
     v.monto_descuento,
-    -- Sale-header total repeated on every detail row; do NOT aggregate this column across rows of the same sale.
+    -- Total de cabecera repetido por fila; NO agregar esta columna entre filas de la misma venta.
     SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta_cabecera,
     b.numero                                                          AS nro_boleta
 FROM Ventas v
@@ -481,6 +478,28 @@ LEFT JOIN Clientes c      ON c.id_cliente   = v.id_cliente
 JOIN  Detalle_Venta dv    ON dv.id_venta    = v.id_venta
 JOIN  Items i             ON i.id_item      = dv.id_item
 LEFT JOIN Boletas b       ON b.id_venta     = v.id_venta;
+
+
+-- 13b. Resumen diario del vendedor (KPIs de dashboard: ventas, ingresos, clientes atendidos)
+CREATE OR REPLACE VIEW v_vendedor_resumen_diario AS
+WITH ventas_dedup AS (
+    SELECT DISTINCT ON (id_venta)
+        id_venta,
+        id_empleado,
+        cliente,
+        total_venta_cabecera,
+        DATE(fecha_emision AT TIME ZONE 'America/Lima') AS fecha
+    FROM v_vendedor_ventas
+    ORDER BY id_venta
+)
+SELECT
+    id_empleado,
+    fecha,
+    COUNT(*)                                         AS ventas,
+    COALESCE(SUM(total_venta_cabecera), 0)           AS ingresos,
+    COUNT(*)                                         AS clientes_atendidos
+FROM ventas_dedup
+GROUP BY id_empleado, fecha;
 
 
 -- 14. Directorio de clientes con conteo de compras
@@ -526,7 +545,7 @@ SELECT
     dv.precio_unitario_momento,
     dv.importe,
     v.monto_descuento,
-    -- Sale-header total repeated on every detail row; do NOT aggregate this column across rows of the same sale.
+    -- Total de cabecera repetido por fila; NO agregar entre filas de la misma venta.
     SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta_cabecera,
     b.numero                                                          AS nro_boleta,
     b.total                                                           AS boleta_total,
@@ -835,3 +854,41 @@ LEFT JOIN Clientes c    ON c.id_cliente   = v.id_cliente
 JOIN  Items idev        ON idev.id_item   = cp.id_item_devuelto
 JOIN  Items ient        ON ient.id_item   = cp.id_item_entregado
 LEFT JOIN Garantias g   ON g.id_garantia  = cp.id_garantia;
+
+
+-- ============================================================
+-- SECCIÓN 8: SERVICIO DE BOLETAS
+-- Vista interna usada exclusivamente por BoletasService.
+-- No filtrar por rol — el servicio filtra por id_venta.
+-- ============================================================
+
+-- 26. Datos completos para renderizado de boleta de venta
+CREATE OR REPLACE VIEW v_boleta_venta AS
+SELECT
+    v.id_venta,
+    v.id_sede,
+    s.nombre                                                            AS sede_nombre,
+    s.direccion                                                         AS sede_direccion,
+    s.telefono                                                          AS sede_telefono,
+    v.id_empleado,
+    e.nombre_completo                                                   AS vendedor,
+    v.fecha_emision,
+    v.monto_descuento,
+    v.tipo_descuento,
+    v.id_cliente,
+    c.nombre_completo                                                   AS cliente_nombre,
+    c.tipo_documento                                                    AS cliente_tipo_doc,
+    c.nro_documento                                                     AS cliente_nro_doc,
+    i.nombre                                                            AS producto,
+    i.sku,
+    dv.cantidad,
+    dv.precio_unitario_momento,
+    dv.importe,
+    -- Total de cabecera repetido por fila; NO agregar entre filas de la misma venta.
+    SUM(dv.importe) OVER (PARTITION BY v.id_venta) - v.monto_descuento AS total_venta
+FROM Ventas v
+JOIN  Sedes s           ON s.id_sede     = v.id_sede
+JOIN  Empleados e       ON e.id_empleado = v.id_empleado
+LEFT JOIN Clientes c    ON c.id_cliente  = v.id_cliente
+JOIN  Detalle_Venta dv  ON dv.id_venta   = v.id_venta
+JOIN  Items i           ON i.id_item     = dv.id_item;

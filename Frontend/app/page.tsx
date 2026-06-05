@@ -244,9 +244,16 @@ export default function LandingPage() {
       {/* ── NAVBAR ── */}
       <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <span className="text-sm font-extrabold tracking-tight text-text-heading">
-            Guru Tech Store
-          </span>
+          <div className="flex items-center gap-2">
+            <img
+              src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
+              alt="Guru Tech Store"
+              className="h-7 w-7 rounded-md object-contain"
+            />
+            <span className="text-sm font-extrabold tracking-tight text-text-heading">
+              Guru Tech Store
+            </span>
+          </div>
           {/* Desktop links */}
           <div className="hidden items-center gap-6 md:flex">
             {NAV_ROLES.map(({ id, label }) => (
@@ -328,7 +335,7 @@ export default function LandingPage() {
           <BlurFade delay={0} duration={0.5}>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-300">
               <Zap className="h-3 w-3" />
-              Sistema ERP · Guru Tech Store
+              Sistema de Gestión · Guru Tech Store
             </div>
             <h1 className="text-4xl font-extrabold leading-tight text-white sm:text-5xl lg:text-6xl">
               Bienvenido al sistema

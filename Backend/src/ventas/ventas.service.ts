@@ -1,19 +1,27 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Venta } from './entities/venta.entity';
 import { DetalleVenta } from './entities/detalle-venta.entity';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { QueryVentasDto } from './dto/query-ventas.dto';
+import {
+  DetalleVentaResponseDto,
+  ResumenHoyDto,
+  VentaRecienteDto,
+  VentaResponseDto,
+} from './dto/venta-response.dto';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { PaginatedResult } from '../common/dto/pagination.dto';
+import {
+  DescuentoSinJustificacionException,
+  ImporteInvalidoException,
+  StockInsuficienteException,
+  VentaNotFoundException,
+} from '../common/exceptions';
 
-interface VentaVista {
+/** Vista SQL que une Ventas + Detalle_Venta + Items + Clientes + Boletas. */
+export interface VentaVista {
   id_venta: number;
   id_sede: number;
   sede: string;
@@ -25,16 +33,25 @@ interface VentaVista {
   sku: string;
   cantidad: number;
   precio_unitario_momento: number;
+  precio_normal_momento: number | null;
   importe: number;
   monto_descuento: number;
-  total_venta: number;
+  total_venta_cabecera: number;
   nro_boleta: string | null;
 }
 
+/** Tipo para parsear COUNT(*) que PostgreSQL devuelve como string. */
 interface CountRow {
   total: string;
 }
 
+/**
+ * @purpose Servicio principal de ventas.
+ * @dependencies TypeORM repos (Venta, DetalleVenta), DataSource.
+ * @side_effects Crea ventas en transacción atómica, valida importes y stock.
+ *
+ * PagosService → abonos. BoletasService → PDF fiscal.
+ */
 @Injectable()
 export class VentasService {
   constructor(
@@ -42,33 +59,44 @@ export class VentasService {
     private readonly ventaRepo: Repository<Venta>,
     @InjectRepository(DetalleVenta)
     private readonly detalleRepo: Repository<DetalleVenta>,
+    // DataSource para transacciones y SQL crudo (vista v_vendedor_ventas).
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateVentaDto, user: JwtPayload): Promise<Venta> {
+  /**
+   * Crea venta + detalles en transacción atómica.
+   * Valida: descuento con justificación, importe = precio × cantidad (±0.01).
+   */
+  async create(
+    dto: CreateVentaDto,
+    user: JwtPayload,
+  ): Promise<VentaResponseDto> {
+    // Descuento > 0 requiere justificación (auditoría para el propietario).
     if ((dto.monto_descuento ?? 0) > 0 && !dto.justificacion_descuento) {
-      throw new BadRequestException(
-        'justificacion_descuento es obligatorio cuando monto_descuento > 0',
-      );
+      throw new DescuentoSinJustificacionException();
     }
 
+    // Servidor recalcula importe (no confía en el cliente). Tolerancia ±0.01.
     for (const item of dto.items) {
       const expected = parseFloat(
         (item.precio_unitario_momento * item.cantidad).toFixed(2),
       );
       const actual = parseFloat(item.importe.toFixed(2));
       if (Math.abs(expected - actual) > 0.01) {
-        throw new BadRequestException(
-          `Importe inválido para id_item ${item.id_item}: esperado ${expected}, recibido ${actual}`,
-        );
+        throw new ImporteInvalidoException(item.id_item, expected, actual);
       }
     }
 
+    // Ordenar ítems por id_item ASC → previene deadlocks en inserts concurrentes.
+    const sortedItems = [...dto.items].sort((a, b) => a.id_item - b.id_item);
+
     let savedVenta!: Venta;
     try {
+      // Transacción: si falla un detalle → ROLLBACK de toda la venta.
       await this.dataSource.transaction(async (manager) => {
         const venta = manager.create(Venta, {
           id_cliente: dto.id_cliente ?? null,
+          // id_empleado e id_sede desde JWT → vendedor no puede falsear sede.
           id_empleado: user.sub,
           id_sede: user.id_sede,
           monto_descuento: dto.monto_descuento ?? 0,
@@ -77,12 +105,14 @@ export class VentasService {
         });
         savedVenta = await manager.save(Venta, venta);
 
-        for (const item of dto.items) {
+        for (const item of sortedItems) {
+          // Costo congelado para margen histórico aunque cambie después.
           const detalle = manager.create(DetalleVenta, {
             id_venta: savedVenta.id_venta,
             id_item: item.id_item,
             cantidad: item.cantidad,
             precio_unitario_momento: item.precio_unitario_momento,
+            precio_normal_momento: item.precio_normal_momento ?? null,
             costo_unitario_momento: item.costo_unitario_momento,
             importe: item.importe,
           });
@@ -90,51 +120,113 @@ export class VentasService {
         }
       });
     } catch (err: unknown) {
-      const error = err as Error;
-      if (error.message?.includes('Stock insuficiente')) {
-        throw new ConflictException(error.message);
+      const pgErr = err as { code?: string; message?: string };
+      // 40P01: deadlock → pedir reintento.
+      if (pgErr.code === '40P01') {
+        throw new ConflictException({
+          message: 'Deadlock detectado, reintenta la operación',
+          retry: true,
+        });
+      }
+      // Trigger trg_descontar_stock → 'Stock insuficiente' → 409 en vez de 500.
+      if (pgErr.message?.includes('Stock insuficiente')) {
+        throw new StockInsuficienteException(pgErr.message);
       }
       throw err;
     }
 
-    return (await this.ventaRepo.findOne({
+    // Recargar con relaciones → manager.save() solo devuelve campos de la tabla.
+    const venta = (await this.ventaRepo.findOne({
       where: { id_venta: savedVenta.id_venta },
       relations: { detalles: true },
     })) as Venta;
+
+    // Mapeo a DTO → no expone costo_unitario_momento (dato sensible de margen).
+    return {
+      id_venta: venta.id_venta,
+      fecha_emision: venta.fecha_emision,
+      id_cliente: venta.id_cliente,
+      id_empleado: venta.id_empleado,
+      id_sede: venta.id_sede,
+      monto_descuento: venta.monto_descuento,
+      tipo_descuento: venta.tipo_descuento,
+      justificacion_descuento: venta.justificacion_descuento,
+      created_at: venta.created_at,
+      updated_at: venta.updated_at,
+      detalles: venta.detalles.map(
+        (d): DetalleVentaResponseDto => ({
+          id_detalle_v: d.id_detalle_v,
+          id_venta: d.id_venta,
+          id_item: d.id_item,
+          cantidad: d.cantidad,
+          precio_unitario_momento: d.precio_unitario_momento,
+          precio_normal_momento: d.precio_normal_momento,
+          importe: d.importe,
+          created_at: d.created_at,
+        }),
+      ),
+    };
   }
 
+  /**
+   * Historial paginado del vendedor. SQL dinámico sobre v_vendedor_ventas.
+   * CTE paged_ids → OFFSET/LIMIT sobre ventas, no filas de detalle.
+   */
   async findAll(
     user: JwtPayload,
     query: QueryVentasDto,
   ): Promise<PaginatedResult<VentaVista>> {
-    let sql = `SELECT * FROM v_vendedor_ventas WHERE id_empleado = $1`;
-    const params: (string | number)[] = [user.sub];
+    // Misma whereClause para COUNT y CTE → consistencia.
+    let whereClause = `id_empleado = $1`;
+    const filterParams: (string | number)[] = [user.sub];
     let idx = 2;
 
     if (query.fecha_desde) {
-      sql += ` AND fecha_emision >= $${idx++}`;
-      params.push(query.fecha_desde);
+      whereClause += ` AND fecha_emision >= $${idx++}`;
+      filterParams.push(query.fecha_desde);
     }
     if (query.fecha_hasta) {
-      sql += ` AND fecha_emision <= $${idx++}`;
-      params.push(`${query.fecha_hasta} 23:59:59`);
+      // 23:59:59 → rango inclusivo hasta fin del día.
+      whereClause += ` AND fecha_emision <= $${idx++}`;
+      filterParams.push(`${query.fecha_hasta} 23:59:59`);
     }
     if (query.id_cliente !== undefined) {
-      sql += ` AND id_venta IN (SELECT id_venta FROM Ventas WHERE id_cliente = $${idx++})`;
-      params.push(query.id_cliente);
+      whereClause += ` AND id_venta IN (SELECT id_venta FROM Ventas WHERE id_cliente = $${idx++})`;
+      filterParams.push(query.id_cliente);
+    }
+    if (query.nombre_cliente) {
+      whereClause += ` AND cliente ILIKE $${idx++}`;
+      filterParams.push(`%${query.nombre_cliente}%`);
     }
 
-    const countSql = `SELECT COUNT(DISTINCT id_venta) AS total FROM (${sql}) sub`;
+    const countSql = `SELECT COUNT(DISTINCT id_venta) AS total FROM v_vendedor_ventas WHERE ${whereClause}`;
     const countResult = await this.dataSource.query<CountRow[]>(
       countSql,
-      params,
+      filterParams,
     );
     const total = parseInt(countResult[0].total, 10);
 
-    sql += ` ORDER BY fecha_emision DESC OFFSET $${idx++} LIMIT $${idx++}`;
-    params.push((query.page - 1) * query.limit, query.limit);
+    // CTE: pagina ventas distintas, no filas de detalle (bug fix).
+    const pageParams = [
+      ...filterParams,
+      (query.page - 1) * query.limit,
+      query.limit,
+    ];
+    const sql = `
+      WITH paged_ids AS (
+        SELECT DISTINCT id_venta, fecha_emision
+        FROM v_vendedor_ventas
+        WHERE ${whereClause}
+        ORDER BY fecha_emision DESC
+        OFFSET $${idx} LIMIT $${idx + 1}
+      )
+      SELECT vv.*
+      FROM v_vendedor_ventas vv
+      INNER JOIN paged_ids pv ON vv.id_venta = pv.id_venta
+      ORDER BY pv.fecha_emision DESC, vv.id_venta DESC
+    `;
 
-    const items = await this.dataSource.query<VentaVista[]>(sql, params);
+    const items = await this.dataSource.query<VentaVista[]>(sql, pageParams);
 
     return {
       items,
@@ -145,12 +237,63 @@ export class VentasService {
     };
   }
 
+  /**
+   * Detalle de una venta (múltiples filas de la vista = una por ítem).
+   * Filtro id_empleado → vendedor no ve ventas ajenas.
+   */
   async findOne(id: number, user: JwtPayload): Promise<VentaVista[]> {
     const rows = await this.dataSource.query<VentaVista[]>(
       `SELECT * FROM v_vendedor_ventas WHERE id_venta = $1 AND id_empleado = $2`,
       [id, user.sub],
     );
-    if (!rows.length) throw new NotFoundException(`Venta ${id} no encontrada`);
+    if (!rows.length) throw new VentaNotFoundException(id);
     return rows;
+  }
+
+  /** KPIs del día: ventas, ingresos, clientes (hoy vs ayer) + 5 recientes. */
+  async getResumenHoy(user: JwtPayload): Promise<ResumenHoyDto> {
+    interface StatsRow {
+      ventas_hoy: string;
+      ingresos_hoy: string;
+      clientes_hoy: string;
+      ventas_ayer: string;
+      ingresos_ayer: string;
+      clientes_ayer: string;
+    }
+
+    const [stats] = await this.dataSource.query<StatsRow[]>(
+      `SELECT
+         COALESCE(SUM(ventas)             FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date),         0) AS ventas_hoy,
+         COALESCE(SUM(ingresos)           FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date),         0) AS ingresos_hoy,
+         COALESCE(SUM(clientes_atendidos) FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date),         0) AS clientes_hoy,
+         COALESCE(SUM(ventas)             FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date - 1),     0) AS ventas_ayer,
+         COALESCE(SUM(ingresos)           FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date - 1),     0) AS ingresos_ayer,
+         COALESCE(SUM(clientes_atendidos) FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date - 1),     0) AS clientes_ayer
+       FROM v_vendedor_resumen_diario
+       WHERE id_empleado = $1
+         AND fecha IN ((CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date - 1)`,
+      [user.sub],
+    );
+
+    const recientes = await this.dataSource.query<VentaRecienteDto[]>(
+      `SELECT DISTINCT ON (id_venta)
+         id_venta, cliente, total_venta_cabecera, fecha_emision
+       FROM v_vendedor_ventas
+       WHERE id_empleado = $1
+         AND DATE(fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+       ORDER BY id_venta DESC
+       LIMIT 5`,
+      [user.sub],
+    );
+
+    return {
+      ventas_hoy: parseInt(stats.ventas_hoy, 10),
+      ingresos_hoy: parseFloat(stats.ingresos_hoy),
+      clientes_hoy: parseInt(stats.clientes_hoy, 10),
+      ventas_ayer: parseInt(stats.ventas_ayer, 10),
+      ingresos_ayer: parseFloat(stats.ingresos_ayer),
+      clientes_ayer: parseInt(stats.clientes_ayer, 10),
+      recientes,
+    };
   }
 }

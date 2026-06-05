@@ -13,25 +13,46 @@ import { PagosModule } from './pagos/pagos.module';
 
 @Module({
   imports: [
+    // ConfigModule global → ConfigService disponible en todos los módulos.
+    // Joi valida .env al arrancar; abortEarly → falla rápido en CI.
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: envValidationSchema,
       validationOptions: { abortEarly: true },
     }),
+
+    // forRootAsync → espera a que ConfigService cargue .env antes de conectar BD.
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT', 5432),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASS'),
-        database: config.get<string>('DB_NAME'),
-        synchronize: false,
-        logging: config.get<string>('NODE_ENV') === 'development',
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      }),
+      useFactory: (config: ConfigService) => {
+        const isProd = config.get<string>('NODE_ENV') === 'production';
+        const databaseUrl = config.get<string>('DATABASE_URL');
+
+        const baseConfig = {
+          type: 'postgres' as const,
+          synchronize: false,
+          logging: !isProd,
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          ssl: isProd ? { rejectUnauthorized: false } : false,
+        };
+
+        // DATABASE_URL (Neon) tiene precedencia sobre vars individuales.
+        if (databaseUrl) {
+          return { ...baseConfig, url: databaseUrl };
+        }
+
+        return {
+          ...baseConfig,
+          host: config.get<string>('DB_HOST'),
+          port: config.get<number>('DB_PORT', 5432),
+          username: config.get<string>('DB_USER'),
+          password: config.get<string>('DB_PASS'),
+          database: config.get<string>('DB_NAME'),
+        };
+      },
     }),
+
+    // Módulos del Sprint 1 — flujo Vendedor.
     AuthModule,
     ClientesModule,
     CatalogoModule,

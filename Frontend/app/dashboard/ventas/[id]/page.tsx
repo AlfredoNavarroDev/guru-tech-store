@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useEffect, useState } from "react"
+import { use, useEffect, useState, memo } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -11,13 +11,16 @@ import {
   AlertCircle,
   Store,
   Calendar,
-  Tag,
   FileText,
   Ban,
+  Download,
+  ExternalLink,
+  Loader2,
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
-import { cn } from "@/lib/utils"
-import { getVenta, getPagos, type VentaVista, type Pago } from "@/lib/api/ventas"
+import { cn, formatNum } from "@/lib/utils"
+import { toast } from "sonner"
+import { getVenta, getPagos, getBoleta, emitirBoleta, type VentaVista, type Pago, type Boleta } from "@/lib/api/ventas"
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -31,9 +34,7 @@ function formatDate(iso: string) {
   })
 }
 
-function formatSoles(n: number | string | null | undefined) {
-  return `S/ ${Number(n ?? 0).toFixed(2)}`
-}
+const formatSoles = (n: number | string | null | undefined) => `S/ ${formatNum(n)}`
 
 function metodoBadge(metodo: string) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -66,7 +67,7 @@ function SkeletonSection({ rows = 3 }: { rows?: number }) {
 
 // ─── section card ─────────────────────────────────────────────────────────────
 
-function SectionCard({
+const SectionCard = memo(function SectionCard({
   icon: Icon,
   title,
   accent = "#3b82f6",
@@ -82,7 +83,7 @@ function SectionCard({
   return (
     <BlurFade delay={delay} duration={0.45}>
       <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
-        <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-2.5">
+        <div className="border-b border-gray-100 px-4 sm:px-6 py-4 flex items-center gap-2.5">
           <div
             className="flex h-8 w-8 items-center justify-center rounded-lg"
             style={{ backgroundColor: `${accent}20` }}
@@ -91,13 +92,13 @@ function SectionCard({
           </div>
           <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {children}
         </div>
       </div>
     </BlurFade>
   )
-}
+})
 
 // ─── table helpers ────────────────────────────────────────────────────────────
 
@@ -133,54 +134,76 @@ function Td({ children, right, mono }: { children: React.ReactNode; right?: bool
 export default function VentaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const ventaId = Number(id)
+  // Derivado en render — evita setState sincrónico dentro de useEffect
+  const idError = isNaN(ventaId) ? "ID de venta inválido." : null
   const router = useRouter()
 
   const [rows, setRows] = useState<VentaVista[]>([])
   const [pagos, setPagos] = useState<Pago[]>([])
-  const [loading, setLoading] = useState(true)
+  const [boleta, setBoleta] = useState<Boleta | null>(null)
+  const [boletaLoading, setBoletaLoading] = useState(!idError)
+  const [emitting, setEmitting] = useState(false)
+  // Razonamiento: si ID es inválido, loading arranca en false (se muestra error derivado directo).
+  const [loading, setLoading] = useState(!idError)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isNaN(ventaId)) {
-      setError("ID de venta inválido.")
-      setLoading(false)
-      return
-    }
-
     let cancelled = false
 
     ;(async () => {
       try {
-        const [ventaRows, pagosData] = await Promise.all([
+        const [ventaRows, pagosData, boletaData] = await Promise.all([
           getVenta(ventaId),
           getPagos(ventaId),
+          getBoleta(ventaId),
         ])
         if (!cancelled) {
           setRows(ventaRows)
           setPagos(pagosData)
+          setBoleta(boletaData)
         }
       } catch {
         if (!cancelled) setError("No se pudo cargar el detalle de la venta.")
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setBoletaLoading(false)
+        }
       }
     })()
 
     return () => { cancelled = true }
   }, [ventaId])
 
+  async function handleEmitir() {
+    setEmitting(true)
+    try {
+      const result = await emitirBoleta(ventaId)
+      setBoleta(result)
+      toast.success(`Boleta ${result.numero} emitida correctamente`)
+    } catch {
+      toast.error("No se pudo emitir la boleta. Intenta de nuevo.")
+    } finally {
+      setEmitting(false)
+    }
+  }
+
   // ─── derived ───────────────────────────────────────────────────────────────
 
   const first = rows[0] ?? null
   const subtotal = rows.reduce((s, r) => s + Number(r.importe), 0)
   const descuento = Number(first?.monto_descuento ?? 0)
-  const totalVenta = Number(first?.total_venta ?? 0)
+  const totalVenta = Number(first?.total_venta_cabecera ?? 0)
 
   // ─── error / loading states ────────────────────────────────────────────────
 
-  if (error) {
+  // Combina error de fetch con error de ID inválido (derivado en render)
+  const displayError = error ?? idError
+  const isRetryable = error !== null // solo reintentar si fue error de fetch
+
+  if (displayError) {
     return (
-      <div className="bg-bg-main min-h-full p-8">
+      <div className="bg-bg-main min-h-full p-4 sm:p-6 lg:p-8">
         <button
           onClick={() => router.back()}
           className="mb-8 flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-900"
@@ -191,13 +214,15 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
         <div className="flex flex-col items-center justify-center rounded-2xl border border-red-200 bg-red-50 py-20 text-center">
           <AlertCircle className="mb-3 h-10 w-10 text-red-500" />
           <p className="mb-1 text-sm font-medium text-gray-900">Error al cargar</p>
-          <p className="mb-5 max-w-xs text-xs text-gray-500">{error}</p>
-          <button
-            onClick={() => { setError(null); setLoading(true); router.refresh() }}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            Reintentar
-          </button>
+          <p className="mb-5 max-w-xs text-xs text-gray-500">{displayError}</p>
+          {isRetryable && (
+            <button
+              onClick={() => { setError(null); setLoading(true); router.refresh() }}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Reintentar
+            </button>
+          )}
         </div>
       </div>
     )
@@ -206,7 +231,7 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
   // ─── render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-bg-main min-h-full p-8">
+    <div className="bg-bg-main min-h-full p-4 sm:p-6 lg:p-8">
       {/* Back */}
       <BlurFade delay={0} duration={0.4}>
         <button
@@ -230,8 +255,8 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
           ) : first ? (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50">
-                  <Receipt className="h-5 w-5 text-blue-500" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-100">
+                  <Receipt className="h-5 w-5 text-gray-900" />
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900">Venta #{ventaId}</h1>
               </div>
@@ -274,7 +299,6 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
                   <thead>
                     <tr className="bg-gray-50">
                       <Th>Producto</Th>
-                      <Th>SKU</Th>
                       <Th right>Cant.</Th>
                       <Th right>P. Unit.</Th>
                       <Th right>Importe</Th>
@@ -286,14 +310,17 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
                         <Td>
                           <span className="font-medium text-gray-900">{row.producto}</span>
                         </Td>
-                        <Td>
-                          <span className="flex items-center gap-1.5 text-gray-500">
-                            <Tag className="h-3 w-3" />
-                            {row.sku}
-                          </span>
-                        </Td>
                         <Td right mono>{row.cantidad}</Td>
-                        <Td right mono>{formatSoles(row.precio_unitario_momento)}</Td>
+                        <Td right mono>
+                          {row.precio_normal_momento != null ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-xs text-gray-400 line-through">{formatSoles(row.precio_normal_momento)}</span>
+                              <span className="text-emerald-600 font-semibold">{formatSoles(row.precio_unitario_momento)}</span>
+                            </div>
+                          ) : (
+                            formatSoles(row.precio_unitario_momento)
+                          )}
+                        </Td>
                         <Td right mono>{formatSoles(row.importe)}</Td>
                       </tr>
                     ))}
@@ -309,8 +336,8 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
               <SkeletonSection rows={1} />
             ) : (
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100">
-                  <User className="h-4.5 w-4.5 text-violet-600" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                  <User className="h-4.5 w-4.5 text-gray-900" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
@@ -326,22 +353,64 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* Boleta */}
           <SectionCard icon={FileText} title="Boleta" accent="#10b981" delay={0.2}>
-            {loading ? (
+            {boletaLoading ? (
               <SkeletonSection rows={1} />
-            ) : first?.nro_boleta ? (
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
-                  <FileText className="h-4.5 w-4.5 text-green-600" />
+            ) : boleta ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                    <FileText className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Número de boleta</p>
+                    <p className="font-mono text-sm font-semibold text-gray-900">{boleta.numero}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Número de boleta</p>
-                  <p className="font-mono text-sm font-semibold text-gray-900">{first.nro_boleta}</p>
-                </div>
+                {boleta.url_pdf ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => window.open(boleta.url_pdf!, "_blank")}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Ver PDF
+                    </button>
+                    <a
+                      href={boleta.url_pdf}
+                      download={`boleta-${boleta.numero}.pdf`}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Descargar
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-xs text-red-500">PDF no disponible — error al generar</p>
+                )}
               </div>
             ) : (
-              <div className="flex items-center gap-3 text-gray-500">
-                <Ban className="h-4 w-4" />
-                <p className="text-sm">Sin boleta registrada</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-gray-500">
+                  <Ban className="h-4 w-4" />
+                  <p className="text-sm">Sin boleta registrada</p>
+                </div>
+                <button
+                  onClick={handleEmitir}
+                  disabled={emitting || loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {emitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4" />
+                      Emitir Boleta
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </SectionCard>

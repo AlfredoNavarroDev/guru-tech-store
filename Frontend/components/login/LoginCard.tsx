@@ -3,14 +3,16 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { IdCard, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import { IdCard, Lock, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react"
 import { AnimatedGradientText } from "@/components/ui/animated-gradient-text"
 import { MagicCard } from "@/components/ui/magic-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { loginApi, saveSession, ApiError } from "@/lib/api"
+import { toast } from "sonner"
+import { loginApi, saveSession } from "@/lib/api/auth"
+import { ApiError } from "@/lib/api/client"
 
 export function LoginCard() {
   const router = useRouter()
@@ -18,12 +20,13 @@ export function LoginCard() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<{ nro_documento?: string; password?: string; form?: string }>({})
+  const [errors, setErrors] = useState<{ nro_documento?: string; password?: string }>({})
 
   const validate = () => {
     const newErrors: typeof errors = {}
-    if (!nro_documento || nro_documento.trim().length < 4)
-      newErrors.nro_documento = "Ingresa tu número de documento"
+    const docLen = nro_documento.trim().length
+    if (!nro_documento || ![8, 9, 12].includes(docLen))
+      newErrors.nro_documento = "Debe tener 8 (DNI), 9 (pasaporte) o 12 (CE) caracteres"
     if (!password || password.length < 6)
       newErrors.password = "Mínimo 6 caracteres"
     return newErrors
@@ -41,9 +44,9 @@ export function LoginCard() {
       router.push("/dashboard")
     } catch (err) {
       if (err instanceof ApiError) {
-        setErrors({ form: err.message })
+        toast.error(err.message)
       } else {
-        setErrors({ form: "No se pudo conectar con el servidor" })
+        toast.error("No se pudo conectar con el servidor")
       }
     } finally {
       setLoading(false)
@@ -51,7 +54,7 @@ export function LoginCard() {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-center px-6 py-12">
+    <div className="relative flex flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-block">
@@ -66,18 +69,13 @@ export function LoginCard() {
           </p>
         </div>
 
-        <MagicCard className="rounded-2xl" gradientColor="rgba(59,130,246,0.08)">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-8">
+        <MagicCard className="rounded-2xl border border-gray-200 shadow-lg" gradientColor="rgba(59,130,246,0.08)" cardBg="#ffffff">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-5 sm:p-8">
             <div>
               <p className="text-xl font-semibold text-gray-900">Autorizar acceso</p>
               <p className="mt-1 text-sm text-gray-500">Autenticación segura para el acceso al sistema.</p>
             </div>
 
-            {errors.form && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-                <p className="text-sm text-red-600">{errors.form}</p>
-              </div>
-            )}
 
             <div className="flex flex-col gap-4">
               {/* Documento */}
@@ -153,21 +151,21 @@ export function LoginCard() {
                 "Iniciar sesión →"
               )}
             </Button>
-
-            <div className="flex items-center justify-between">
-              <a href="#" className="text-xs uppercase tracking-widest text-blue-500 transition-colors hover:text-blue-600">
-                ¿Olvidaste tu contraseña?
-              </a>
-              <a href="#" className="text-xs uppercase tracking-widest text-gray-400 transition-colors hover:text-gray-600">
-                Solicitar soporte
-              </a>
-            </div>
           </form>
         </MagicCard>
 
-        <p className="mt-8 text-center text-xs uppercase tracking-widest text-gray-400">
-          © 2026 GURU TECH STORE. SISTEMA DE GESTIÓN DE PRECISIÓN.
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-4">
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-blue-600"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al inicio
+          </Link>
+          <p className="text-xs uppercase tracking-widest text-gray-400">
+            Guru Tech Dev · © 2026
+          </p>
+        </div>
       </div>
     </div>
   )

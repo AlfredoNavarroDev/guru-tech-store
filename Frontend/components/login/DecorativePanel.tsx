@@ -19,14 +19,16 @@ export function DecorativePanel() {
 
       {/* Top: logo + brand */}
       <div className="relative z-10 flex flex-col gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-xl font-bold text-white">
-          G
-        </div>
+        <img
+          src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
+          alt="Guru Tech Store"
+          className="h-12 w-12 rounded-xl object-contain"
+        />
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
             GURU TECH STORE
           </p>
-          <p className="mt-0.5 text-xs text-white/50">ERP Multi-Sede</p>
+          <p className="mt-0.5 text-xs text-white/50">Gestión Multi-Sede</p>
         </div>
       </div>
 
@@ -48,7 +50,7 @@ export function DecorativePanel() {
 
       {/* Bottom: copyright */}
       <p className="relative z-10 text-xs text-white/40">
-        Sistema seguro y confiable · © 2026
+        Guru Tech Dev · © 2026
       </p>
     </div>
   )

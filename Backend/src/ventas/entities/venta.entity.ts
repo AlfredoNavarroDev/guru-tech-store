@@ -8,11 +8,17 @@ import {
 } from 'typeorm';
 import { DetalleVenta } from './detalle-venta.entity';
 
+/**
+ * @purpose Cabecera de venta directa (punto de venta).
+ * No almacena total → se deriva de SUM(detalle.importe) - monto_descuento.
+ * Relaciones: 1:N DetalleVenta, 1:N Pago, 1:1 Boleta.
+ */
 @Entity('ventas')
 export class Venta {
   @PrimaryGeneratedColumn({ name: 'id_venta' })
   id_venta: number;
 
+  /** BD asigna now() → timestamp del servidor, no del cliente. */
   @Column({
     name: 'fecha_emision',
     type: 'timestamptz',
@@ -20,15 +26,19 @@ export class Venta {
   })
   fecha_emision: Date;
 
-  @Column({ name: 'id_cliente', nullable: true })
+  /** nullable: venta anónima. FK ON DELETE SET NULL. */
+  @Column({ name: 'id_cliente', type: 'int', nullable: true })
   id_cliente: number | null;
 
+  /** Siempre desde JWT → atribución segura al vendedor autenticado. */
   @Column({ name: 'id_empleado' })
   id_empleado: number;
 
+  /** Desde JWT → vendedor solo opera en su sede asignada. */
   @Column({ name: 'id_sede' })
   id_sede: number;
 
+  /** Descuento en cabecera (aplica a toda la venta, no por ítem). */
   @Column({
     name: 'monto_descuento',
     type: 'decimal',
@@ -38,9 +48,11 @@ export class Venta {
   })
   monto_descuento: number;
 
-  @Column({ name: 'tipo_descuento', nullable: true })
+  /** 'porcentaje' | 'monto_fijo'. null si no hay descuento. */
+  @Column({ name: 'tipo_descuento', type: 'varchar', nullable: true })
   tipo_descuento: string | null;
 
+  /** Obligatorio si monto_descuento > 0 (validado en VentasService). */
   @Column({ name: 'justificacion_descuento', type: 'text', nullable: true })
   justificacion_descuento: string | null;
 
@@ -50,6 +62,7 @@ export class Venta {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz', nullable: true })
   updated_at: Date | null;
 
+  /** cascade → findOne con relations carga detalles. Insert manual en servicio. */
   @OneToMany(() => DetalleVenta, (d) => d.venta, { cascade: true })
   detalles: DetalleVenta[];
 }

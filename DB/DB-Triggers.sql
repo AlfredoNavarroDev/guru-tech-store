@@ -1,22 +1,16 @@
 SET timezone = 'America/Lima';
 
 -- ============================================================================
--- @Purpose: Triggers del sistema para integridad de datos, movimientos de
---           inventario y auditoría en Logs_Sistema.
---           Incluye protección contra condiciones de carrera en operaciones
---           concurrentes de venta y reparación.
--- @Dialect: PostgreSQL 15+
--- @Dependencies: DB-Tables.sql (todas las tablas deben existir)
--- @Orden_de_ejecucion: Ejecutar después de DB-Tables.sql
+-- Triggers del sistema: integridad de datos, movimientos de inventario
+-- y auditoría en Logs_Sistema. Protege contra race conditions en ventas
+-- y reparaciones concurrentes.
 -- ============================================================================
 
 -- ============================================================================
--- SECCIÓN 1: FUNCIONES HELPER
--- Funciones reutilizables invocadas por los triggers.
+-- SECCIÓN 1: FUNCIONES HELPER (invocadas por los triggers)
 -- ============================================================================
 
--- @Purpose: Auto-asigna updated_at = now() en cualquier BEFORE UPDATE.
--- @Usage:   Se adjunta a todas las tablas con columna updated_at.
+-- Auto-asigna updated_at = now() en cada UPDATE. Se adjunta a todas las tablas con esa columna.
 CREATE OR REPLACE FUNCTION fn_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -25,15 +19,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- @Purpose: Registra una operación genérica en Logs_Sistema.
--- @Parameters:
---   p_tipo_accion     - 'creacion','actualizacion','eliminacion','anulacion',etc.
---   p_tabla_afectada  - Nombre de la tabla donde ocurrió la acción.
---   p_tipo_referencia - Tipo de entidad referenciada ('venta','compra','reparacion',etc.).
---   p_id_referencia   - ID del registro afectado.
---   p_id_empleado     - Empleado que ejecutó la acción (puede ser NULL).
---   p_id_sede         - Sede donde ocurrió (puede ser NULL).
---   p_detalle_cambio  - Descripción textual del cambio realizado.
+-- Registra una operación en Logs_Sistema.
+-- Params: tipo_accion, tabla_afectada, tipo_referencia, id_referencia,
+--         id_empleado (nullable), id_sede (nullable), detalle_cambio.
 CREATE OR REPLACE FUNCTION fn_log_operacion(
   p_tipo_accion     VARCHAR,
   p_tabla_afectada  VARCHAR,
@@ -55,9 +43,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- @Purpose: Registra un cambio de estado en Logs_Sistema.
---           Es un caso específico de fn_log_operacion con tipo_accion='cambio_estado'
---           y detalle_cambio formateado como "estado: anterior → nuevo".
+-- Registra cambio de estado en Logs_Sistema. Usa tipo_accion='cambio_estado'
+-- y formatea el detalle como "estado: anterior → nuevo".
 CREATE OR REPLACE FUNCTION fn_log_cambio_estado(
   p_tabla_afectada  VARCHAR,
   p_tipo_referencia VARCHAR,
@@ -80,10 +67,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- @Purpose: Retorna el id del empleado que inició la transacción actual, leído desde
---           la variable de sesión 'app.actor_id' que el backend debe setear con:
---             SET LOCAL app.actor_id = '<id_empleado>';
---           Retorna NULL si la variable no está definida (seed, migraciones, etc.).
+-- Retorna el id del empleado desde la variable de sesión 'app.actor_id'.
+-- El backend debe ejecutar: SET LOCAL app.actor_id = '<id_empleado>';
+-- Retorna NULL si no está definida (seed, migraciones, etc.).
 CREATE OR REPLACE FUNCTION fn_get_actor_id()
 RETURNS INT AS $$
 DECLARE
@@ -97,8 +83,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- @Purpose: Retorna el id_inventario para una combinación (sede, item).
---           Retorna NULL si no existe registro en Inventario_Sedes.
+-- Retorna id_inventario para (sede, item). NULL si no existe.
 CREATE OR REPLACE FUNCTION fn_get_id_inventario(
   p_id_sede INT,
   p_id_item INT
@@ -116,59 +101,66 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- SECCIÓN 2: TRIGGERS updated_at
--- Actualizan automáticamente la columna updated_at en cada UPDATE.
+-- SECCIÓN 2: TRIGGERS updated_at (actualizan la columna en cada UPDATE)
 -- ============================================================================
 
+DROP TRIGGER IF EXISTS trg_sedes_updated_at ON Sedes;
 CREATE TRIGGER trg_sedes_updated_at
   BEFORE UPDATE ON Sedes
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_empleados_updated_at ON Empleados;
 CREATE TRIGGER trg_empleados_updated_at
   BEFORE UPDATE ON Empleados
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_clientes_updated_at ON Clientes;
 CREATE TRIGGER trg_clientes_updated_at
   BEFORE UPDATE ON Clientes
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_items_updated_at ON Items;
 CREATE TRIGGER trg_items_updated_at
   BEFORE UPDATE ON Items
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_proveedores_updated_at ON Proveedores;
 CREATE TRIGGER trg_proveedores_updated_at
   BEFORE UPDATE ON Proveedores
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_compras_refill_updated_at ON Compras_Refill;
 CREATE TRIGGER trg_compras_refill_updated_at
   BEFORE UPDATE ON Compras_Refill
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_promociones_updated_at ON Promociones;
 CREATE TRIGGER trg_promociones_updated_at
   BEFORE UPDATE ON Promociones
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_ventas_updated_at ON Ventas;
 CREATE TRIGGER trg_ventas_updated_at
   BEFORE UPDATE ON Ventas
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_reparaciones_updated_at ON Reparaciones;
 CREATE TRIGGER trg_reparaciones_updated_at
   BEFORE UPDATE ON Reparaciones
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_garantias_updated_at ON Garantias;
 CREATE TRIGGER trg_garantias_updated_at
   BEFORE UPDATE ON Garantias
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
 -- ============================================================================
--- SECCIÓN 3: TRIGGERS DE INVENTARIO — COMPRAS
--- Gestionan el stock al insertar, modificar o eliminar detalles de compra.
+-- SECCIÓN 3: TRIGGERS DE INVENTARIO — COMPRAS (gestionan stock en detalles de compra)
 -- ============================================================================
 
--- @Purpose: Al insertar un detalle de compra, crea el registro de inventario
---           si no existe (con ON CONFLICT para evitar race conditions) y suma
---           la cantidad comprada al stock de la sede destino.
--- @SideEffects: INSERT en Movimientos_Inventario, INSERT en Logs_Sistema.
+-- Al insertar detalle de compra: crea registro de inventario si no existe
+-- (ON CONFLICT previene race conditions) y suma cantidad al stock.
+-- Side effects: INSERT en Movimientos_Inventario y Logs_Sistema.
 CREATE OR REPLACE FUNCTION trg_det_compra_insert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -176,37 +168,34 @@ DECLARE
   v_id_empleado  INT;
   v_id_inventario INT;
 BEGIN
-  -- Razonamiento: Obtener sede destino y empleado refiller desde la cabecera.
+  -- Obtener sede y empleado desde la cabecera de compra.
   SELECT id_sede_destino, id_empleado_refiller
   INTO v_id_sede, v_id_empleado
   FROM Compras_Refill
   WHERE id_compra = NEW.id_compra;
 
-  -- Razonamiento: Buscar el registro de inventario (sede + item).
+  -- Buscar o crear registro de inventario (sede + item).
   v_id_inventario := fn_get_id_inventario(v_id_sede, NEW.id_item);
 
-  -- Razonamiento: Si no existe, crearlo. ON CONFLICT evita que dos compras
-  --               simultáneas del mismo item nuevo generen error de duplicado.
+  -- ON CONFLICT evita error de duplicado en compras simultáneas.
   IF v_id_inventario IS NULL THEN
     INSERT INTO Inventario_Sedes (id_sede, id_item, cantidad_actual, stock_minimo)
     VALUES (v_id_sede, NEW.id_item, 0, 0)
     ON CONFLICT (id_sede, id_item) DO NOTHING
     RETURNING id_inventario INTO v_id_inventario;
 
-    -- Razonamiento: Si ON CONFLICT hizo DO NOTHING, otra transacción ya lo creó.
-    --               Volvemos a leer para obtener el id.
+    -- Si otra transacción ya lo creó, re-leer el id.
     IF v_id_inventario IS NULL THEN
       v_id_inventario := fn_get_id_inventario(v_id_sede, NEW.id_item);
     END IF;
   END IF;
 
-  -- Razonamiento: Incrementar stock. cantidad_actual = cantidad_actual + X es
-  --               atómico en PostgreSQL, no requiere FOR UPDATE.
+  -- Incrementar stock (operación atómica en PostgreSQL).
   UPDATE Inventario_Sedes
   SET cantidad_actual = cantidad_actual + NEW.cantidad_comprada
   WHERE id_inventario = v_id_inventario;
 
-  -- Razonamiento: Registrar el movimiento de inventario (cantidad positiva = ingreso).
+  -- Movimiento de inventario: cantidad positiva = ingreso.
   INSERT INTO Movimientos_Inventario (
     id_inventario, tipo_movimiento, cantidad,
     id_referencia, id_empleado
@@ -215,7 +204,7 @@ BEGIN
     NEW.id_compra, v_id_empleado
   );
 
-  -- Razonamiento: Auditar la creación del detalle de compra.
+  -- Auditoría: creación de detalle de compra.
   PERFORM fn_log_operacion(
     'creacion', 'Detalle_Compra_Refill', 'compra',
     NEW.id_compra, v_id_empleado, v_id_sede,
@@ -227,12 +216,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_det_compra_insert ON Detalle_Compra_Refill;
 CREATE TRIGGER trg_det_compra_insert
   AFTER INSERT ON Detalle_Compra_Refill
   FOR EACH ROW EXECUTE FUNCTION trg_det_compra_insert();
 
--- @Purpose: Al modificar la cantidad en un detalle de compra, ajusta el stock
---           por la diferencia (delta). Si se reduce, valida que no deje stock negativo.
+-- Al modificar cantidad en detalle de compra: ajusta stock por delta.
+-- Si se reduce, valida que no deje stock negativo.
 CREATE OR REPLACE FUNCTION trg_det_compra_update()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -243,7 +233,7 @@ DECLARE
 BEGIN
   v_delta := NEW.cantidad_comprada - OLD.cantidad_comprada;
 
-  -- Razonamiento: Si no cambió la cantidad, salir sin hacer nada.
+  -- Sin cambios en cantidad, salir.
   IF v_delta = 0 THEN
     RETURN NEW;
   END IF;
@@ -255,8 +245,7 @@ BEGIN
 
   v_id_inventario := fn_get_id_inventario(v_id_sede, NEW.id_item);
 
-  -- Razonamiento: Si se reduce la cantidad comprada, verificar que el stock
-  --               no quede negativo (podría haberse vendido parte del stock).
+  -- Si se reduce, validar que el stock no quede negativo.
   IF v_delta < 0 THEN
     UPDATE Inventario_Sedes
     SET cantidad_actual = cantidad_actual + v_delta
@@ -291,12 +280,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_det_compra_update ON Detalle_Compra_Refill;
 CREATE TRIGGER trg_det_compra_update
   AFTER UPDATE OF cantidad_comprada ON Detalle_Compra_Refill
   FOR EACH ROW EXECUTE FUNCTION trg_det_compra_update();
 
--- @Purpose: Al eliminar un detalle de compra, resta la cantidad del stock
---           y registra el movimiento inverso.
+-- Al eliminar detalle de compra: resta cantidad del stock y registra movimiento inverso.
 CREATE OR REPLACE FUNCTION trg_det_compra_delete()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -311,12 +300,12 @@ BEGIN
 
   v_id_inventario := fn_get_id_inventario(v_id_sede, OLD.id_item);
 
-  -- Razonamiento: Restar del stock. Es atómico.
+  -- Restar del stock (atómico).
   UPDATE Inventario_Sedes
   SET cantidad_actual = cantidad_actual - OLD.cantidad_comprada
   WHERE id_inventario = v_id_inventario;
 
-  -- Razonamiento: Movimiento inverso (cantidad negativa = egreso).
+  -- Movimiento inverso: cantidad negativa = egreso.
   INSERT INTO Movimientos_Inventario (
     id_inventario, tipo_movimiento, cantidad,
     id_referencia, id_empleado
@@ -335,20 +324,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_det_compra_delete ON Detalle_Compra_Refill;
 CREATE TRIGGER trg_det_compra_delete
   AFTER DELETE ON Detalle_Compra_Refill
   FOR EACH ROW EXECUTE FUNCTION trg_det_compra_delete();
 
 -- ============================================================================
--- SECCIÓN 4: TRIGGERS DE INVENTARIO — VENTAS
--- Validan stock y descuentan atómicamente para evitar race conditions.
+-- SECCIÓN 4: TRIGGERS DE INVENTARIO — VENTAS (validan y descuentan stock atómicamente)
 -- ============================================================================
 
--- @Purpose: Al insertar un detalle de venta, valida que haya stock suficiente
---           y descuenta atómicamente en un solo UPDATE. Si no hay stock, cancela
---           la operación con RAISE EXCEPTION.
--- @RaceCondition: El UPDATE con WHERE cantidad_actual >= NEW.cantidad garantiza
---                 que dos vendedores no puedan vender el mismo stock simultáneamente.
+-- Al insertar detalle de venta: valida stock y descuenta atómicamente.
+-- El WHERE cantidad_actual >= NEW.cantidad previene que dos vendedores
+-- vendan el mismo stock simultáneamente. Sin stock → RAISE EXCEPTION.
 CREATE OR REPLACE FUNCTION trg_det_venta_insert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -356,7 +343,7 @@ DECLARE
   v_id_empleado  INT;
   v_id_inventario INT;
 BEGIN
-  -- Razonamiento: Obtener sede y vendedor desde la cabecera de venta.
+  -- Obtener sede y vendedor desde la cabecera de venta.
   SELECT id_sede, id_empleado
   INTO v_id_sede, v_id_empleado
   FROM Ventas
@@ -364,14 +351,12 @@ BEGIN
 
   v_id_inventario := fn_get_id_inventario(v_id_sede, NEW.id_item);
 
-  -- Razonamiento: Si no hay registro de inventario para este item en esta sede,
-  --               no se puede vender.
+  -- Sin registro de inventario para este item en esta sede → no se puede vender.
   IF v_id_inventario IS NULL THEN
     RAISE EXCEPTION 'No existe inventario para el item % en la sede %', NEW.id_item, v_id_sede;
   END IF;
 
-  -- Razonamiento: Validación + descuento atómico. El WHERE cantidad_actual >= NEW.cantidad
-  --               bloquea la fila y garantiza que no se venda stock inexistente.
+  -- Validación + descuento atómico: el WHERE bloquea la fila.
   UPDATE Inventario_Sedes
   SET cantidad_actual = cantidad_actual - NEW.cantidad
   WHERE id_inventario = v_id_inventario
@@ -384,7 +369,7 @@ BEGIN
       NEW.cantidad;
   END IF;
 
-  -- Razonamiento: Registrar movimiento de egreso (cantidad negativa).
+  -- Movimiento de egreso: cantidad negativa.
   INSERT INTO Movimientos_Inventario (
     id_inventario, tipo_movimiento, cantidad,
     id_referencia, id_empleado
@@ -404,12 +389,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_det_venta_insert ON Detalle_Venta;
 CREATE TRIGGER trg_det_venta_insert
   BEFORE INSERT ON Detalle_Venta
   FOR EACH ROW EXECUTE FUNCTION trg_det_venta_insert();
 
--- @Purpose: Al modificar la cantidad en un detalle de venta, ajusta el stock
---           por la diferencia. Si aumenta, valida stock disponible atómicamente.
+-- Al modificar cantidad en detalle de venta: ajusta stock por delta.
+-- Si aumenta, valida stock atómicamente.
 CREATE OR REPLACE FUNCTION trg_det_venta_update()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -431,7 +417,7 @@ BEGIN
 
   v_id_inventario := fn_get_id_inventario(v_id_sede, NEW.id_item);
 
-  -- Razonamiento: Si aumenta la cantidad, validar stock disponible.
+  -- Si aumenta la cantidad, validar stock.
   IF v_delta > 0 THEN
     UPDATE Inventario_Sedes
     SET cantidad_actual = cantidad_actual - v_delta
@@ -442,7 +428,7 @@ BEGIN
       RAISE EXCEPTION 'Stock insuficiente para ajustar la venta (item %, sede %)', NEW.id_item, v_id_sede;
     END IF;
   ELSE
-    -- Razonamiento: Si disminuye, devolver stock (v_delta es negativo, sumar).
+    -- Si disminuye, devolver stock (v_delta negativo → sumar).
     UPDATE Inventario_Sedes
     SET cantidad_actual = cantidad_actual - v_delta
     WHERE id_inventario = v_id_inventario;
@@ -466,12 +452,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_det_venta_update ON Detalle_Venta;
 CREATE TRIGGER trg_det_venta_update
   BEFORE UPDATE OF cantidad ON Detalle_Venta
   FOR EACH ROW EXECUTE FUNCTION trg_det_venta_update();
 
--- @Purpose: Al eliminar un detalle de venta, devuelve el stock y registra
---           el movimiento inverso.
+-- Al eliminar detalle de venta: devuelve stock y registra movimiento inverso.
 CREATE OR REPLACE FUNCTION trg_det_venta_delete()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -486,12 +472,12 @@ BEGIN
 
   v_id_inventario := fn_get_id_inventario(v_id_sede, OLD.id_item);
 
-  -- Razonamiento: Devolver stock al inventario.
+  -- Devolver stock al inventario.
   UPDATE Inventario_Sedes
   SET cantidad_actual = cantidad_actual + OLD.cantidad
   WHERE id_inventario = v_id_inventario;
 
-  -- Razonamiento: Movimiento inverso (cantidad positiva = devolución).
+  -- Movimiento inverso: cantidad positiva = devolución.
   INSERT INTO Movimientos_Inventario (
     id_inventario, tipo_movimiento, cantidad,
     id_referencia, id_empleado
@@ -510,18 +496,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_det_venta_delete ON Detalle_Venta;
 CREATE TRIGGER trg_det_venta_delete
   AFTER DELETE ON Detalle_Venta
   FOR EACH ROW EXECUTE FUNCTION trg_det_venta_delete();
 
 -- ============================================================================
--- SECCIÓN 5: TRIGGERS DE INVENTARIO — REPARACIONES
--- Misma lógica que ventas: validación + descuento atómico para repuestos
--- usados en reparaciones.
+-- SECCIÓN 5: TRIGGERS DE INVENTARIO — REPARACIONES (misma lógica que ventas)
 -- ============================================================================
 
--- @Purpose: Al usar un repuesto en una reparación, valida stock y descuenta
---           atómicamente.
+-- Al usar repuesto en reparación: valida stock y descuenta atómicamente.
 CREATE OR REPLACE FUNCTION trg_rep_repuestos_insert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -529,7 +513,7 @@ DECLARE
   v_id_empleado  INT;
   v_id_inventario INT;
 BEGIN
-  -- Razonamiento: Obtener sede y técnico desde la cabecera de reparación.
+  -- Obtener sede y técnico desde la cabecera de reparación.
   SELECT id_sede, id_tecnico
   INTO v_id_sede, v_id_empleado
   FROM Reparaciones
@@ -573,12 +557,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_rep_repuestos_insert ON Reparacion_Repuestos_Usados;
 CREATE TRIGGER trg_rep_repuestos_insert
   BEFORE INSERT ON Reparacion_Repuestos_Usados
   FOR EACH ROW EXECUTE FUNCTION trg_rep_repuestos_insert();
 
--- @Purpose: Al modificar la cantidad de un repuesto usado, ajusta el stock
---           por la diferencia con validación atómica.
+-- Al modificar cantidad de repuesto usado: ajusta stock por delta con validación atómica.
 CREATE OR REPLACE FUNCTION trg_rep_repuestos_update()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -633,11 +617,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_rep_repuestos_update ON Reparacion_Repuestos_Usados;
 CREATE TRIGGER trg_rep_repuestos_update
   BEFORE UPDATE OF cantidad ON Reparacion_Repuestos_Usados
   FOR EACH ROW EXECUTE FUNCTION trg_rep_repuestos_update();
 
--- @Purpose: Al eliminar un repuesto usado, devuelve el stock al inventario.
+-- Al eliminar repuesto usado: devuelve stock al inventario.
 CREATE OR REPLACE FUNCTION trg_rep_repuestos_delete()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -674,51 +659,46 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_rep_repuestos_delete ON Reparacion_Repuestos_Usados;
 CREATE TRIGGER trg_rep_repuestos_delete
   AFTER DELETE ON Reparacion_Repuestos_Usados
   FOR EACH ROW EXECUTE FUNCTION trg_rep_repuestos_delete();
 
 -- ============================================================================
--- SECCIÓN 6: TRIGGER DE ACTUALIZACIÓN DE PRECIOS
--- Al registrar una compra, actualiza los precios actuales del item.
--- Delega el log y el updated_at a los triggers específicos de Items.
+-- SECCIÓN 6: ACTUALIZACIÓN DE PRECIOS (al registrar compra, actualiza precios del item)
 -- ============================================================================
 
--- @Purpose: Al insertar un detalle de compra, actualiza precio_compra_actual
---           y precio_venta_actual en Items con los valores de la compra.
--- @Delegacion: No loguea ni actualiza updated_at manualmente; los triggers
---              trg_items_updated_at y trg_items_log_precio lo hacen automáticamente.
+-- Al insertar detalle de compra: actualiza precio_compra_actual y precio_venta_actual
+-- en Items. El log y updated_at los manejan trg_items_updated_at y trg_items_log_precio.
 CREATE OR REPLACE FUNCTION trg_actualizar_precios_item()
 RETURNS TRIGGER AS $$
 BEGIN
   UPDATE Items
   SET precio_compra_actual = NEW.costo_unidad,
-      precio_venta_actual = NEW.precio_venta_sugerido
+      precio_venta_actual = COALESCE(NEW.precio_venta_sugerido, precio_venta_actual)
   WHERE id_item = NEW.id_item;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_actualizar_precios_item ON Detalle_Compra_Refill;
 CREATE TRIGGER trg_actualizar_precios_item
   AFTER INSERT ON Detalle_Compra_Refill
   FOR EACH ROW EXECUTE FUNCTION trg_actualizar_precios_item();
 
 -- ============================================================================
--- SECCIÓN 7: TRIGGERS DE LOGS DE CAMBIO DE ESTADO
--- Registran automáticamente en Logs_Sistema cada transición de estado
--- en las tablas que tienen flujo de trabajo.
+-- SECCIÓN 7: LOGS DE CAMBIO DE ESTADO (registran transiciones de estado en Logs_Sistema)
 -- ============================================================================
 
--- @Purpose: Loguea cambios de id_estado en Reparaciones, incluyendo los
---           nombres legibles de los estados (anterior y nuevo).
+-- Loguea cambios de id_estado en Reparaciones con nombres legibles de estados.
 CREATE OR REPLACE FUNCTION trg_reparaciones_log_estado()
 RETURNS TRIGGER AS $$
 DECLARE
   v_estado_anterior VARCHAR;
   v_estado_nuevo    VARCHAR;
 BEGIN
-  -- Razonamiento: Solo actuar si el estado realmente cambió.
+  -- Solo actuar si el estado cambió.
   IF OLD.id_estado = NEW.id_estado THEN
     RETURN NEW;
   END IF;
@@ -741,11 +721,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_reparaciones_log_estado ON Reparaciones;
 CREATE TRIGGER trg_reparaciones_log_estado
   AFTER UPDATE OF id_estado ON Reparaciones
   FOR EACH ROW EXECUTE FUNCTION trg_reparaciones_log_estado();
 
--- @Purpose: Loguea cambios de estado en Promociones.
+-- Loguea cambios de estado en Promociones.
 CREATE OR REPLACE FUNCTION trg_promociones_log_estado()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -753,7 +734,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Razonamiento: Promociones no tiene id_empleado ni id_sede directos; se pasan NULL.
+  -- Promociones no tiene id_empleado ni id_sede; se pasan NULL.
   PERFORM fn_log_cambio_estado(
     'Promociones', 'promocion', NEW.id_promocion,
     NULL, NULL,
@@ -764,12 +745,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_promociones_log_estado ON Promociones;
 CREATE TRIGGER trg_promociones_log_estado
   AFTER UPDATE OF estado ON Promociones
   FOR EACH ROW EXECUTE FUNCTION trg_promociones_log_estado();
 
--- @Purpose: Loguea cambios de estado en Garantias (activa → vencida, invalidada).
---           Obtiene id_empleado e id_sede desde la venta o reparación asociada.
+-- Loguea cambios de estado en Garantias. Obtiene empleado/sede desde la venta o reparación asociada.
 CREATE OR REPLACE FUNCTION trg_garantias_log_estado()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -782,8 +763,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Razonamiento: Determinar si la garantía es de venta o reparación para
-  --               obtener el contexto (empleado, sede).
+  -- Determinar origen (venta o reparación) para obtener empleado y sede.
   IF NEW.id_venta IS NOT NULL THEN
     v_id_ref   := NEW.id_venta;
     v_tipo_ref := 'venta';
@@ -810,19 +790,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_garantias_log_estado ON Garantias;
 CREATE TRIGGER trg_garantias_log_estado
   AFTER UPDATE OF estado ON Garantias
   FOR EACH ROW EXECUTE FUNCTION trg_garantias_log_estado();
 
 
 -- ============================================================================
--- SECCIÓN 8: TRIGGER DE LOGS DE CAMBIO DE PRECIO
--- Registra cualquier modificación de precios en Items, ya sea por compra
--- (automática) o manual (edición directa).
+-- SECCIÓN 8: LOGS DE CAMBIO DE PRECIO (modificaciones en Items, automáticas o manuales)
 -- ============================================================================
 
--- @Purpose: Loguea cambios en precio_compra_actual y/o precio_venta_actual
---           en Items. Dispara tanto para cambios por compra como manuales.
+-- Loguea cambios en precio_compra_actual y/o precio_venta_actual en Items.
 CREATE OR REPLACE FUNCTION trg_items_log_precio()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -838,9 +816,9 @@ BEGIN
       OLD.precio_venta_actual || ' → ' || NEW.precio_venta_actual || '; ';
   END IF;
 
-  -- Razonamiento: Solo insertar log si al menos un precio cambió.
+  -- Solo insertar log si algún precio cambió.
   IF v_detalle != '' THEN
-    -- Razonamiento: No tenemos id_empleado ni id_sede en Items; se dejan NULL.
+    -- Items no tiene id_empleado ni id_sede; se dejan NULL.
     INSERT INTO Logs_Sistema (
       tipo_accion, tabla_afectada, tipo_referencia,
       id_referencia, detalle_cambio
@@ -854,22 +832,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_items_log_precio ON Items;
 CREATE TRIGGER trg_items_log_precio
   AFTER UPDATE OF precio_compra_actual, precio_venta_actual ON Items
   FOR EACH ROW EXECUTE FUNCTION trg_items_log_precio();
 
 -- ============================================================================
--- SECCIÓN 9: TRIGGER DE CAMBIOS DE PRODUCTO
--- Gestiona el inventario al registrar un cambio de producto:
---   1. Devuelve el item del cliente al stock de la sede (ingreso).
---   2. Valida stock y descuenta atómicamente el item entregado (egreso).
+-- SECCIÓN 9: CAMBIOS DE PRODUCTO (devuelve item del cliente + descuenta item entregado)
 -- ============================================================================
 
--- @Purpose: Al insertar un Cambio_Producto, devuelve id_item_devuelto al
---           inventario de la sede y descuenta id_item_entregado atómicamente.
---           Si el item entregado no tiene stock suficiente, cancela con RAISE.
--- @SideEffects: 2 INSERT en Movimientos_Inventario, INSERT en Logs_Sistema.
--- @Note: Usa AFTER INSERT para acceder al id_cambio generado (IDENTITY PK).
+-- Al insertar Cambio_Producto: devuelve item_devuelto al stock y descuenta
+-- item_entregado atómicamente. Sin stock suficiente → RAISE EXCEPTION.
+-- Side effects: 2 INSERT en Movimientos_Inventario, INSERT en Logs_Sistema.
 CREATE OR REPLACE FUNCTION trg_cambio_producto_insert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -878,8 +852,7 @@ DECLARE
 BEGIN
   v_id_inventario_dev := fn_get_id_inventario(NEW.id_sede, NEW.id_item_devuelto);
 
-  -- Razonamiento: Si nunca hubo stock de ese item en la sede (raro pero posible),
-  --               crear el registro con cantidad 0 antes de sumar.
+  -- Si no existe inventario para el item devuelto, crearlo con cantidad 0.
   IF v_id_inventario_dev IS NULL THEN
     INSERT INTO Inventario_Sedes (id_sede, id_item, cantidad_actual, stock_minimo)
     VALUES (NEW.id_sede, NEW.id_item_devuelto, 0, 0)
@@ -902,7 +875,7 @@ BEGIN
       NEW.id_item_entregado, NEW.id_sede;
   END IF;
 
-  -- Razonamiento: Validación + descuento atómico (mismo patrón que ventas).
+  -- Validación + descuento atómico (mismo patrón que ventas).
   UPDATE Inventario_Sedes
   SET cantidad_actual = cantidad_actual - NEW.cantidad
   WHERE id_inventario = v_id_inventario_ent
@@ -915,8 +888,7 @@ BEGIN
       NEW.cantidad;
   END IF;
 
-  -- Razonamiento: Dos movimientos independientes: uno por item devuelto (positivo)
-  --               y otro por item entregado (negativo). Ambos referencian el cambio.
+  -- Dos movimientos: item devuelto (positivo) + item entregado (negativo).
   INSERT INTO Movimientos_Inventario (
     id_inventario, tipo_movimiento, cantidad, id_referencia, id_empleado
   ) VALUES (
@@ -944,21 +916,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_cambio_producto_insert ON Cambios_Producto;
 CREATE TRIGGER trg_cambio_producto_insert
   AFTER INSERT ON Cambios_Producto
   FOR EACH ROW EXECUTE FUNCTION trg_cambio_producto_insert();
 
 -- ============================================================================
--- SECCIÓN 10: TRIGGERS DE AUDITORÍA — SEDES Y EMPLEADOS
--- Registran en Logs_Sistema INSERT, UPDATE y DELETE sobre Sedes y Empleados.
--- El actor se obtiene con fn_get_actor_id() que lee la variable de sesión
--- 'app.actor_id'; el backend debe setear SET LOCAL app.actor_id = '<id>'
--- al inicio de cada transacción autenticada.
+-- SECCIÓN 10: AUDITORÍA — SEDES Y EMPLEADOS (loguean INSERT/UPDATE/DELETE en Logs_Sistema)
+-- El actor se obtiene con fn_get_actor_id() desde la variable de sesión 'app.actor_id'.
 -- ============================================================================
 
--- @Purpose: Loguea la creación de una Sede.
--- Motivo: sin este trigger los INSERT en Sedes no quedaban en Logs_Sistema.
---         Usa fn_get_actor_id() para registrar al Dueño que ejecutó la operación.
+-- Loguea creación de Sede. Usa fn_get_actor_id() para identificar al Propietario.
 CREATE OR REPLACE FUNCTION trg_sedes_log_insert()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -971,13 +939,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sedes_log_insert ON Sedes;
 CREATE TRIGGER trg_sedes_log_insert
   AFTER INSERT ON Sedes
   FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_insert();
 
--- @Purpose: Loguea modificaciones en una Sede (nombre, dirección, teléfono, horario,
---           esta_habilitada). trg_sedes_updated_at solo toca updated_at; no registra qué cambió.
--- Motivo: necesario para auditar habilitaciones/deshabilitaciones ejecutadas por el Dueño.
+-- Loguea modificaciones en Sede (nombre, dirección, teléfono, horario).
+-- El cambio de esta_habilitada se registra aparte en trg_sedes_log_habilitada.
 CREATE OR REPLACE FUNCTION trg_sedes_log_update()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -998,8 +966,7 @@ BEGIN
   IF OLD.hora_cierre IS DISTINCT FROM NEW.hora_cierre THEN
     v_detalle := v_detalle || 'hora_cierre: ' || OLD.hora_cierre::text || ' → ' || NEW.hora_cierre::text || '; ';
   END IF;
-  -- Cambio de estado habilitada/deshabilitada se registra con tipo 'cambio_estado'
-  -- en el trigger trg_sedes_log_habilitada (ver más abajo).
+  -- esta_habilitada se loguea en trg_sedes_log_habilitada como 'cambio_estado'.
 
   IF v_detalle != '' THEN
     PERFORM fn_log_operacion(
@@ -1013,13 +980,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sedes_log_update ON Sedes;
 CREATE TRIGGER trg_sedes_log_update
   AFTER UPDATE ON Sedes
   FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_update();
 
--- @Purpose: Loguea como 'cambio_estado' cuando esta_habilitada cambia en una Sede.
--- Motivo: habilitar/deshabilitar una sede es una acción crítica del Dueño que merece
---         su propio registro con tipo_accion='cambio_estado' para facilitar auditorías.
+-- Loguea cambios de esta_habilitada como 'cambio_estado'. Acción crítica del Propietario.
 CREATE OR REPLACE FUNCTION trg_sedes_log_habilitada()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1035,12 +1001,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sedes_log_habilitada ON Sedes;
 CREATE TRIGGER trg_sedes_log_habilitada
   AFTER UPDATE OF esta_habilitada ON Sedes
   FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_habilitada();
 
--- @Purpose: Loguea la eliminación de una Sede.
--- Motivo: sin este trigger los DELETE en Sedes no quedaban en Logs_Sistema.
+-- Loguea eliminación de Sede.
 CREATE OR REPLACE FUNCTION trg_sedes_log_delete()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1053,12 +1019,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sedes_log_delete ON Sedes;
 CREATE TRIGGER trg_sedes_log_delete
   AFTER DELETE ON Sedes
   FOR EACH ROW EXECUTE FUNCTION trg_sedes_log_delete();
 
--- @Purpose: Loguea la creación de un Empleado y captura el actor vía fn_get_actor_id().
--- Motivo: sin este trigger los INSERT en Empleados no quedaban en Logs_Sistema.
+-- Loguea creación de Empleado. Captura el actor vía fn_get_actor_id().
 CREATE OR REPLACE FUNCTION trg_empleados_log_insert()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1072,13 +1038,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_empleados_log_insert ON Empleados;
 CREATE TRIGGER trg_empleados_log_insert
   AFTER INSERT ON Empleados
   FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_insert();
 
--- @Purpose: Loguea modificaciones en un Empleado (estado, sede, sueldo, nombre).
--- Motivo: trg_empleados_updated_at solo toca updated_at.
---         Crítico para rastrear cambios de estado y reasignaciones de sede por el Dueño.
+-- Loguea modificaciones en Empleado (estado, sede, sueldo, nombre).
+-- Crítico para rastrear cambios de estado y reasignaciones de sede.
 CREATE OR REPLACE FUNCTION trg_empleados_log_update()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1111,13 +1077,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_empleados_log_update ON Empleados;
 CREATE TRIGGER trg_empleados_log_update
   AFTER UPDATE ON Empleados
   FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_update();
 
--- @Purpose: Loguea la eliminación de un Empleado.
--- Motivo: sin este trigger los DELETE en Empleados no quedaban en Logs_Sistema.
---         OLD.id_sede preserva el contexto de sede aun después de la eliminación.
+-- Loguea eliminación de Empleado. OLD.id_sede preserva el contexto post-eliminación.
 CREATE OR REPLACE FUNCTION trg_empleados_log_delete()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1131,20 +1096,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_empleados_log_delete ON Empleados;
 CREATE TRIGGER trg_empleados_log_delete
   AFTER DELETE ON Empleados
   FOR EACH ROW EXECUTE FUNCTION trg_empleados_log_delete();
 
 -- ============================================================================
--- SECCIÓN 11: GUARDS DE SEDE HABILITADA
--- Bloquean INSERT en Ventas, Reparaciones y Compras_Refill si la sede destino
--- tiene esta_habilitada = false. Solo el Dueño puede cambiar ese flag; estos
--- guards son la consecuencia operativa de la deshabilitación.
+-- SECCIÓN 11: GUARDS DE SEDE HABILITADA (bloquean operaciones en sedes deshabilitadas)
 -- ============================================================================
 
--- @Purpose: Bloquea nuevas ventas en sedes deshabilitadas.
--- Motivo: deshabilitar una sede debe impedir inmediatamente operaciones comerciales
---         sin necesidad de lógica adicional en el backend.
+-- Bloquea nuevas ventas en sedes deshabilitadas.
 CREATE OR REPLACE FUNCTION trg_ventas_check_sede_habilitada()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1152,7 +1113,8 @@ DECLARE
 BEGIN
   SELECT esta_habilitada INTO v_habilitada
   FROM Sedes
-  WHERE id_sede = NEW.id_sede;
+  WHERE id_sede = NEW.id_sede
+  FOR SHARE;
 
   IF NOT v_habilitada THEN
     RAISE EXCEPTION 'La sede % está deshabilitada. No se pueden registrar ventas en ella.', NEW.id_sede;
@@ -1162,11 +1124,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_ventas_check_sede_habilitada ON Ventas;
 CREATE TRIGGER trg_ventas_check_sede_habilitada
   BEFORE INSERT ON Ventas
   FOR EACH ROW EXECUTE FUNCTION trg_ventas_check_sede_habilitada();
 
--- @Purpose: Bloquea nuevas reparaciones en sedes deshabilitadas.
+-- Bloquea nuevas reparaciones en sedes deshabilitadas.
 CREATE OR REPLACE FUNCTION trg_reparaciones_check_sede_habilitada()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1174,7 +1137,8 @@ DECLARE
 BEGIN
   SELECT esta_habilitada INTO v_habilitada
   FROM Sedes
-  WHERE id_sede = NEW.id_sede;
+  WHERE id_sede = NEW.id_sede
+  FOR SHARE;
 
   IF NOT v_habilitada THEN
     RAISE EXCEPTION 'La sede % está deshabilitada. No se pueden registrar reparaciones en ella.', NEW.id_sede;
@@ -1184,11 +1148,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_reparaciones_check_sede_habilitada ON Reparaciones;
 CREATE TRIGGER trg_reparaciones_check_sede_habilitada
   BEFORE INSERT ON Reparaciones
   FOR EACH ROW EXECUTE FUNCTION trg_reparaciones_check_sede_habilitada();
 
--- @Purpose: Bloquea nuevas compras/refill con destino a una sede deshabilitada.
+-- Bloquea nuevas compras/refill con destino a sede deshabilitada.
 CREATE OR REPLACE FUNCTION trg_compras_check_sede_habilitada()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1196,7 +1161,8 @@ DECLARE
 BEGIN
   SELECT esta_habilitada INTO v_habilitada
   FROM Sedes
-  WHERE id_sede = NEW.id_sede_destino;
+  WHERE id_sede = NEW.id_sede_destino
+  FOR SHARE;
 
   IF NOT v_habilitada THEN
     RAISE EXCEPTION 'La sede % está deshabilitada. No se pueden registrar compras con destino a ella.', NEW.id_sede_destino;
@@ -1206,6 +1172,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_compras_check_sede_habilitada ON Compras_Refill;
 CREATE TRIGGER trg_compras_check_sede_habilitada
   BEFORE INSERT ON Compras_Refill
   FOR EACH ROW EXECUTE FUNCTION trg_compras_check_sede_habilitada();

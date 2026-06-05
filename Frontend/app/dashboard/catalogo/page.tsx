@@ -270,13 +270,13 @@ export default function CatalogoPage() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("guru_cart")
+      const saved = localStorage.getItem("guru_cart_v1")
       if (saved) setCartItems(JSON.parse(saved) as CartItem[])
     } catch { /* ignore */ }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem("guru_cart", JSON.stringify(cartItems))
+    localStorage.setItem("guru_cart_v1", JSON.stringify(cartItems))
   }, [cartItems])
 
   // sale modal
@@ -346,10 +346,6 @@ export default function CatalogoPage() {
       return true
     })
   }, [catalogoItems, selectedCategoria, selectedModelo, soloConPromo])
-
-  useEffect(() => {
-    setCatalogoPage(1)
-  }, [selectedCategoria, selectedModelo, soloConPromo])
 
   const subtotal = cartItems.reduce((s, c) => s + c.importe, 0)
   const totalItems = cartItems.reduce((s, c) => s + c.cantidad, 0)
@@ -433,6 +429,7 @@ export default function CatalogoPage() {
   const handleCategoriaChange = useCallback((value: string) => {
     setSelectedCategoria(value)
     setSelectedModelo("")
+    setCatalogoPage(1)
   }, [])
 
   const addToCart = useCallback((item: CatalogoItem) => {
@@ -1125,8 +1122,8 @@ export default function CatalogoPage() {
                       role="switch"
                       aria-checked={soloConPromo}
                       tabIndex={0}
-                      onClick={() => setSoloConPromo((v) => !v)}
-                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setSoloConPromo((v) => !v) } }}
+                      onClick={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
+                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setSoloConPromo((v) => !v); setCatalogoPage(1) } }}
                       className={cn(
                         "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1",
                         soloConPromo ? "bg-amber-500" : "bg-gray-200"
@@ -1170,7 +1167,7 @@ export default function CatalogoPage() {
                     <div className="relative">
                       <select
                         value={selectedModelo}
-                        onChange={(e) => setSelectedModelo(e.target.value)}
+                        onChange={(e) => { setSelectedModelo(e.target.value); setCatalogoPage(1) }}
                         aria-label="Filtrar por modelo"
                         className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
@@ -1190,6 +1187,7 @@ export default function CatalogoPage() {
                         setSelectedCategoria("")
                         setSelectedModelo("")
                         setSoloConPromo(false)
+                        setCatalogoPage(1)
                       }}
                       className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
                     >
@@ -1213,7 +1211,7 @@ export default function CatalogoPage() {
           )}
 
           {loading && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="rounded-2xl border border-gray-100 bg-white p-5 animate-pulse">
                   <div className="mb-3 flex items-start justify-between gap-3">
@@ -1268,7 +1266,7 @@ export default function CatalogoPage() {
           )}
 
           {!loading && !catalogoError && catalogoItems.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {paginatedCatalogoItems.map((item, i) => (
                 <ProductCard
                   key={item.id_item}
@@ -1310,7 +1308,7 @@ export default function CatalogoPage() {
         </div>
 
         {/* ══════════ RIGHT: cart sidebar ══════════ */}
-        <div className="hidden lg:flex lg:w-[380px] xl:w-[400px] shrink-0 flex-col bg-gray-100 sticky top-0 h-[calc(100vh-5rem)] overflow-hidden p-3 gap-3">
+        <div className="hidden lg:flex lg:w-[320px] xl:w-[380px] shrink-0 flex-col bg-gray-100 sticky top-0 h-[calc(100vh-5rem)] overflow-hidden p-3 gap-3">
 
           {/* ── TOP: Subtotal + CTA ── */}
           <div className="shrink-0 rounded-2xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col gap-3">

@@ -19,14 +19,19 @@ import { PagosService } from '../pagos/pagos.service';
 import { BoletasService } from '../boletas/boletas.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { QueryVentasDto } from './dto/query-ventas.dto';
+import { ResumenHoyDto, VentaResponseDto } from './dto/venta-response.dto';
 import { CreatePagoVentaDto } from '../pagos/dto/create-pago-venta.dto';
-import { CreateBoletaVentaDto } from '../boletas/dto/create-boleta-venta.dto';
 
+/** Solo vendedor accede. Propietario/técnico tienen sus propias rutas. */
 @ApiTags('ventas')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('vendedor')
 @Controller('ventas')
+/**
+ * @purpose Controlador de venta directa. Agrupa ventas, pagos y boletas.
+ * PagosService y BoletasService operan en contexto de venta (sin rutas raíz).
+ */
 export class VentasController {
   constructor(
     private readonly ventasService: VentasService,
@@ -34,14 +39,19 @@ export class VentasController {
     private readonly boletasService: BoletasService,
   ) {}
 
-  // ── Ventas ──────────────────────────────────────────────────────────────
+  // ── Ventas ────────────────────────────────────────────────────────────
 
+  /** HU-04: Registrar venta con detalles. */
   @Post()
   @ApiOperation({ summary: 'HU-04 — Registrar venta con detalles' })
-  create(@Body() dto: CreateVentaDto, @CurrentUser() user: JwtPayload) {
+  create(
+    @Body() dto: CreateVentaDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<VentaResponseDto> {
     return this.ventasService.create(dto, user);
   }
 
+  /** HU-08: Historial paginado de ventas del vendedor. */
   @Get()
   @ApiOperation({
     summary: 'HU-08 — Historial de ventas del vendedor (paginado)',
@@ -50,6 +60,16 @@ export class VentasController {
     return this.ventasService.findAll(user, query);
   }
 
+  /** HU-08: KPIs del día (ventas, ingresos, clientes) + 5 recientes. */
+  @Get('estadisticas')
+  @ApiOperation({
+    summary: 'HU-08 — KPIs del día: ventas, ingresos, clientes y recientes',
+  })
+  getEstadisticas(@CurrentUser() user: JwtPayload): Promise<ResumenHoyDto> {
+    return this.ventasService.getResumenHoy(user);
+  }
+
+  /** HU-08: Detalle de una venta. */
   @Get(':id')
   @ApiOperation({ summary: 'HU-08 — Detalle de una venta' })
   findOne(
@@ -59,8 +79,9 @@ export class VentasController {
     return this.ventasService.findOne(id, user);
   }
 
-  // ── Pagos ────────────────────────────────────────────────────────────────
+  // ── Pagos ──────────────────────────────────────────────────────────────
 
+  /** HU-04: Registrar pago para una venta (pago mixto: múltiples abonos). */
   @Post(':id/pagos')
   @ApiOperation({ summary: 'HU-04 — Registrar pago para una venta' })
   createPago(
@@ -70,24 +91,24 @@ export class VentasController {
     return this.pagosService.createForVenta(id, dto);
   }
 
+  /** HU-04: Ver pagos de una venta. */
   @Get(':id/pagos')
   @ApiOperation({ summary: 'HU-04 — Ver pagos de una venta' })
   findPagos(@Param('id', ParseIntPipe) id: number) {
     return this.pagosService.findByVenta(id);
   }
 
-  // ── Boletas ──────────────────────────────────────────────────────────────
+  // ── Boletas ────────────────────────────────────────────────────────────
 
-  @Post(':id/boleta')
+  /** HU-06: Emitir boleta PDF (paso separado de la venta). */
+  @Post(':id/boletas')
   @ApiOperation({ summary: 'HU-06 — Emitir boleta PDF para una venta' })
-  emitirBoleta(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: CreateBoletaVentaDto,
-  ) {
-    return this.boletasService.emitir(id, dto);
+  emitirBoleta(@Param('id', ParseIntPipe) id: number) {
+    return this.boletasService.emitir(id);
   }
 
-  @Get(':id/boleta')
+  /** HU-06: Obtener boleta de una venta. */
+  @Get(':id/boletas')
   @ApiOperation({ summary: 'HU-06 — Obtener boleta de una venta' })
   findBoleta(@Param('id', ParseIntPipe) id: number) {
     return this.boletasService.findByVenta(id);
