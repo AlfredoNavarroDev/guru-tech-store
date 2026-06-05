@@ -21,32 +21,29 @@ export const InteractiveHoverButton = React.forwardRef<
       disabled={disabled}
       aria-label={text}
       className={cn(
-        "group relative overflow-hidden cursor-pointer font-bold",
+        "group flex items-center justify-center gap-2 cursor-pointer font-bold",
+        "transition-colors duration-300",
+        "hover:bg-black hover:text-white",
         "disabled:cursor-not-allowed disabled:opacity-40",
         className,
       )}
       {...props}
     >
-      {/* Default state: icon + text slide out on hover */}
+      {/* Icon fades out on hover */}
       <span
         aria-hidden="true"
-        className="relative z-10 flex items-center justify-center gap-2 transition-all duration-300 group-hover:translate-x-full group-hover:opacity-0"
+        className="transition-opacity duration-300 group-hover:opacity-0 group-hover:w-0 group-hover:overflow-hidden"
       >
         {icon}
-        {text}
       </span>
 
-      {/* Hover state: text + arrow slide in */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 z-10 flex items-center justify-center gap-2 -translate-x-full opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
-      >
-        <span>{text}</span>
-        <ArrowRight className="h-4 w-4" />
-      </div>
+      <span aria-hidden="true">{text}</span>
 
-      {/* Expanding dot — sits below z-10 overlays so it never occludes text */}
-      <div className="absolute left-1/2 top-1/2 z-0 h-3 w-3 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-[#7cc527] transition-all duration-500 ease-in-out group-hover:scale-[20]" />
+      {/* Arrow slides in on hover */}
+      <ArrowRight
+        aria-hidden="true"
+        className="h-4 w-4 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
+      />
     </button>
   )
 })
