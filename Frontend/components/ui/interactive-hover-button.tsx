@@ -22,27 +22,21 @@ export const InteractiveHoverButton = React.forwardRef<
       aria-label={text}
       className={cn(
         "group flex items-center justify-center gap-2 cursor-pointer font-bold",
-        "transition-colors duration-300",
+        "transition-all duration-500 ease-in-out",
         "hover:bg-black hover:text-white",
         "disabled:cursor-not-allowed disabled:opacity-40",
         className,
       )}
       {...props}
     >
-      {/* Icon fades out on hover */}
-      <span
-        aria-hidden="true"
-        className="transition-opacity duration-300 group-hover:opacity-0 group-hover:w-0 group-hover:overflow-hidden"
-      >
-        {icon}
-      </span>
+      <span aria-hidden="true">{icon}</span>
 
       <span aria-hidden="true">{text}</span>
 
       {/* Arrow slides in on hover */}
       <ArrowRight
         aria-hidden="true"
-        className="h-4 w-4 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
+        className="h-4 w-4 -translate-x-2 opacity-0 transition-all duration-500 ease-in-out group-hover:translate-x-0 group-hover:opacity-100"
       />
     </button>
   )
