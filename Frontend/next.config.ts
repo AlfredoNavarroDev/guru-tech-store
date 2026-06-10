@@ -8,6 +8,15 @@ const allowedDevOrigins = process.env.HOST_IP
 
 const nextConfig: NextConfig = {
   reactCompiler: !isDev,
+  // Razonamiento: habilitar logo remoto permite usar next/image sin romper optimización.
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev",
+      },
+    ],
+  },
   ...(isDev && allowedDevOrigins.length > 0 && { allowedDevOrigins }),
 };
 

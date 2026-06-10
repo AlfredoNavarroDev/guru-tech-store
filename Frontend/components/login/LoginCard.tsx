@@ -136,7 +136,7 @@ export function LoginCard() {
             <Button
               type="submit"
               disabled={loading}
-              className="mt-1 w-full py-6 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] font-bold rounded-xl shadow-[0_0_16px_rgba(172,248,71,0.25)] disabled:opacity-50"
+              className="mt-1 w-full py-6 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold rounded-xl shadow-[0_0_16px_rgba(172,248,71,0.25)] disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center gap-2">

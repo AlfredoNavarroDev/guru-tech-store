@@ -28,13 +28,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    const raw = localStorage.getItem("guru_auth")
-    if (!raw) { router.push("/login"); return }
-    try {
-      setSession(JSON.parse(raw) as AuthSession)
-    } catch {
-      router.push("/login")
-    }
+    // Razonamiento: diferir lectura de sesión evita setState síncrono dentro del efecto inicial.
+    const sessionTimeout = window.setTimeout(() => {
+      const raw = localStorage.getItem("guru_auth")
+      if (!raw) { router.push("/login"); return }
+      try {
+        setSession(JSON.parse(raw) as AuthSession)
+      } catch {
+        router.push("/login")
+      }
+    }, 0)
+    return () => window.clearTimeout(sessionTimeout)
   }, [router])
 
   const handleLogout = async () => {
@@ -57,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pageTitle = PAGE_TITLES[pathname] ?? "Dashboard"
 
   return (
-    <div className="flex h-screen bg-[#F4F7F9]">
+    <div className="flex h-screen bg-bg-main">
       {/* Mobile backdrop */}
       <AnimatePresence>
         {sidebarOpen && (

@@ -365,7 +365,11 @@ export default function VentasPage() {
   )
 
   useEffect(() => {
-    fetchVentas(page, appliedDesde, appliedHasta, appliedNombre)
+    // Razonamiento: diferir carga evita setState síncrono dentro del efecto.
+    const fetchVentasTimeout = window.setTimeout(() => {
+      void fetchVentas(page, appliedDesde, appliedHasta, appliedNombre)
+    }, 0)
+    return () => window.clearTimeout(fetchVentasTimeout)
   }, [page, appliedDesde, appliedHasta, appliedNombre, fetchVentas])
 
   function handleFilterSubmit(e: React.FormEvent) {
@@ -386,12 +390,14 @@ export default function VentasPage() {
     setAppliedNombre("")
   }
 
-  const items: VentaVista[] = data?.items ?? []
-  const summaries: VentaSummary[] = useMemo(() => groupVentas(items), [items])
+  const summaries: VentaSummary[] = useMemo(() => groupVentas(data?.items ?? []), [data?.items])
   const dayGroups: DayGroup[] = useMemo(() => groupByDay(summaries), [summaries])
   const totalPages = data?.totalPages ?? 1
-  const hasFilters = appliedDesde || appliedHasta || appliedNombre
-  const selectedVenta = summaries.find((s) => s.id_venta === selectedVentaId)
+  const hasFilters = !!(appliedDesde || appliedHasta || appliedNombre)
+  const selectedVenta = useMemo(
+    () => summaries.find((s) => s.id_venta === selectedVentaId),
+    [summaries, selectedVentaId],
+  )
 
   return (
     <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">

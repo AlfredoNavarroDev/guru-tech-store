@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef } from "react"
 import { motion, useMotionTemplate, useMotionValue } from "motion/react"
 import { cn } from "@/lib/utils"
 

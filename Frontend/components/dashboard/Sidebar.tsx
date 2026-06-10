@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -37,21 +38,30 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
+  const sessionLabel = session ? `${session.nombre} · ${session.sede}` : "Sesión no cargada"
 
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar_collapsed")
-    if (saved !== null) {
-      setCollapsed(saved === "true")
-    }
-    // No saved preference → stays collapsed (true default)
+    // Razonamiento: diferir preferencia evita setState síncrono dentro del efecto inicial.
+    const collapsedTimeout = window.setTimeout(() => {
+      const saved = localStorage.getItem("sidebar_collapsed")
+      if (saved !== null) {
+        setCollapsed(saved === "true")
+      }
+      // No saved preference → stays collapsed (true default)
+    }, 0)
+    return () => window.clearTimeout(collapsedTimeout)
   }, [])
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
-    setIsDesktop(mq.matches)
+    // Razonamiento: diferir lectura inicial evita setState síncrono; cambios posteriores sí llegan por callback externo.
+    const desktopTimeout = window.setTimeout(() => setIsDesktop(mq.matches), 0)
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
     mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
+    return () => {
+      window.clearTimeout(desktopTimeout)
+      mq.removeEventListener("change", handler)
+    }
   }, [])
 
   useEffect(() => {
@@ -76,6 +86,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
       initial={false}
       variants={sidebarVariants}
       animate={isDesktop ? "open" : mobileOpen ? "open" : "closed"}
+      aria-label={sessionLabel}
       className={cn(
         "fixed left-0 top-0 z-50 h-screen flex-col border-r border-white/5 bg-[#020617] shadow-2xl",
         "transition-[width] duration-300 ease-in-out",
@@ -101,7 +112,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                 onClick={toggleCollapse}
                 whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.1)" }}
                 whileTap={{ scale: 0.92 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#94A3B8] hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-text-on-dark hover:text-white"
                 aria-label="Expandir sidebar"
               >
                 <PanelLeftOpen className="h-4 w-4" />
@@ -117,9 +128,11 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
               className="hidden lg:flex w-full items-center gap-3 px-4"
             >
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-lg">
-                <img
+                <Image
                   src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
                   alt="Guru Tech Store"
+                  width={40}
+                  height={40}
                   className="h-10 w-10 object-contain"
                 />
               </div>
@@ -128,7 +141,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                 onClick={toggleCollapse}
                 whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.1)" }}
                 whileTap={{ scale: 0.92 }}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#94A3B8] hover:text-white"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-on-dark hover:text-white"
                 aria-label="Colapsar sidebar"
               >
                 <PanelLeftClose className="h-4 w-4" />
@@ -140,9 +153,11 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
         {/* Mobile: logo in circle + brand in single row */}
         <div className="lg:hidden flex w-full items-center gap-3 px-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-lg">
-            <img
+            <Image
               src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
               alt="Guru Tech Store"
+              width={40}
+              height={40}
               className="h-10 w-10 object-contain"
             />
           </div>
@@ -166,7 +181,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                 <TooltipTrigger
                   render={
                     <Link href="/dashboard/catalogo" className="inline-flex">
-                      <Button size="icon" className="h-10 w-10 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
+                      <Button size="icon" className="h-10 w-10 bg-lime hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
                         <Plus className="h-4 w-4" />
                       </Button>
                     </Link>
@@ -184,7 +199,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
               transition={{ duration: 0.15 }}
             >
               <Link href="/dashboard/catalogo">
-                <Button className="w-full gap-2.5 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
+                <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
                   <Zap className="h-4 w-4" />
                   Nueva venta
                 </Button>
@@ -211,7 +226,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                     "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm",
                     active
                       ? "text-[#020617] font-semibold shadow-[0_0_16px_rgba(6,182,212,0.45),0_0_6px_rgba(6,182,212,0.65)]"
-                      : "text-[#94A3B8] font-bold hover:text-white overflow-hidden"
+                      : "text-text-on-dark font-bold hover:text-white overflow-hidden"
                   )}
                 >
                   {active && (
@@ -258,7 +273,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                 whileHover={{ backgroundColor: "rgba(127,29,29,0.2)" }}
                 whileTap={{ scale: 0.97 }}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#94A3B8] transition-colors hover:text-red-400",
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-text-on-dark transition-colors hover:text-red-400",
                   isCollapsed && "lg:justify-center"
                 )}
               >

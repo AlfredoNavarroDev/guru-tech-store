@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import {
@@ -29,6 +29,39 @@ interface CartItem {
 }
 
 const fmt = (n: number) => formatNum(n)
+
+function isCartItem(value: unknown): value is CartItem {
+  if (typeof value !== "object" || value === null) return false
+  const item = value as Record<string, unknown>
+
+  return (
+    typeof item.id_item === "number" &&
+    typeof item.producto === "string" &&
+    typeof item.sku === "string" &&
+    typeof item.precio_unitario_momento === "number" &&
+    (typeof item.precio_normal_momento === "number" || item.precio_normal_momento === null) &&
+    typeof item.costo_unitario_momento === "number" &&
+    typeof item.cantidad === "number" &&
+    typeof item.importe === "number" &&
+    typeof item.stock_disponible === "number"
+  )
+}
+
+function readStoredCartItems(): CartItem[] {
+  if (typeof window === "undefined") return []
+
+  try {
+    const saved = window.localStorage.getItem("guru_cart_v1")
+    if (!saved) return []
+
+    const parsed: unknown = JSON.parse(saved)
+    if (!Array.isArray(parsed)) return []
+
+    return parsed.filter(isCartItem)
+  } catch {
+    return []
+  }
+}
 
 function discountPct(item: CartItem): string {
   if (!item.precio_normal_momento) return ""
@@ -80,7 +113,7 @@ function CartProductCard({ item, selected, onToggle, onUpdateQty, onRemove, dela
           onClick={(e) => { e.stopPropagation(); onToggle(item.id_item) }}
         >
           {selected && (
-            <svg className="h-3 w-3 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+            <svg className="h-3 w-3 text-lime" viewBox="0 0 10 10" fill="none">
               <path
                 d="M1.5 5L4 7.5L8.5 2.5"
                 stroke="currentColor"
@@ -165,23 +198,11 @@ function CartProductCard({ item, selected, onToggle, onUpdateQty, onRemove, dela
 
 export default function CarritoPage() {
   const router = useRouter()
-  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [cartItems, setCartItems] = useState<CartItem[]>(readStoredCartItems)
   const [deselected, setDeselected] = useState<Set<number>>(new Set())
-  const cartSaveEnabled = useRef(false)
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("guru_cart_v1")
-      if (saved) setCartItems(JSON.parse(saved) as CartItem[])
-    } catch { /* ignore */ }
-  }, [])
-
-  useEffect(() => {
-    if (!cartSaveEnabled.current) {
-      cartSaveEnabled.current = true
-      return
-    }
-    localStorage.setItem("guru_cart_v1", JSON.stringify(cartItems))
+    window.localStorage.setItem("guru_cart_v1", JSON.stringify(cartItems))
   }, [cartItems])
 
   const selectedItems = useMemo(
@@ -291,9 +312,9 @@ export default function CarritoPage() {
                 }}
                 className="relative z-10"
               >
-                <ArrowLeft className="h-4 w-4 text-gray-500 group-hover:text-[#ACF847] transition-colors duration-500" />
+                <ArrowLeft className="h-4 w-4 text-gray-500 group-hover:text-lime transition-colors duration-500" />
               </motion.span>
-              <span className="relative z-10 text-sm font-semibold text-gray-600 group-hover:text-[#ACF847] transition-colors duration-500">
+              <span className="relative z-10 text-sm font-semibold text-gray-600 group-hover:text-lime transition-colors duration-500">
                 Catálogo
               </span>
             </motion.button>
@@ -324,7 +345,7 @@ export default function CarritoPage() {
               <p className="text-sm text-gray-400">Agrega productos desde el catálogo</p>
               <button
                 onClick={() => router.push("/dashboard/catalogo")}
-                className="mt-2 flex items-center gap-2 rounded-xl bg-[#020617] text-[#ACF847] px-5 py-2.5 text-sm font-semibold hover:bg-[#0d1b38] transition-colors"
+                className="mt-2 flex items-center gap-2 rounded-xl bg-[#020617] text-lime px-5 py-2.5 text-sm font-semibold hover:bg-[#0d1b38] transition-colors"
               >
                 Ir al catálogo
               </button>
@@ -362,7 +383,7 @@ export default function CarritoPage() {
                       )}
                     >
                       {allSelected && (
-                        <svg className="h-3 w-3 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                        <svg className="h-3 w-3 text-lime" viewBox="0 0 10 10" fill="none">
                           <path
                             d="M1.5 5L4 7.5L8.5 2.5"
                             stroke="currentColor"
@@ -460,7 +481,7 @@ export default function CarritoPage() {
                     disabled={noneSelected}
                     text="Realizar venta"
                     icon={<Zap className="h-4 w-4" />}
-                    className="h-12 w-full rounded-xl bg-[#ACF847] text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+                    className="h-12 w-full rounded-xl bg-lime text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
                   />
 
                   <p className="text-[11px] text-gray-400 text-center">

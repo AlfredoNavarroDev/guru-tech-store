@@ -57,11 +57,15 @@ export default function VentaPage() {
   const [cartLoaded, setCartLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("guru_cart_v1")
-      if (saved) setCartItems(JSON.parse(saved) as CartItem[])
-    } catch { /* ignore */ }
-    setCartLoaded(true)
+    // Razonamiento: diferir hidratación evita setState síncrono dentro del efecto inicial.
+    const loadCartTimeout = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("guru_cart_v1")
+        if (saved) setCartItems(JSON.parse(saved) as CartItem[])
+      } catch { /* ignore */ }
+      setCartLoaded(true)
+    }, 0)
+    return () => window.clearTimeout(loadCartTimeout)
   }, [])
 
   // redirect if cart is empty after load
@@ -293,7 +297,7 @@ export default function VentaPage() {
             )}
             <button
               onClick={() => router.push("/dashboard/catalogo")}
-              className="mt-2 flex items-center gap-2 rounded-xl bg-[#020617] text-[#ACF847] px-5 py-2.5 text-sm font-semibold hover:bg-[#0d1b38] transition-colors"
+              className="mt-2 flex items-center gap-2 rounded-xl bg-[#020617] text-lime px-5 py-2.5 text-sm font-semibold hover:bg-[#0d1b38] transition-colors"
             >
               Volver al catálogo
             </button>
@@ -332,9 +336,9 @@ export default function VentaPage() {
                 }}
                 className="relative z-10"
               >
-                <ArrowLeft className="h-4 w-4 text-gray-500 group-hover:text-[#ACF847] transition-colors duration-500" />
+                <ArrowLeft className="h-4 w-4 text-gray-500 group-hover:text-lime transition-colors duration-500" />
               </motion.span>
-              <span className="relative z-10 text-sm font-semibold text-gray-600 group-hover:text-[#ACF847] transition-colors duration-500">
+              <span className="relative z-10 text-sm font-semibold text-gray-600 group-hover:text-lime transition-colors duration-500">
                 Carrito
               </span>
             </motion.button>
@@ -725,7 +729,7 @@ export default function VentaPage() {
                 disabled={submitting || cartItems.length === 0}
                 text={submitting ? "Registrando…" : "Confirmar venta"}
                 icon={submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
-                className="h-14 w-full rounded-xl bg-[#ACF847] text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+                className="h-14 w-full rounded-xl bg-lime text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
               />
             </div>
           </BlurFade>

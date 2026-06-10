@@ -1,3 +1,4 @@
+import Image from "next/image"
 import { Check } from "lucide-react"
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern"
 
@@ -20,9 +21,11 @@ export function DecorativePanel() {
       {/* Top: logo + brand */}
       <div className="relative z-10 flex items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-lg">
-          <img
+          <Image
             src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
             alt="Guru Tech Store"
+            width={40}
+            height={40}
             className="h-10 w-10 object-contain"
           />
         </div>
@@ -43,7 +46,7 @@ export function DecorativePanel() {
         <div className="flex flex-col gap-3">
           {features.map((f) => (
             <div key={f} className="flex items-center gap-3">
-              <Check className="h-4 w-4 shrink-0 text-[#ACF847]" />
+              <Check className="h-4 w-4 shrink-0 text-lime" />
               <span className="text-sm text-white/90">{f}</span>
             </div>
           ))}

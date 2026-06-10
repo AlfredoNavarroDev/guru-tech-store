@@ -61,7 +61,12 @@ export function AnimatedGridPattern({
   )
 
   useEffect(() => {
-    if (dimensions.width && dimensions.height) setSquares(generateSquares(numSquares))
+    if (!dimensions.width || !dimensions.height) return
+    // Razonamiento: diferir generación evita setState síncrono dentro del efecto de dimensiones.
+    const squaresTimeout = window.setTimeout(() => {
+      setSquares(generateSquares(numSquares))
+    }, 0)
+    return () => window.clearTimeout(squaresTimeout)
   }, [dimensions.width, dimensions.height, generateSquares, numSquares])
 
   useEffect(() => {

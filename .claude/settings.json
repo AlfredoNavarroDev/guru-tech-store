@@ -1,0 +1,11 @@
+{
+  "enabledPlugins": {},
+  "extraKnownMarketplaces": {
+    "local-skills": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/luismarca/.claude/skills"
+      }
+    }
+  }
+}

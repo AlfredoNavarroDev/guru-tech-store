@@ -59,16 +59,20 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<EstadisticasHoy | null>(null)
   const [error, setError] = useState(false)
   const [session, setSession] = useState<ReturnType<typeof getSession>>(null)
-  const [today, setToday] = useState("")
+  const [today] = useState(() =>
+    new Date().toLocaleDateString("es-PE", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+    })
+  )
 
   useEffect(() => {
-    setSession(getSession())
-    setToday(new Date().toLocaleDateString("es-PE", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    }))
+    const dashboardHydrationTimeout = window.setTimeout(() => {
+      setSession(getSession())
+    }, 0)
     getEstadisticas()
       .then(setStats)
       .catch(() => setError(true))
+    return () => window.clearTimeout(dashboardHydrationTimeout)
   }, [])
 
   const loading = !stats && !error
@@ -88,6 +92,7 @@ export default function DashboardPage() {
         label: "Ventas hoy",
         value: stats.ventas_hoy,
         prefix: "",
+        decimalPlaces: 0,
         icon: ShoppingCart,
         change: ventasDelta.label,
         positive: ventasDelta.positive,
@@ -96,6 +101,7 @@ export default function DashboardPage() {
         label: "Ingresos",
         value: stats.ingresos_hoy,
         prefix: "S/",
+        decimalPlaces: 2,
         icon: TrendingUp,
         change: ingresosDelta.label,
         positive: ingresosDelta.positive,
@@ -104,6 +110,7 @@ export default function DashboardPage() {
         label: "Clientes atendidos",
         value: stats.clientes_hoy,
         prefix: "",
+        decimalPlaces: 0,
         icon: Users,
         change: clientesDelta.label,
         positive: clientesDelta.positive,
@@ -132,7 +139,7 @@ export default function DashboardPage() {
                 className={cn(
                   "rounded-2xl p-5 animate-pulse",
                   i < 2
-                    ? "border border-white/5 bg-gradient-to-br from-black to-[#131B2E]"
+                    ? "border border-white/5 bg-linear-to-br from-black to-[#131B2E]"
                     : "border border-gray-200 bg-white",
                 )}
               >
@@ -150,12 +157,12 @@ export default function DashboardPage() {
                   className={cn(
                     "rounded-2xl p-5 shadow-sm",
                     i < 2
-                      ? "border border-white/5 bg-gradient-to-br from-black to-[#131B2E]"
+                      ? "border border-white/5 bg-linear-to-br from-black to-[#131B2E]"
                       : "border border-gray-200 bg-white",
                   )}
                 >
                   <div className="flex items-start justify-between">
-                    <p className={cn("text-xs font-semibold uppercase tracking-wider", i < 2 ? "text-[#94A3B8]" : "text-text-muted")}>
+                    <p className={cn("text-xs font-semibold uppercase tracking-wider", i < 2 ? "text-text-on-dark" : "text-text-muted")}>
                       {s.label}
                     </p>
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100">
@@ -173,7 +180,7 @@ export default function DashboardPage() {
                       {s.positive ? <ArrowUpRight className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                       {s.change}
                     </span>
-                    <span className={cn("text-xs", i < 2 ? "text-[#94A3B8]" : "text-text-muted")}>
+                    <span className={cn("text-xs", i < 2 ? "text-text-on-dark" : "text-text-muted")}>
                       vs ayer
                     </span>
                   </div>
@@ -270,7 +277,7 @@ export default function DashboardPage() {
                 <MotionLink
                   href="/dashboard/catalogo"
                   whileTap={WHILETAP}
-                  className="flex items-center gap-3 rounded-xl bg-[#ACF847] px-4 py-3 font-bold text-[#020617] text-sm transition-all hover:bg-[#d4f96a] shadow-[0_0_16px_rgba(172,248,71,0.25)]"
+                  className="flex items-center gap-3 rounded-xl bg-lime px-4 py-3 font-bold text-[#020617] text-sm transition-all hover:bg-[#d4f96a] shadow-[0_0_16px_rgba(172,248,71,0.25)]"
                 >
                   <Zap className="h-4 w-4 shrink-0" />
                   Nueva venta

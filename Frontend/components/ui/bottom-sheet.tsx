@@ -27,16 +27,21 @@ export function BottomSheet({
 
   React.useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)")
-    setIsMobile(mq.matches)
+    // Razonamiento: diferir lectura inicial evita setState síncrono dentro del efecto.
+    const mobileTimeout = window.setTimeout(() => setIsMobile(mq.matches), 0)
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
     mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
+    return () => {
+      window.clearTimeout(mobileTimeout)
+      mq.removeEventListener("change", handler)
+    }
   }, [])
 
   React.useEffect(() => {
     if (!open) {
-      setIsScrolled(false)
-      return
+      // Razonamiento: diferir reset evita setState síncrono al cerrar sheet.
+      const scrollResetTimeout = window.setTimeout(() => setIsScrolled(false), 0)
+      return () => window.clearTimeout(scrollResetTimeout)
     }
     function handleScroll(e: Event) {
       const el = e.target as HTMLElement

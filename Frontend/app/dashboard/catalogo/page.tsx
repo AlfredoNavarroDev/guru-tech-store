@@ -13,7 +13,6 @@ import {
   Trash2,
   Plus,
   Minus,
-  User,
   UserPlus,
   X,
   ChevronDown,
@@ -167,7 +166,7 @@ function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) 
                   "w-full flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40",
                   inCart
                     ? "bg-[#020617]/10 text-[#020617] hover:bg-[#020617]/20"
-                    : "bg-[#020617] text-[#ACF847] hover:bg-[#0d1b38]"
+                    : "bg-[#020617] text-lime hover:bg-[#0d1b38]"
                 )}
               >
                 <ShoppingCart className="h-4 w-4" />
@@ -219,7 +218,7 @@ function CartItemsList({ items, onUpdateQty, onRemove, deselected, onToggleSelec
               )}
             >
               {isSelected && (
-                <svg className="h-2.5 w-2.5 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
                   <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
@@ -299,12 +298,33 @@ export default function CatalogoPage() {
   const cartSaveEnabled = useRef(false)
   const hasAutoOpenedRef = useRef(false)
 
+  // sale modal
+  const [showSaleModal, setShowSaleModal] = useState(false)
+  const [saleSuccess, setSaleSuccess] = useState(false)
+
+  // discount
+  const [tipoDescuento, setTipoDescuento] = useState<"porcentaje" | "monto_fijo">("monto_fijo")
+  const [valorDescuento, setValorDescuento] = useState<string>("0")
+  const [justificacionDescuento, setJustificacionDescuento] = useState<string>("")
+
+  // client search
+  const [clienteSearch, setClienteSearch] = useState("")
+  const [allClientes, setAllClientes] = useState<ClienteVista[]>([])
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
+  const [selectedCliente, setSelectedCliente] = useState<ClienteVista | null>(null)
+  const clienteDropdownRef = useRef<HTMLDivElement>(null)
+  const clientesLoadedRef = useRef(false)
+
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("guru_cart_v1")
-      if (saved) setCartItems(JSON.parse(saved) as CartItem[])
-    } catch { /* ignore */ }
-    setCartLoaded(true)
+    // Razonamiento: diferir hidratación evita setState síncrono dentro del efecto inicial.
+    const loadCartTimeout = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("guru_cart_v1")
+        if (saved) setCartItems(JSON.parse(saved) as CartItem[])
+      } catch { /* ignore */ }
+      setCartLoaded(true)
+    }, 0)
+    return () => window.clearTimeout(loadCartTimeout)
   }, [])
 
   useEffect(() => {
@@ -322,32 +342,16 @@ export default function CatalogoPage() {
     if (params.get("openSale") !== "1") return
     hasAutoOpenedRef.current = true
     window.history.replaceState({}, "", window.location.pathname)
-    if (cartItems.length > 0) {
+    const openSaleTimeout = window.setTimeout(() => {
+      if (cartItems.length <= 0) return
       if (!clientesLoadedRef.current) {
         clientesLoadedRef.current = true
         getClientes().then(setAllClientes).catch(() => {})
       }
       setShowSaleModal(true)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, 0)
+    return () => window.clearTimeout(openSaleTimeout)
   }, [cartLoaded, cartItems])
-
-  // sale modal
-  const [showSaleModal, setShowSaleModal] = useState(false)
-  const [saleSuccess, setSaleSuccess] = useState(false)
-
-  // discount
-  const [tipoDescuento, setTipoDescuento] = useState<"porcentaje" | "monto_fijo">("monto_fijo")
-  const [valorDescuento, setValorDescuento] = useState<string>("0")
-  const [justificacionDescuento, setJustificacionDescuento] = useState<string>("")
-
-  // client search
-  const [clienteSearch, setClienteSearch] = useState("")
-  const [allClientes, setAllClientes] = useState<ClienteVista[]>([])
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
-  const [selectedCliente, setSelectedCliente] = useState<ClienteVista | null>(null)
-  const clienteDropdownRef = useRef<HTMLDivElement>(null)
-  const clientesLoadedRef = useRef(false)
 
   // create client form
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -421,23 +425,31 @@ export default function CatalogoPage() {
     })
   }, [catalogoItems, selectedCategoria, selectedMarca, selectedModelo, soloConPromo])
 
-  const subtotal = cartItems.reduce((s, c) => s + c.importe, 0)
-  const subtotalOriginal = cartItems.reduce((s, c) => {
-    const base = c.precio_normal_momento ?? c.precio_unitario_momento
-    return s + base * c.cantidad
-  }, 0)
-  const hasPromoInCart = subtotalOriginal > subtotal
-  const totalItems = cartItems.reduce((s, c) => s + c.cantidad, 0)
+  const subtotal = useMemo(() => cartItems.reduce((s, c) => s + c.importe, 0), [cartItems])
+  const totalItems = useMemo(() => cartItems.reduce((s, c) => s + c.cantidad, 0), [cartItems])
 
   // sidebar selection helpers
-  const sidebarSelectedItems = cartItems.filter((i) => !sidebarDeselected.has(i.id_item))
-  const sidebarSubtotal = sidebarSelectedItems.reduce((s, c) => s + c.importe, 0)
-  const sidebarSubtotalOriginal = sidebarSelectedItems.reduce((s, c) => {
-    const base = c.precio_normal_momento ?? c.precio_unitario_momento
-    return s + base * c.cantidad
-  }, 0)
+  const sidebarSelectedItems = useMemo(
+    () => cartItems.filter((i) => !sidebarDeselected.has(i.id_item)),
+    [cartItems, sidebarDeselected],
+  )
+  const sidebarSubtotal = useMemo(
+    () => sidebarSelectedItems.reduce((s, c) => s + c.importe, 0),
+    [sidebarSelectedItems],
+  )
+  const sidebarSubtotalOriginal = useMemo(
+    () =>
+      sidebarSelectedItems.reduce((s, c) => {
+        const base = c.precio_normal_momento ?? c.precio_unitario_momento
+        return s + base * c.cantidad
+      }, 0),
+    [sidebarSelectedItems],
+  )
   const sidebarHasPromo = sidebarSubtotalOriginal > sidebarSubtotal
-  const sidebarTotalItems = sidebarSelectedItems.reduce((s, c) => s + c.cantidad, 0)
+  const sidebarTotalItems = useMemo(
+    () => sidebarSelectedItems.reduce((s, c) => s + c.cantidad, 0),
+    [sidebarSelectedItems],
+  )
   const sidebarAllSelected = cartItems.length > 0 && sidebarDeselected.size === 0
 
   function toggleSidebarSelect(id: number) {
@@ -463,10 +475,13 @@ export default function CatalogoPage() {
   const restante = Math.max(0, total - totalPagado)
   const vuelto = Math.max(0, totalPagado - total)
 
-  const catalogoTotalPages = Math.ceil(filteredItems.length / CATALOGO_LIMIT)
-  const paginatedCatalogoItems = filteredItems.slice(
-    (catalogoPage - 1) * CATALOGO_LIMIT,
-    catalogoPage * CATALOGO_LIMIT,
+  const catalogoTotalPages = useMemo(
+    () => Math.ceil(filteredItems.length / CATALOGO_LIMIT),
+    [filteredItems],
+  )
+  const paginatedCatalogoItems = useMemo(
+    () => filteredItems.slice((catalogoPage - 1) * CATALOGO_LIMIT, catalogoPage * CATALOGO_LIMIT),
+    [filteredItems, catalogoPage],
   )
 
   const filteredClientes = useMemo(
@@ -499,7 +514,11 @@ export default function CatalogoPage() {
   }, [])
 
   useEffect(() => {
-    fetchItems("", true)
+    // Razonamiento: diferir carga inicial evita setState síncrono dentro del efecto.
+    const initialFetchTimeout = window.setTimeout(() => {
+      void fetchItems("", true)
+    }, 0)
+    return () => window.clearTimeout(initialFetchTimeout)
   }, [fetchItems])
 
   useEffect(() => {
@@ -613,16 +632,6 @@ export default function CatalogoPage() {
     const otrosPagos = pagos.reduce((sum, p, i) => (i === idx ? sum : sum + (parseFloat(p.monto) || 0)), 0)
     const needed = Math.max(0, total - otrosPagos)
     updatePago(idx, "monto", needed > 0 ? needed.toFixed(2) : "")
-  }
-
-  function openSaleModal() {
-    if (cartItems.length === 0) return
-    if (!clientesLoadedRef.current) {
-      clientesLoadedRef.current = true
-      getClientes().then(setAllClientes).catch(() => {})
-    }
-    setShowSaleModal(true)
-    setMobileCartOpen(false)
   }
 
   async function handleCreateCliente() {
@@ -1153,7 +1162,7 @@ export default function CatalogoPage() {
                   <Button
                     onClick={handleConfirmSale}
                     disabled={submitting || cartItems.length === 0}
-                    className="h-12 w-full gap-2 bg-[#ACF847] hover:bg-[#d4f96a] text-[#020617] text-sm font-bold disabled:opacity-40 shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+                    className="h-12 w-full gap-2 bg-lime hover:bg-[#d4f96a] text-[#020617] text-sm font-bold disabled:opacity-40 shadow-[0_0_20px_rgba(172,248,71,0.3)]"
                   >
                     {submitting ? (
                       <>
@@ -1460,7 +1469,7 @@ export default function CatalogoPage() {
               disabled={cartItems.length === 0}
               text="Ir al carrito"
               icon={<ShoppingCart className="h-4 w-4" />}
-              className="h-11 w-full rounded-xl bg-[#ACF847] text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+              className="h-11 w-full rounded-xl bg-lime text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
             />
           </div>
 
@@ -1500,7 +1509,7 @@ export default function CatalogoPage() {
                   )}
                 >
                   {sidebarAllSelected && (
-                    <svg className="h-2.5 w-2.5 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                    <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
                       <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
@@ -1534,12 +1543,12 @@ export default function CatalogoPage() {
         <button
           type="button"
           onClick={() => setMobileCartOpen(true)}
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#020617] text-[#ACF847] shadow-lg shadow-black/30 transition-transform active:scale-95"
+          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#020617] text-lime shadow-lg shadow-black/30 transition-transform active:scale-95"
           aria-label="Ver carrito"
         >
           <ShoppingCart className="h-6 w-6" />
           {cartItems.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ACF847] text-[10px] font-bold text-[#020617]">
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-lime text-[10px] font-bold text-[#020617]">
               {cartItems.length}
             </span>
           )}
@@ -1604,7 +1613,7 @@ export default function CatalogoPage() {
                 )}
               >
                 {sidebarAllSelected && (
-                  <svg className="h-2.5 w-2.5 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                  <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
                     <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
@@ -1650,7 +1659,7 @@ export default function CatalogoPage() {
               disabled={cartItems.length === 0}
               text="Ir al carrito"
               icon={<ShoppingCart className="h-4 w-4" />}
-              className="h-12 w-full rounded-xl bg-[#ACF847] text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
+              className="h-12 w-full rounded-xl bg-lime text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
             />
           </div>
         </div>

@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import {
@@ -38,7 +39,7 @@ function ServerMock() {
             <div
               className={cn(
                 "h-1.5 w-1.5 animate-pulse rounded-full",
-                i % 4 === 0 ? "bg-[#ACF847]" :
+                i % 4 === 0 ? "bg-lime" :
                 i % 4 === 1 ? "bg-[#06B6D4]" :
                 i % 4 === 2 ? "bg-white/30" : "bg-white/10"
               )}
@@ -51,7 +52,7 @@ function ServerMock() {
           </div>
         ))}
       </div>
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-24 w-40 -translate-x-1/2 rounded-full bg-[#ACF847]/10 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-24 w-40 -translate-x-1/2 rounded-full bg-lime/10 blur-3xl" />
       <div className="pointer-events-none absolute right-6 top-6 h-16 w-16 rounded-full bg-[#06B6D4]/10 blur-2xl" />
     </div>
   )
@@ -78,13 +79,13 @@ function DashboardMock() {
             {[55, 75, 40, 90, 65, 80, 50, 70, 85, 60, 75, 45].map((h, i) => (
               <div
                 key={i}
-                className={cn("flex-1 rounded-t", i === 3 || i === 7 ? "bg-[#ACF847]/70" : "bg-[#06B6D4]/25")}
+                className={cn("flex-1 rounded-t", i === 3 || i === 7 ? "bg-lime/70" : "bg-[#06B6D4]/25")}
                 style={{ height: `${h}%` }}
               />
             ))}
           </div>
           <div className="mt-2 grid grid-cols-3 gap-1.5">
-            {["bg-white/5", "bg-[#06B6D4]/25", "bg-[#ACF847]/20"].map((c, i) => (
+            {["bg-white/5", "bg-[#06B6D4]/25", "bg-lime/20"].map((c, i) => (
               <div key={i} className={cn("h-8 rounded-lg", c)} />
             ))}
           </div>
@@ -93,7 +94,7 @@ function DashboardMock() {
           ))}
         </div>
       </div>
-      <div className="pointer-events-none absolute bottom-4 left-1/2 h-20 w-32 -translate-x-1/2 rounded-full bg-[#ACF847]/8 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-4 left-1/2 h-20 w-32 -translate-x-1/2 rounded-full bg-lime/8 blur-3xl" />
     </div>
   )
 }
@@ -119,7 +120,7 @@ function TerminalMock() {
       ))}
       <div className="mt-2 flex gap-1.5">
         {[
-          { bg: "bg-[#ACF847]/10", dot: "bg-[#ACF847]/50" },
+          { bg: "bg-lime/10", dot: "bg-lime/50" },
           { bg: "bg-[#06B6D4]/10", dot: "bg-[#06B6D4]/70" },
           { bg: "bg-gray-100", dot: "bg-gray-300" },
         ].map(({ bg, dot }, i) => (
@@ -129,7 +130,7 @@ function TerminalMock() {
         ))}
       </div>
       <div className="absolute -bottom-2 -right-2 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ACF847]/15">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-lime/15">
           <Zap className="h-3 w-3 text-[#5fa800]" />
         </div>
         <div>
@@ -148,7 +149,7 @@ function RepairMock() {
         <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
           Órdenes de servicio
         </span>
-        <div className="h-2 w-2 animate-pulse rounded-full bg-[#ACF847]" />
+        <div className="h-2 w-2 animate-pulse rounded-full bg-lime" />
       </div>
       {[
         { id: "OS-001", device: "iPhone 13 Pro", status: "En reparación", bg: "bg-[#06B6D4]/15", text: "text-[#0891b2]" },
@@ -169,7 +170,7 @@ function RepairMock() {
         </div>
       ))}
       <div className="mt-3 flex gap-2">
-        <div className="flex flex-1 items-center justify-center rounded-xl bg-[#ACF847]/15 py-2">
+        <div className="flex flex-1 items-center justify-center rounded-xl bg-lime/15 py-2">
           <span className="text-[10px] font-bold text-[#5fa800]">+ Nueva orden</span>
         </div>
         <div className="flex flex-1 items-center justify-center rounded-xl bg-gray-100 py-2">
@@ -194,9 +195,9 @@ function InventoryMock() {
           Control de stock
         </div>
         {[
-          { label: "Laptops ASUS",   stock: 85, color: "bg-[#ACF847]" },
+          { label: "Laptops ASUS",   stock: 85, color: "bg-lime" },
           { label: "Smartphones",    stock: 42, color: "bg-[#06B6D4]/70" },
-          { label: "Accesorios USB", stock: 93, color: "bg-[#ACF847]/60" },
+          { label: "Accesorios USB", stock: 93, color: "bg-lime/60" },
           { label: "Cables HDMI",    stock: 20, color: "bg-red-400/70" },
           { label: "Cargadores",     stock: 67, color: "bg-[#06B6D4]/50" },
         ].map(({ label, stock, color }) => (
@@ -210,7 +211,7 @@ function InventoryMock() {
           </div>
         ))}
       </div>
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-20 w-40 -translate-x-1/2 rounded-full bg-[#ACF847]/8 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-20 w-40 -translate-x-1/2 rounded-full bg-lime/8 blur-3xl" />
     </div>
   )
 }
@@ -245,9 +246,11 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <img
+            <Image
               src="https://pub-70517b8feb72462790b99d3d0d9c7d63.r2.dev/gts_logo.png"
               alt="Guru Tech Store"
+              width={28}
+              height={28}
               className="h-7 w-7 rounded-md object-contain"
             />
             <span className="text-sm font-extrabold tracking-tight text-text-heading">
@@ -274,7 +277,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="group relative hidden overflow-hidden rounded-2xl bg-[#ACF847] px-4 py-2 text-sm font-bold text-[#020617] md:inline-flex items-center gap-2"
+              className="group relative hidden overflow-hidden rounded-2xl bg-lime px-4 py-2 text-sm font-bold text-[#020617] md:inline-flex items-center gap-2"
             >
               <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
               <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Iniciar sesión</span>
@@ -315,7 +318,7 @@ export default function LandingPage() {
                 <Link
                   href="/login"
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-2xl bg-[#ACF847] px-4 py-2 text-center text-sm font-bold text-[#020617] transition-colors hover:bg-[#d4f96a]"
+                  className="block rounded-2xl bg-lime px-4 py-2 text-center text-sm font-bold text-[#020617] transition-colors hover:bg-[#d4f96a]"
                 >
                   Iniciar sesión
                 </Link>
@@ -335,7 +338,7 @@ export default function LandingPage() {
         />
         <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
           <BlurFade delay={0} duration={0.5} inView blur="6px" once={false}>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#ACF847]/30 bg-[#ACF847]/10 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#ACF847]">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-lime/30 bg-lime/10 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-lime">
               <Zap className="h-3 w-3" />
               Sistema de Gestión · Guru Tech Store
             </div>
@@ -347,7 +350,7 @@ export default function LandingPage() {
             </p>
             <a
               href={`#${NAV_ROLES[0].id}`}
-              className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#ACF847] px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_20px_rgba(172,248,71,0.25)]"
+              className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-lime px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_20px_rgba(172,248,71,0.25)]"
             >
               <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
               <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Ver roles</span>
@@ -355,7 +358,7 @@ export default function LandingPage() {
             </a>
           </BlurFade>
         </div>
-        <div className="pointer-events-none absolute bottom-0 left-1/2 h-32 w-64 -translate-x-1/2 rounded-full bg-[#ACF847]/5 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/2 h-32 w-64 -translate-x-1/2 rounded-full bg-lime/5 blur-3xl" />
       </section>
 
       {/* ══ PROPIETARIO ══ */}
@@ -364,7 +367,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <BlurFade delay={0} duration={0.5} inView blur="6px" once={false}>
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ACF847]/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-lime/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
                   <Building2 className="h-3 w-3" />
                   Propietario
                 </div>
@@ -389,7 +392,7 @@ export default function LandingPage() {
                 </div>
                 <Link
                   href="/login"
-                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#ACF847] px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
+                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-lime px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
                 >
                   <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
                   <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Iniciar sesión</span>
@@ -410,7 +413,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <BlurFade delay={0} duration={0.5} inView blur="6px" once={false}>
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ACF847]/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-lime/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
                   <Shield className="h-3 w-3" />
                   Administrador
                 </div>
@@ -435,7 +438,7 @@ export default function LandingPage() {
                 </div>
                 <Link
                   href="/login"
-                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#ACF847] px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
+                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-lime px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
                 >
                   <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
                   <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Iniciar sesión</span>
@@ -456,7 +459,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <BlurFade delay={0} duration={0.5} inView blur="6px" once={false}>
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ACF847]/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-lime/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
                   <ShoppingBag className="h-3 w-3" />
                   Vendedor
                 </div>
@@ -481,7 +484,7 @@ export default function LandingPage() {
                 </div>
                 <Link
                   href="/login"
-                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#ACF847] px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
+                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-lime px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
                 >
                   <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
                   <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Iniciar sesión</span>
@@ -502,7 +505,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <BlurFade delay={0} duration={0.5} inView blur="6px" once={false}>
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ACF847]/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-lime/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
                   <Smartphone className="h-3 w-3" />
                   Técnico
                 </div>
@@ -527,7 +530,7 @@ export default function LandingPage() {
                 </div>
                 <Link
                   href="/login"
-                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#ACF847] px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
+                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-lime px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
                 >
                   <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
                   <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Iniciar sesión</span>
@@ -548,7 +551,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <BlurFade delay={0} duration={0.5} inView blur="6px" once={false}>
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ACF847]/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-lime/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-[#020617]">
                   <Package className="h-3 w-3" />
                   Abastecedor
                 </div>
@@ -573,7 +576,7 @@ export default function LandingPage() {
                 </div>
                 <Link
                   href="/login"
-                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#ACF847] px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
+                  className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-lime px-6 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.2)]"
                 >
                   <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
                   <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Iniciar sesión</span>
