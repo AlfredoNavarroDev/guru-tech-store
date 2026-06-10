@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import type { StringValue } from 'ms';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { Empleado } from './entities/empleado.entity';
@@ -22,11 +23,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          // Access token de vida corta.
-          expiresIn: config.get<string>(
-            'JWT_EXPIRES_IN',
-            '7d',
-          ) as unknown as number,
+          expiresIn: config.get<string>('JWT_EXPIRES_IN', '30m') as StringValue,
         },
       }),
     }),

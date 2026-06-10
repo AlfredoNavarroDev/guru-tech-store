@@ -8,12 +8,13 @@ export interface InteractiveHoverButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   text: string
   icon?: React.ReactNode
+  fillClassName?: string
 }
 
 export const InteractiveHoverButton = React.forwardRef<
   HTMLButtonElement,
   InteractiveHoverButtonProps
->(({ className, text, icon, disabled, ...props }, ref) => {
+>(({ className, text, icon, disabled, fillClassName, ...props }, ref) => {
   return (
     <button
       ref={ref}
@@ -27,8 +28,8 @@ export const InteractiveHoverButton = React.forwardRef<
       )}
       {...props}
     >
-      {/* Black fill slides in from left on hover */}
-      <div className="absolute inset-0 origin-left scale-x-0 bg-black transition-transform duration-500 ease-in-out group-hover:scale-x-100" />
+      {/* Fill slides in from left on hover */}
+      <div className={cn("absolute inset-0 origin-left scale-x-0 transition-transform duration-500 ease-in-out group-hover:scale-x-100", fillClassName ?? "bg-black")} />
 
       {/* Icon */}
       <span

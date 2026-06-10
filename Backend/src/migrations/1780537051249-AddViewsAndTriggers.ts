@@ -98,70 +98,90 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
 
     // Triggers para updated_at automático
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_sedes_updated_at ON sedes`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_sedes_updated_at ON sedes`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_sedes_updated_at
         BEFORE UPDATE ON sedes
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_empleados_updated_at ON empleados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_empleados_updated_at ON empleados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_empleados_updated_at
         BEFORE UPDATE ON empleados
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_clientes_updated_at ON clientes`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_clientes_updated_at ON clientes`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_clientes_updated_at
         BEFORE UPDATE ON clientes
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_items_updated_at ON items`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_items_updated_at ON items`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_items_updated_at
         BEFORE UPDATE ON items
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_proveedores_updated_at ON proveedores`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_proveedores_updated_at ON proveedores`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_proveedores_updated_at
         BEFORE UPDATE ON proveedores
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_compras_refill_updated_at ON compras_refill`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_compras_refill_updated_at ON compras_refill`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_compras_refill_updated_at
         BEFORE UPDATE ON compras_refill
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_promociones_updated_at ON promociones`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_promociones_updated_at ON promociones`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_promociones_updated_at
         BEFORE UPDATE ON promociones
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_ventas_updated_at ON ventas`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_ventas_updated_at ON ventas`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_ventas_updated_at
         BEFORE UPDATE ON ventas
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_reparaciones_updated_at ON reparaciones`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_reparaciones_updated_at ON reparaciones`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_reparaciones_updated_at
         BEFORE UPDATE ON reparaciones
         FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_garantias_updated_at ON garantias`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_garantias_updated_at ON garantias`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_garantias_updated_at
         BEFORE UPDATE ON garantias
@@ -220,7 +240,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_det_compra_insert ON detalle_compra_refill`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_det_compra_insert ON detalle_compra_refill`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_det_compra_insert
         AFTER INSERT ON detalle_compra_refill
@@ -284,7 +306,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_det_compra_update ON detalle_compra_refill`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_det_compra_update ON detalle_compra_refill`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_det_compra_update
         AFTER UPDATE OF cantidad_comprada ON detalle_compra_refill
@@ -329,7 +353,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_det_compra_delete ON detalle_compra_refill`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_det_compra_delete ON detalle_compra_refill`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_det_compra_delete
         AFTER DELETE ON detalle_compra_refill
@@ -389,7 +415,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_det_venta_insert ON detalle_venta`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_det_venta_insert ON detalle_venta`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_det_venta_insert
         BEFORE INSERT ON detalle_venta
@@ -452,7 +480,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_det_venta_update ON detalle_venta`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_det_venta_update ON detalle_venta`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_det_venta_update
         BEFORE UPDATE OF cantidad ON detalle_venta
@@ -497,7 +527,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_det_venta_delete ON detalle_venta`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_det_venta_delete ON detalle_venta`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_det_venta_delete
         AFTER DELETE ON detalle_venta
@@ -557,7 +589,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_rep_repuestos_insert ON reparacion_repuestos_usados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_rep_repuestos_insert ON reparacion_repuestos_usados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_rep_repuestos_insert
         BEFORE INSERT ON reparacion_repuestos_usados
@@ -620,7 +654,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_rep_repuestos_update ON reparacion_repuestos_usados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_rep_repuestos_update ON reparacion_repuestos_usados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_rep_repuestos_update
         BEFORE UPDATE OF cantidad ON reparacion_repuestos_usados
@@ -665,7 +701,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_rep_repuestos_delete ON reparacion_repuestos_usados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_rep_repuestos_delete ON reparacion_repuestos_usados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_rep_repuestos_delete
         AFTER DELETE ON reparacion_repuestos_usados
@@ -688,7 +726,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_actualizar_precios_item ON detalle_compra_refill`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_actualizar_precios_item ON detalle_compra_refill`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_actualizar_precios_item
         AFTER INSERT ON detalle_compra_refill
@@ -727,7 +767,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_reparaciones_log_estado ON reparaciones`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_reparaciones_log_estado ON reparaciones`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_reparaciones_log_estado
         AFTER UPDATE OF id_estado ON reparaciones
@@ -753,7 +795,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_promociones_log_estado ON promociones`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_promociones_log_estado ON promociones`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_promociones_log_estado
         AFTER UPDATE OF estado ON promociones
@@ -800,7 +844,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_garantias_log_estado ON garantias`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_garantias_log_estado ON garantias`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_garantias_log_estado
         AFTER UPDATE OF estado ON garantias
@@ -840,7 +886,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_items_log_precio ON items`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_items_log_precio ON items`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_items_log_precio
         AFTER UPDATE OF precio_compra_actual, precio_venta_actual ON items
@@ -920,7 +968,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_cambio_producto_insert ON cambios_producto`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_cambio_producto_insert ON cambios_producto`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_cambio_producto_insert
         AFTER INSERT ON cambios_producto
@@ -943,7 +993,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_sedes_log_insert ON sedes`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_sedes_log_insert ON sedes`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_sedes_log_insert
         AFTER INSERT ON sedes
@@ -985,7 +1037,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_sedes_log_update ON sedes`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_sedes_log_update ON sedes`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_sedes_log_update
         AFTER UPDATE ON sedes
@@ -1009,7 +1063,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_sedes_log_habilitada ON sedes`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_sedes_log_habilitada ON sedes`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_sedes_log_habilitada
         AFTER UPDATE OF esta_habilitada ON sedes
@@ -1030,7 +1086,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_sedes_log_delete ON sedes`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_sedes_log_delete ON sedes`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_sedes_log_delete
         AFTER DELETE ON sedes
@@ -1054,7 +1112,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_empleados_log_insert ON empleados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_empleados_log_insert ON empleados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_empleados_log_insert
         AFTER INSERT ON empleados
@@ -1095,7 +1155,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_empleados_log_update ON empleados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_empleados_log_update ON empleados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_empleados_log_update
         AFTER UPDATE ON empleados
@@ -1117,7 +1179,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_empleados_log_delete ON empleados`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_empleados_log_delete ON empleados`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_empleados_log_delete
         AFTER DELETE ON empleados
@@ -1146,7 +1210,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_ventas_check_sede_habilitada ON ventas`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_ventas_check_sede_habilitada ON ventas`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_ventas_check_sede_habilitada
         BEFORE INSERT ON ventas
@@ -1173,7 +1239,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_reparaciones_check_sede_habilitada ON reparaciones`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_reparaciones_check_sede_habilitada ON reparaciones`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_reparaciones_check_sede_habilitada
         BEFORE INSERT ON reparaciones
@@ -1200,7 +1268,9 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       $$ LANGUAGE plpgsql
     `);
 
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_compras_check_sede_habilitada ON compras_refill`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_compras_check_sede_habilitada ON compras_refill`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER trg_compras_check_sede_habilitada
         BEFORE INSERT ON compras_refill
@@ -2061,18 +2131,33 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
     // Vistas
     const views = [
       'v_boleta_venta',
-      'v_abastecedor_proveedores', 'v_abastecedor_historial_compras',
-      'v_abastecedor_stock_critico', 'v_abastecedor_stock_actual',
-      'v_tecnico_estados_reparacion', 'v_tecnico_repuestos_disponibles',
-      'v_tecnico_historial_reparaciones', 'v_tecnico_reparaciones_activas',
-      'v_historial_cliente_reparaciones', 'v_historial_cliente_ventas',
-      'v_vendedor_clientes', 'v_vendedor_resumen_diario', 'v_vendedor_ventas',
-      'v_vendedor_promociones_activas', 'v_vendedor_catalogo',
-      'v_gerente_cambios', 'v_gerente_compras', 'v_gerente_empleados',
-      'v_gerente_inventario', 'v_gerente_reparaciones', 'v_gerente_ventas',
-      'v_propietario_sedes', 'v_propietario_empleados_global',
-      'v_propietario_inventario_global', 'v_propietario_reparaciones_global',
-      'v_propietario_ventas_global', 'v_propietario_resumen_sedes',
+      'v_abastecedor_proveedores',
+      'v_abastecedor_historial_compras',
+      'v_abastecedor_stock_critico',
+      'v_abastecedor_stock_actual',
+      'v_tecnico_estados_reparacion',
+      'v_tecnico_repuestos_disponibles',
+      'v_tecnico_historial_reparaciones',
+      'v_tecnico_reparaciones_activas',
+      'v_historial_cliente_reparaciones',
+      'v_historial_cliente_ventas',
+      'v_vendedor_clientes',
+      'v_vendedor_resumen_diario',
+      'v_vendedor_ventas',
+      'v_vendedor_promociones_activas',
+      'v_vendedor_catalogo',
+      'v_gerente_cambios',
+      'v_gerente_compras',
+      'v_gerente_empleados',
+      'v_gerente_inventario',
+      'v_gerente_reparaciones',
+      'v_gerente_ventas',
+      'v_propietario_sedes',
+      'v_propietario_empleados_global',
+      'v_propietario_inventario_global',
+      'v_propietario_reparaciones_global',
+      'v_propietario_ventas_global',
+      'v_propietario_resumen_sedes',
     ];
     for (const view of views) {
       await queryRunner.query(`DROP VIEW IF EXISTS ${view} CASCADE`);

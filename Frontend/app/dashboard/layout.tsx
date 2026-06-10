@@ -16,6 +16,7 @@ interface AuthSession {
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Resumen",
   "/dashboard/catalogo": "Catálogo",
+  "/dashboard/catalogo/carrito": "Carrito",
   "/dashboard/ventas": "Ventas",
   "/dashboard/clientes": "Clientes",
 }

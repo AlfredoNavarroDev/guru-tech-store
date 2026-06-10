@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Package,
@@ -20,7 +21,6 @@ import {
   ChevronRight,
   CheckCircle2,
   Loader2,
-  Zap,
   Receipt,
   PlusCircle,
 } from "lucide-react"
@@ -125,7 +125,7 @@ function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) 
               <div className="mt-0.5 shrink-0 flex flex-col items-end gap-1">
                 <StockBadge stock={item.stock_disponible} />
                 {hasPromo && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                     {discountLabel(item)}
                   </span>
                 )}
@@ -187,9 +187,11 @@ interface CartItemsListProps {
   items: CartItem[]
   onUpdateQty: (id: number, delta: number) => void
   onRemove: (id: number) => void
+  deselected?: Set<number>
+  onToggleSelect?: (id: number) => void
 }
 
-function CartItemsList({ items, onUpdateQty, onRemove }: CartItemsListProps) {
+function CartItemsList({ items, onUpdateQty, onRemove, deselected, onToggleSelect }: CartItemsListProps) {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-10 px-5">
@@ -200,8 +202,29 @@ function CartItemsList({ items, onUpdateQty, onRemove }: CartItemsListProps) {
   }
   return (
     <ul className="divide-y divide-gray-100 px-4 py-2">
-      {items.map((c) => (
-        <li key={c.id_item} className="flex items-start gap-3 py-3">
+      {items.map((c) => {
+        const isSelected = !deselected?.has(c.id_item)
+        return (
+        <li key={c.id_item} className={cn("flex items-start gap-2 py-3 transition-opacity", !isSelected && onToggleSelect && "opacity-50")}>
+          {onToggleSelect && (
+            <div
+              role="checkbox"
+              aria-checked={isSelected}
+              tabIndex={0}
+              onClick={() => onToggleSelect(c.id_item)}
+              onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); onToggleSelect(c.id_item) } }}
+              className={cn(
+                "mt-0.5 h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
+                isSelected ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300"
+              )}
+            >
+              {isSelected && (
+                <svg className="h-2.5 w-2.5 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                  <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-gray-900">{c.producto}</p>
             <p className="text-xs text-gray-500">S/ {fmt(c.precio_unitario_momento)} c/u</p>
@@ -243,7 +266,8 @@ function CartItemsList({ items, onUpdateQty, onRemove }: CartItemsListProps) {
             <X className="h-3.5 w-3.5" />
           </RippleButton>
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
@@ -251,6 +275,8 @@ function CartItemsList({ items, onUpdateQty, onRemove }: CartItemsListProps) {
 // ─── CatalogoPage (POS) ───────────────────────────────────────────────────────
 
 export default function CatalogoPage() {
+  const router = useRouter()
+
   // catalog
   const [catalogoItems, setCatalogoItems] = useState<CatalogoItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -267,18 +293,44 @@ export default function CatalogoPage() {
 
   // cart
   const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [cartLoaded, setCartLoaded] = useState(false)
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
+  const [sidebarDeselected, setSidebarDeselected] = useState<Set<number>>(new Set())
+  const cartSaveEnabled = useRef(false)
+  const hasAutoOpenedRef = useRef(false)
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem("guru_cart_v1")
       if (saved) setCartItems(JSON.parse(saved) as CartItem[])
     } catch { /* ignore */ }
+    setCartLoaded(true)
   }, [])
 
   useEffect(() => {
+    // Skip first run (initial mount with empty state) to avoid overwriting persisted cart
+    if (!cartSaveEnabled.current) {
+      cartSaveEnabled.current = true
+      return
+    }
     localStorage.setItem("guru_cart_v1", JSON.stringify(cartItems))
   }, [cartItems])
+
+  useEffect(() => {
+    if (!cartLoaded || hasAutoOpenedRef.current) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("openSale") !== "1") return
+    hasAutoOpenedRef.current = true
+    window.history.replaceState({}, "", window.location.pathname)
+    if (cartItems.length > 0) {
+      if (!clientesLoadedRef.current) {
+        clientesLoadedRef.current = true
+        getClientes().then(setAllClientes).catch(() => {})
+      }
+      setShowSaleModal(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartLoaded, cartItems])
 
   // sale modal
   const [showSaleModal, setShowSaleModal] = useState(false)
@@ -370,7 +422,37 @@ export default function CatalogoPage() {
   }, [catalogoItems, selectedCategoria, selectedMarca, selectedModelo, soloConPromo])
 
   const subtotal = cartItems.reduce((s, c) => s + c.importe, 0)
+  const subtotalOriginal = cartItems.reduce((s, c) => {
+    const base = c.precio_normal_momento ?? c.precio_unitario_momento
+    return s + base * c.cantidad
+  }, 0)
+  const hasPromoInCart = subtotalOriginal > subtotal
   const totalItems = cartItems.reduce((s, c) => s + c.cantidad, 0)
+
+  // sidebar selection helpers
+  const sidebarSelectedItems = cartItems.filter((i) => !sidebarDeselected.has(i.id_item))
+  const sidebarSubtotal = sidebarSelectedItems.reduce((s, c) => s + c.importe, 0)
+  const sidebarSubtotalOriginal = sidebarSelectedItems.reduce((s, c) => {
+    const base = c.precio_normal_momento ?? c.precio_unitario_momento
+    return s + base * c.cantidad
+  }, 0)
+  const sidebarHasPromo = sidebarSubtotalOriginal > sidebarSubtotal
+  const sidebarTotalItems = sidebarSelectedItems.reduce((s, c) => s + c.cantidad, 0)
+  const sidebarAllSelected = cartItems.length > 0 && sidebarDeselected.size === 0
+
+  function toggleSidebarSelect(id: number) {
+    setSidebarDeselected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllSidebar() {
+    if (sidebarAllSelected) setSidebarDeselected(new Set(cartItems.map((i) => i.id_item)))
+    else setSidebarDeselected(new Set())
+  }
   const montoDescuento = (() => {
     const v = parseFloat(valorDescuento) || 0
     if (tipoDescuento === "porcentaje") return Math.min(subtotal, (subtotal * v) / 100)
@@ -1148,8 +1230,8 @@ export default function CatalogoPage() {
                       onClick={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
                       onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setSoloConPromo((v) => !v); setCatalogoPage(1) } }}
                       className={cn(
-                        "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1",
-                        soloConPromo ? "bg-amber-500" : "bg-gray-200"
+                        "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1",
+                        soloConPromo ? "bg-blue-500" : "bg-gray-200"
                       )}
                     >
                       <span
@@ -1359,23 +1441,25 @@ export default function CatalogoPage() {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">
-                    {totalItems} producto{totalItems !== 1 ? "s" : ""}
+                    {sidebarTotalItems} producto{sidebarTotalItems !== 1 ? "s" : ""}
                   </span>
                   <span className="text-xs text-gray-500">Subtotal</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold tabular-nums text-[#020617]">S/ {fmt(subtotal)}</span>
-                  {montoDescuento > 0 && (
-                    <span className="text-xs font-medium tabular-nums text-emerald-600">-S/ {fmt(montoDescuento)}</span>
-                  )}
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold tabular-nums text-[#020617]">S/ {fmt(sidebarSubtotal)}</span>
+                    {sidebarHasPromo && (
+                      <span className="text-sm tabular-nums text-gray-400 line-through">S/ {fmt(sidebarSubtotalOriginal)}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
             <InteractiveHoverButton
-              onClick={openSaleModal}
+              onClick={() => router.push("/dashboard/catalogo/carrito")}
               disabled={cartItems.length === 0}
-              text="Realizar venta"
-              icon={<Zap className="h-4 w-4" />}
+              text="Ir al carrito"
+              icon={<ShoppingCart className="h-4 w-4" />}
               className="h-11 w-full rounded-xl bg-[#ACF847] text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
             />
           </div>
@@ -1393,16 +1477,37 @@ export default function CatalogoPage() {
                 )}
               </div>
               {cartItems.length > 0 && (
-                <button
-                  type="button"
+                <InteractiveHoverButton
                   onClick={() => setCartItems([])}
-                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Vaciar
-                </button>
+                  text="Vaciar"
+                  icon={<Trash2 className="h-3 w-3" />}
+                  fillClassName="bg-red-700"
+                  className="h-7 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs px-2.5"
+                />
               )}
             </div>
+            {cartItems.length > 0 && (
+              <div className="shrink-0 flex items-center gap-2 border-b border-gray-50 px-4 py-2">
+                <div
+                  role="checkbox"
+                  aria-checked={sidebarAllSelected}
+                  tabIndex={0}
+                  onClick={toggleAllSidebar}
+                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleAllSidebar() } }}
+                  className={cn(
+                    "h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
+                    sidebarAllSelected ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300"
+                  )}
+                >
+                  {sidebarAllSelected && (
+                    <svg className="h-2.5 w-2.5 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500 select-none">Seleccionar todo</span>
+              </div>
+            )}
             <div className="flex-1 min-h-0">
               <div
                 className="overflow-y-auto h-full"
@@ -1411,7 +1516,13 @@ export default function CatalogoPage() {
                   WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
                 }}
               >
-                <CartItemsList items={cartItems} onUpdateQty={updateQty} onRemove={removeItem} />
+                <CartItemsList
+                  items={cartItems}
+                  onUpdateQty={updateQty}
+                  onRemove={removeItem}
+                  deselected={sidebarDeselected}
+                  onToggleSelect={toggleSidebarSelect}
+                />
               </div>
             </div>
           </div>
@@ -1460,14 +1571,13 @@ export default function CatalogoPage() {
             </div>
             <div className="flex items-center gap-2">
               {cartItems.length > 0 && (
-                <button
-                  type="button"
+                <InteractiveHoverButton
                   onClick={() => setCartItems([])}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Vaciar
-                </button>
+                  text="Vaciar"
+                  icon={<Trash2 className="h-3.5 w-3.5" />}
+                  fillClassName="bg-red-700"
+                  className="h-8 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs px-3"
+                />
               )}
               <button
                 type="button"
@@ -1480,6 +1590,29 @@ export default function CatalogoPage() {
             </div>
           </div>
 
+          {cartItems.length > 0 && (
+            <div className="shrink-0 flex items-center gap-2 border-b border-gray-100 px-5 py-2">
+              <div
+                role="checkbox"
+                aria-checked={sidebarAllSelected}
+                tabIndex={0}
+                onClick={toggleAllSidebar}
+                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleAllSidebar() } }}
+                className={cn(
+                  "h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
+                  sidebarAllSelected ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300"
+                )}
+              >
+                {sidebarAllSelected && (
+                  <svg className="h-2.5 w-2.5 text-[#ACF847]" viewBox="0 0 10 10" fill="none">
+                    <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-xs text-gray-500 select-none">Seleccionar todo</span>
+            </div>
+          )}
+
           <div className="flex-1 min-h-0">
             <div
               className="overflow-y-auto h-full"
@@ -1488,7 +1621,13 @@ export default function CatalogoPage() {
                 WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
               }}
             >
-              <CartItemsList items={cartItems} onUpdateQty={updateQty} onRemove={removeItem} />
+              <CartItemsList
+                items={cartItems}
+                onUpdateQty={updateQty}
+                onRemove={removeItem}
+                deselected={sidebarDeselected}
+                onToggleSelect={toggleSidebarSelect}
+              />
             </div>
           </div>
 
@@ -1496,16 +1635,21 @@ export default function CatalogoPage() {
             {cartItems.length > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">
-                  Subtotal ({totalItems} producto{totalItems !== 1 ? "s" : ""})
+                  Subtotal ({sidebarTotalItems} producto{sidebarTotalItems !== 1 ? "s" : ""})
                 </span>
-                <span className="text-base font-bold tabular-nums text-gray-900">S/ {fmt(subtotal)}</span>
+                <div className="flex items-center gap-2">
+                  {sidebarHasPromo && (
+                    <span className="text-xs tabular-nums text-gray-400 line-through">S/ {fmt(sidebarSubtotalOriginal)}</span>
+                  )}
+                  <span className="text-base font-bold tabular-nums text-gray-900">S/ {fmt(sidebarSubtotal)}</span>
+                </div>
               </div>
             )}
             <InteractiveHoverButton
-              onClick={openSaleModal}
+              onClick={() => { setMobileCartOpen(false); router.push("/dashboard/catalogo/carrito") }}
               disabled={cartItems.length === 0}
-              text="Realizar venta"
-              icon={<Zap className="h-4 w-4" />}
+              text="Ir al carrito"
+              icon={<ShoppingCart className="h-4 w-4" />}
               className="h-12 w-full rounded-xl bg-[#ACF847] text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
             />
           </div>

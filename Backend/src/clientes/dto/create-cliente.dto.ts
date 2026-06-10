@@ -25,7 +25,8 @@ class DocumentoLengthConstraint implements ValidatorConstraintInterface {
     const { tipo_documento } = args.object as CreateClienteDto;
     if (tipo_documento === 'DNI') return 'El DNI tiene 8 dígitos';
     if (tipo_documento === 'CE') return 'El CE tiene 12 caracteres';
-    if (tipo_documento === 'pasaporte') return 'El pasaporte tiene 9 caracteres';
+    if (tipo_documento === 'pasaporte')
+      return 'El pasaporte tiene 9 caracteres';
     return 'Longitud de documento inválida';
   }
 }

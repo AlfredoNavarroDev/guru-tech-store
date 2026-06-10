@@ -39,12 +39,12 @@ function fmtHora(iso: string) {
   return new Date(iso).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
 }
 
-function pctChange(hoy: number, ayer: number): { label: string; positive: boolean } {
+function countChange(hoy: number, ayer: number): { label: string; positive: boolean } {
   if (ayer === 0) return { label: hoy > 0 ? "Nuevo" : "–", positive: hoy > 0 }
-  const diff = ((hoy - ayer) / ayer) * 100
+  const diff = hoy - ayer
   if (diff === 0) return { label: "= Igual", positive: true }
   const sign = diff >= 0 ? "+" : ""
-  return { label: `${sign}${diff.toFixed(1)}`, positive: diff >= 0 }
+  return { label: `${sign}${diff}`, positive: diff >= 0 }
 }
 
 function moneyChange(hoy: number, ayer: number): { label: string; positive: boolean } {
@@ -80,9 +80,9 @@ export default function DashboardPage() {
 
   const STATS_DATA = useMemo(() => {
     if (!stats) return null
-    const ventasDelta   = pctChange(stats.ventas_hoy,   stats.ventas_ayer)
+    const ventasDelta   = countChange(stats.ventas_hoy,   stats.ventas_ayer)
     const ingresosDelta = moneyChange(stats.ingresos_hoy, stats.ingresos_ayer)
-    const clientesDelta = pctChange(stats.clientes_hoy, stats.clientes_ayer)
+    const clientesDelta = countChange(stats.clientes_hoy, stats.clientes_ayer)
     return [
       {
         label: "Ventas hoy",
@@ -96,7 +96,6 @@ export default function DashboardPage() {
         label: "Ingresos",
         value: stats.ingresos_hoy,
         prefix: "S/",
-        decimalPlaces: 2,
         icon: TrendingUp,
         change: ingresosDelta.label,
         positive: ingresosDelta.positive,

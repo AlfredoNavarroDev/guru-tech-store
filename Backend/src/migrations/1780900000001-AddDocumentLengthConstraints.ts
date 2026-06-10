@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddDocumentLengthConstraints1780900000001
-  implements MigrationInterface
-{
+export class AddDocumentLengthConstraints1780900000001 implements MigrationInterface {
   name = 'AddDocumentLengthConstraints1780900000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

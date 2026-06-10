@@ -396,112 +396,288 @@ export class InitialSchema1780442077495 implements MigrationInterface {
 
     // Foreign Keys
 
-    await queryRunner.query(`ALTER TABLE refreshtokens ADD CONSTRAINT fk_refresh_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE empleados ADD CONSTRAINT fk_empleado_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE empleado_roles ADD CONSTRAINT fk_emproles_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE empleado_roles ADD CONSTRAINT fk_emproles_rol FOREIGN KEY (id_rol) REFERENCES roles (id_rol) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE items ADD CONSTRAINT fk_items_marca FOREIGN KEY (id_marca) REFERENCES marcas (id_marca)`);
-    await queryRunner.query(`ALTER TABLE items ADD CONSTRAINT fk_items_categoria FOREIGN KEY (id_categoria) REFERENCES categorias (id_categoria)`);
-    await queryRunner.query(`ALTER TABLE inventario_sedes ADD CONSTRAINT fk_inv_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE inventario_sedes ADD CONSTRAINT fk_inv_item FOREIGN KEY (id_item) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE movimientos_inventario ADD CONSTRAINT fk_movinv_inventario FOREIGN KEY (id_inventario) REFERENCES inventario_sedes (id_inventario)`);
-    await queryRunner.query(`ALTER TABLE movimientos_inventario ADD CONSTRAINT fk_movinv_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`);
-    await queryRunner.query(`ALTER TABLE compras_refill ADD CONSTRAINT fk_compra_empleado FOREIGN KEY (id_empleado_refiller) REFERENCES empleados (id_empleado)`);
-    await queryRunner.query(`ALTER TABLE compras_refill ADD CONSTRAINT fk_compra_sede FOREIGN KEY (id_sede_destino) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE compras_refill ADD CONSTRAINT fk_compra_proveedor FOREIGN KEY (id_proveedor) REFERENCES proveedores (id_proveedor)`);
-    await queryRunner.query(`ALTER TABLE detalle_compra_refill ADD CONSTRAINT fk_detcompra_compra FOREIGN KEY (id_compra) REFERENCES compras_refill (id_compra) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE detalle_compra_refill ADD CONSTRAINT fk_detcompra_item FOREIGN KEY (id_item) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE promociones ADD CONSTRAINT fk_promo_categoria FOREIGN KEY (id_categoria_afectada) REFERENCES categorias (id_categoria)`);
-    await queryRunner.query(`ALTER TABLE promociones ADD CONSTRAINT fk_promo_item FOREIGN KEY (id_item_afectado) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE ventas ADD CONSTRAINT fk_venta_cliente FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE ventas ADD CONSTRAINT fk_venta_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`);
-    await queryRunner.query(`ALTER TABLE ventas ADD CONSTRAINT fk_venta_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE detalle_venta ADD CONSTRAINT fk_detventa_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE detalle_venta ADD CONSTRAINT fk_detventa_item FOREIGN KEY (id_item) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_estado FOREIGN KEY (id_estado) REFERENCES estados_reparacion (id_estado)`);
-    await queryRunner.query(`ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_cliente FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente)`);
-    await queryRunner.query(`ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_tecnico FOREIGN KEY (id_tecnico) REFERENCES empleados (id_empleado)`);
-    await queryRunner.query(`ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE reparacion_repuestos_usados ADD CONSTRAINT fk_reprepuestos_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE reparacion_repuestos_usados ADD CONSTRAINT fk_reprepuestos_item FOREIGN KEY (id_item) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE garantias ADD CONSTRAINT fk_garantia_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE garantias ADD CONSTRAINT fk_garantia_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_venta FOREIGN KEY (id_venta_origen) REFERENCES ventas (id_venta)`);
-    await queryRunner.query(`ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_garantia FOREIGN KEY (id_garantia) REFERENCES garantias (id_garantia) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`);
-    await queryRunner.query(`ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_item_devuelto FOREIGN KEY (id_item_devuelto) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_item_entregado FOREIGN KEY (id_item_entregado) REFERENCES items (id_item)`);
-    await queryRunner.query(`ALTER TABLE pagos ADD CONSTRAINT fk_pago_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE pagos ADD CONSTRAINT fk_pago_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE boletas ADD CONSTRAINT fk_boleta_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE boletas ADD CONSTRAINT fk_boleta_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE logs_sistema ADD CONSTRAINT fk_log_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`);
-    await queryRunner.query(`ALTER TABLE logs_sistema ADD CONSTRAINT fk_log_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`);
-    await queryRunner.query(`ALTER TABLE sedes ADD CONSTRAINT fk_sedes_created_by FOREIGN KEY (created_by) REFERENCES empleados (id_empleado) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE empleados ADD CONSTRAINT fk_empleados_created_by FOREIGN KEY (created_by) REFERENCES empleados (id_empleado) ON DELETE SET NULL`);
+    await queryRunner.query(
+      `ALTER TABLE refreshtokens ADD CONSTRAINT fk_refresh_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE empleados ADD CONSTRAINT fk_empleado_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE empleado_roles ADD CONSTRAINT fk_emproles_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE empleado_roles ADD CONSTRAINT fk_emproles_rol FOREIGN KEY (id_rol) REFERENCES roles (id_rol) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE items ADD CONSTRAINT fk_items_marca FOREIGN KEY (id_marca) REFERENCES marcas (id_marca)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE items ADD CONSTRAINT fk_items_categoria FOREIGN KEY (id_categoria) REFERENCES categorias (id_categoria)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE inventario_sedes ADD CONSTRAINT fk_inv_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE inventario_sedes ADD CONSTRAINT fk_inv_item FOREIGN KEY (id_item) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE movimientos_inventario ADD CONSTRAINT fk_movinv_inventario FOREIGN KEY (id_inventario) REFERENCES inventario_sedes (id_inventario)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE movimientos_inventario ADD CONSTRAINT fk_movinv_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE compras_refill ADD CONSTRAINT fk_compra_empleado FOREIGN KEY (id_empleado_refiller) REFERENCES empleados (id_empleado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE compras_refill ADD CONSTRAINT fk_compra_sede FOREIGN KEY (id_sede_destino) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE compras_refill ADD CONSTRAINT fk_compra_proveedor FOREIGN KEY (id_proveedor) REFERENCES proveedores (id_proveedor)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE detalle_compra_refill ADD CONSTRAINT fk_detcompra_compra FOREIGN KEY (id_compra) REFERENCES compras_refill (id_compra) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE detalle_compra_refill ADD CONSTRAINT fk_detcompra_item FOREIGN KEY (id_item) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE promociones ADD CONSTRAINT fk_promo_categoria FOREIGN KEY (id_categoria_afectada) REFERENCES categorias (id_categoria)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE promociones ADD CONSTRAINT fk_promo_item FOREIGN KEY (id_item_afectado) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE ventas ADD CONSTRAINT fk_venta_cliente FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON DELETE SET NULL`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE ventas ADD CONSTRAINT fk_venta_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE ventas ADD CONSTRAINT fk_venta_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE detalle_venta ADD CONSTRAINT fk_detventa_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE detalle_venta ADD CONSTRAINT fk_detventa_item FOREIGN KEY (id_item) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_estado FOREIGN KEY (id_estado) REFERENCES estados_reparacion (id_estado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_cliente FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_tecnico FOREIGN KEY (id_tecnico) REFERENCES empleados (id_empleado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE reparaciones ADD CONSTRAINT fk_rep_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE reparacion_repuestos_usados ADD CONSTRAINT fk_reprepuestos_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE reparacion_repuestos_usados ADD CONSTRAINT fk_reprepuestos_item FOREIGN KEY (id_item) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE garantias ADD CONSTRAINT fk_garantia_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE garantias ADD CONSTRAINT fk_garantia_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_venta FOREIGN KEY (id_venta_origen) REFERENCES ventas (id_venta)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_garantia FOREIGN KEY (id_garantia) REFERENCES garantias (id_garantia) ON DELETE SET NULL`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_item_devuelto FOREIGN KEY (id_item_devuelto) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE cambios_producto ADD CONSTRAINT fk_cambio_item_entregado FOREIGN KEY (id_item_entregado) REFERENCES items (id_item)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE pagos ADD CONSTRAINT fk_pago_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE pagos ADD CONSTRAINT fk_pago_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE boletas ADD CONSTRAINT fk_boleta_venta FOREIGN KEY (id_venta) REFERENCES ventas (id_venta) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE boletas ADD CONSTRAINT fk_boleta_rep FOREIGN KEY (id_reparacion) REFERENCES reparaciones (id_reparacion) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE logs_sistema ADD CONSTRAINT fk_log_empleado FOREIGN KEY (id_empleado) REFERENCES empleados (id_empleado)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE logs_sistema ADD CONSTRAINT fk_log_sede FOREIGN KEY (id_sede) REFERENCES sedes (id_sede)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE sedes ADD CONSTRAINT fk_sedes_created_by FOREIGN KEY (created_by) REFERENCES empleados (id_empleado) ON DELETE SET NULL`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE empleados ADD CONSTRAINT fk_empleados_created_by FOREIGN KEY (created_by) REFERENCES empleados (id_empleado) ON DELETE SET NULL`,
+    );
 
     // Índices
 
-    await queryRunner.query(`CREATE INDEX idx_ventas_sede_fecha ON ventas (id_sede, fecha_emision)`);
-    await queryRunner.query(`CREATE INDEX idx_ventas_cliente ON ventas (id_cliente)`);
-    await queryRunner.query(`CREATE INDEX idx_detalle_venta_venta ON detalle_venta (id_venta)`);
-    await queryRunner.query(`CREATE INDEX idx_det_venta_item ON detalle_venta (id_item)`);
-    await queryRunner.query(`CREATE INDEX idx_inv_item ON inventario_sedes (id_item)`);
-    await queryRunner.query(`CREATE INDEX idx_reparaciones_sede_fecha ON reparaciones (id_sede, fecha_ingreso)`);
-    await queryRunner.query(`CREATE INDEX idx_reparaciones_estado ON reparaciones (id_estado)`);
-    await queryRunner.query(`CREATE INDEX idx_reparaciones_cliente ON reparaciones (id_cliente)`);
-    await queryRunner.query(`CREATE INDEX idx_reparaciones_tecnico ON reparaciones (id_tecnico)`);
-    await queryRunner.query(`CREATE INDEX idx_rep_rep_usados_item ON reparacion_repuestos_usados (id_item)`);
-    await queryRunner.query(`CREATE INDEX idx_logs_fecha_hora ON logs_sistema (fecha_hora)`);
-    await queryRunner.query(`CREATE INDEX idx_logs_ref ON logs_sistema (tipo_referencia, id_referencia)`);
-    await queryRunner.query(`CREATE INDEX idx_mov_inv_fecha ON movimientos_inventario (fecha_movimiento)`);
-    await queryRunner.query(`CREATE INDEX idx_mov_inv_inventario ON movimientos_inventario (id_inventario, fecha_movimiento)`);
-    await queryRunner.query(`CREATE INDEX idx_item_espec_modelo ON items ((especificaciones->>'modelo'))`);
-    await queryRunner.query(`CREATE INDEX idx_det_compra_item ON detalle_compra_refill (id_item)`);
-    await queryRunner.query(`CREATE INDEX idx_pagos_venta ON pagos (id_venta) WHERE id_venta IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX idx_pagos_reparacion ON pagos (id_reparacion) WHERE id_reparacion IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX idx_garantias_venta ON garantias (id_venta) WHERE id_venta IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX idx_garantias_reparacion ON garantias (id_reparacion) WHERE id_reparacion IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX idx_boletas_venta ON boletas (id_venta) WHERE id_venta IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX idx_boletas_reparacion ON boletas (id_reparacion) WHERE id_reparacion IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX idx_cambios_venta_origen ON cambios_producto (id_venta_origen)`);
-    await queryRunner.query(`CREATE INDEX idx_cambios_sede_fecha ON cambios_producto (id_sede, fecha_cambio)`);
-    await queryRunner.query(`CREATE INDEX idx_cambios_item_devuelto ON cambios_producto (id_item_devuelto)`);
-    await queryRunner.query(`CREATE INDEX idx_cambios_item_entregado ON cambios_producto (id_item_entregado)`);
-    await queryRunner.query(`CREATE INDEX idx_refresh_tokens_empleado ON refreshtokens (id_empleado)`);
-    await queryRunner.query(`CREATE INDEX idx_refresh_tokens_expiry ON refreshtokens (expires_at) WHERE revoked = false`);
+    await queryRunner.query(
+      `CREATE INDEX idx_ventas_sede_fecha ON ventas (id_sede, fecha_emision)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_ventas_cliente ON ventas (id_cliente)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_detalle_venta_venta ON detalle_venta (id_venta)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_det_venta_item ON detalle_venta (id_item)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_inv_item ON inventario_sedes (id_item)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_reparaciones_sede_fecha ON reparaciones (id_sede, fecha_ingreso)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_reparaciones_estado ON reparaciones (id_estado)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_reparaciones_cliente ON reparaciones (id_cliente)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_reparaciones_tecnico ON reparaciones (id_tecnico)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_rep_rep_usados_item ON reparacion_repuestos_usados (id_item)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_logs_fecha_hora ON logs_sistema (fecha_hora)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_logs_ref ON logs_sistema (tipo_referencia, id_referencia)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_mov_inv_fecha ON movimientos_inventario (fecha_movimiento)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_mov_inv_inventario ON movimientos_inventario (id_inventario, fecha_movimiento)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_item_espec_modelo ON items ((especificaciones->>'modelo'))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_det_compra_item ON detalle_compra_refill (id_item)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_pagos_venta ON pagos (id_venta) WHERE id_venta IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_pagos_reparacion ON pagos (id_reparacion) WHERE id_reparacion IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_garantias_venta ON garantias (id_venta) WHERE id_venta IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_garantias_reparacion ON garantias (id_reparacion) WHERE id_reparacion IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_boletas_venta ON boletas (id_venta) WHERE id_venta IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_boletas_reparacion ON boletas (id_reparacion) WHERE id_reparacion IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_cambios_venta_origen ON cambios_producto (id_venta_origen)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_cambios_sede_fecha ON cambios_producto (id_sede, fecha_cambio)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_cambios_item_devuelto ON cambios_producto (id_item_devuelto)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_cambios_item_entregado ON cambios_producto (id_item_entregado)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_refresh_tokens_empleado ON refreshtokens (id_empleado)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX idx_refresh_tokens_expiry ON refreshtokens (expires_at) WHERE revoked = false`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const indexes = [
-      'idx_refresh_tokens_expiry', 'idx_refresh_tokens_empleado',
-      'idx_cambios_item_entregado', 'idx_cambios_item_devuelto',
-      'idx_cambios_sede_fecha', 'idx_cambios_venta_origen',
-      'idx_boletas_reparacion', 'idx_boletas_venta',
-      'idx_garantias_reparacion', 'idx_garantias_venta',
-      'idx_pagos_reparacion', 'idx_pagos_venta',
-      'idx_det_compra_item', 'idx_item_espec_modelo',
-      'idx_mov_inv_inventario', 'idx_mov_inv_fecha',
-      'idx_logs_ref', 'idx_logs_fecha_hora',
-      'idx_rep_rep_usados_item', 'idx_reparaciones_tecnico',
-      'idx_reparaciones_cliente', 'idx_reparaciones_estado',
-      'idx_reparaciones_sede_fecha', 'idx_inv_item',
-      'idx_det_venta_item', 'idx_detalle_venta_venta',
-      'idx_ventas_cliente', 'idx_ventas_sede_fecha',
+      'idx_refresh_tokens_expiry',
+      'idx_refresh_tokens_empleado',
+      'idx_cambios_item_entregado',
+      'idx_cambios_item_devuelto',
+      'idx_cambios_sede_fecha',
+      'idx_cambios_venta_origen',
+      'idx_boletas_reparacion',
+      'idx_boletas_venta',
+      'idx_garantias_reparacion',
+      'idx_garantias_venta',
+      'idx_pagos_reparacion',
+      'idx_pagos_venta',
+      'idx_det_compra_item',
+      'idx_item_espec_modelo',
+      'idx_mov_inv_inventario',
+      'idx_mov_inv_fecha',
+      'idx_logs_ref',
+      'idx_logs_fecha_hora',
+      'idx_rep_rep_usados_item',
+      'idx_reparaciones_tecnico',
+      'idx_reparaciones_cliente',
+      'idx_reparaciones_estado',
+      'idx_reparaciones_sede_fecha',
+      'idx_inv_item',
+      'idx_det_venta_item',
+      'idx_detalle_venta_venta',
+      'idx_ventas_cliente',
+      'idx_ventas_sede_fecha',
     ];
     for (const idx of indexes) {
       await queryRunner.query(`DROP INDEX IF EXISTS ${idx}`);
     }
 
     const tables = [
-      'refreshtokens', 'logs_sistema', 'boletas', 'pagos', 'garantias',
-      'cambios_producto', 'reparacion_repuestos_usados', 'reparaciones',
-      'detalle_venta', 'ventas', 'promociones', 'detalle_compra_refill',
-      'compras_refill', 'movimientos_inventario', 'inventario_sedes',
-      'items', 'clientes', 'empleado_roles', 'empleados',
-      'proveedores', 'estados_reparacion', 'categorias', 'marcas',
-      'roles', 'sedes',
+      'refreshtokens',
+      'logs_sistema',
+      'boletas',
+      'pagos',
+      'garantias',
+      'cambios_producto',
+      'reparacion_repuestos_usados',
+      'reparaciones',
+      'detalle_venta',
+      'ventas',
+      'promociones',
+      'detalle_compra_refill',
+      'compras_refill',
+      'movimientos_inventario',
+      'inventario_sedes',
+      'items',
+      'clientes',
+      'empleado_roles',
+      'empleados',
+      'proveedores',
+      'estados_reparacion',
+      'categorias',
+      'marcas',
+      'roles',
+      'sedes',
     ];
     for (const table of tables) {
       await queryRunner.query(`DROP TABLE IF EXISTS ${table} CASCADE`);

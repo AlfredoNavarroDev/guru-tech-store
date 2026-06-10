@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import type { StringValue } from 'ms';
 import { DataSource, Repository } from 'typeorm';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -151,8 +152,7 @@ export class AuthService {
       where: { id_empleado: userId, revoked: false },
     });
 
-    // Sin token activo o ya expirado: nada que revocar.
-    if (!record || record.expires_at <= new Date()) return;
+    if (!record) return;
 
     const match = await bcrypt.compare(refreshTokenRaw, record.token_hash);
     if (!match) return;
@@ -165,12 +165,17 @@ export class AuthService {
   private async issueRefreshToken(id_empleado: number): Promise<string> {
     const refreshExpiresIn = this.configService.get<string>(
       'REFRESH_EXPIRES_IN',
-      '30d',
+      '7d',
     );
 
     const refreshTokenRaw = this.jwtService.sign(
       { sub: id_empleado, type: 'refresh' },
-      { expiresIn: refreshExpiresIn as unknown as number },
+      { expiresIn: refreshExpiresIn as StringValue },
+    );
+
+    await this.refreshTokenRepo.update(
+      { id_empleado, revoked: false },
+      { revoked: true },
     );
 
     const token_hash = await bcrypt.hash(refreshTokenRaw, 10);

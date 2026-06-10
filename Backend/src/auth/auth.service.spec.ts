@@ -38,7 +38,7 @@ describe('AuthService', () => {
       sign: jest.fn(),
       verify: jest.fn(),
     };
-    configService = { get: jest.fn().mockReturnValue('30d') };
+    configService = { get: jest.fn().mockReturnValue('7d') };
     dataSource = { query: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({

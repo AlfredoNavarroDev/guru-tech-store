@@ -38,7 +38,7 @@ export function LoginCard() {
     setLoading(true)
     try {
       const session = await loginApi({ nro_documento: nro_documento.trim(), password })
-      saveSession(session)
+      saveSession(session, session.refresh_token)
       router.push("/dashboard")
     } catch (err) {
       if (err instanceof ApiError) {
