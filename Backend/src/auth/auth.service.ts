@@ -44,20 +44,13 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, empleado.password_hash);
     if (!valid) throw new InvalidCredentialsException();
 
-    const roles = await this.getRoles(empleado.id_empleado);
+    const { rol, sede: sedeNombre } = await this.getEmpleadoData(empleado.id_empleado);
 
-    // Sede en la respuesta para que el frontend la muestre sin llamada extra.
-    const sedeRows = await this.dataSource.query<{ nombre: string }[]>(
-      `SELECT nombre FROM Sedes WHERE id_sede = $1`,
-      [empleado.id_sede],
-    );
-    const sedeNombre = sedeRows.length > 0 ? sedeRows[0].nombre : 'Sin sede';
-
-    // Payload mínimo: sub, id_sede, roles, nombre.
+    // Payload mínimo: sub, id_sede, rol, nombre.
     const payload: JwtPayload = {
       sub: empleado.id_empleado,
       id_sede: empleado.id_sede!,
-      roles,
+      rol,
       nombre: empleado.nombre_completo,
     };
 
@@ -68,7 +61,7 @@ export class AuthService {
       access_token,
       refresh_token,
       nombre: empleado.nombre_completo,
-      roles,
+      rol,
       id_sede: empleado.id_sede!,
       sede: sedeNombre,
     };
@@ -118,18 +111,12 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-    const roles = await this.getRoles(empleado.id_empleado);
-
-    const sedeRows = await this.dataSource.query<{ nombre: string }[]>(
-      `SELECT nombre FROM Sedes WHERE id_sede = $1`,
-      [empleado.id_sede],
-    );
-    const sedeNombre = sedeRows.length > 0 ? sedeRows[0].nombre : 'Sin sede';
+    const { rol, sede: sedeNombre } = await this.getEmpleadoData(empleado.id_empleado);
 
     const payload: JwtPayload = {
       sub: empleado.id_empleado,
       id_sede: empleado.id_sede!,
-      roles,
+      rol,
       nombre: empleado.nombre_completo,
     };
 
@@ -140,7 +127,7 @@ export class AuthService {
       access_token,
       refresh_token,
       nombre: empleado.nombre_completo,
-      roles,
+      rol,
       id_sede: empleado.id_sede!,
       sede: sedeNombre,
     };
@@ -152,7 +139,7 @@ export class AuthService {
       where: { id_empleado: userId, revoked: false },
     });
 
-    if (!record) return;
+    if (!record || record.expires_at <= new Date()) return;
 
     const match = await bcrypt.compare(refreshTokenRaw, record.token_hash);
     if (!match) return;
@@ -210,14 +197,21 @@ export class AuthService {
     return new Date(Date.now() + value * multipliers[unit]);
   }
 
-  // Obtiene roles del empleado desde Empleado_Roles para incluirlos en el JWT.
-  private async getRoles(id_empleado: number): Promise<string[]> {
-    const rows = await this.dataSource.query<{ nombre_rol: string }[]>(
-      `SELECT r.nombre_rol FROM Empleado_Roles er
-       JOIN Roles r ON r.id_rol = er.id_rol
-       WHERE er.id_empleado = $1`,
+  // Un query combina rol + sede para evitar dos roundtrips.
+  private async getEmpleadoData(
+    id_empleado: number,
+  ): Promise<{ rol: string; sede: string }> {
+    const rows = await this.dataSource.query<
+      { nombre_rol: string; nombre_sede: string }[]
+    >(
+      `SELECT r.nombre_rol, COALESCE(s.nombre, 'Sin sede') AS nombre_sede
+       FROM Empleados e
+       JOIN  Roles r  ON r.id_rol  = e.id_rol
+       LEFT JOIN Sedes s ON s.id_sede = e.id_sede
+       WHERE e.id_empleado = $1`,
       [id_empleado],
     );
-    return rows.map((r) => r.nombre_rol);
+    if (!rows.length) return { rol: 'desconocido', sede: 'Sin sede' };
+    return { rol: rows[0].nombre_rol, sede: rows[0].nombre_sede };
   }
 }

@@ -3,7 +3,7 @@ import { request } from './client'
 export interface AuthSession {
   access_token: string
   nombre: string
-  roles: string[]
+  rol: string
   id_sede: number
   sede: string
 }

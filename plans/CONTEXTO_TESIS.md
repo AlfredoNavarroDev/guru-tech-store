@@ -16,19 +16,18 @@
 | **Equipo** | Alfredo F. Navarro Torres (PO / Dev) · Christian D. Unocc Ramírez (SM / Dev) |
 | **Herramienta de gestión** | ClickUp — escala Fibonacci: 1, 2, 3, 5, 8, 13, 21 |
 | **Stack** | NestJS · TypeORM · PostgreSQL · Next.js 14 · Tailwind CSS · JWT |
-| **Total SP** | 136 Story Points en 5 sprints |
+| **Total SP** | 120 Story Points en 4 sprints |
 
 ---
 
 ## 2. RESUMEN DE SPRINTS
 
-| Sprint | Épica | SP | HUs | Roles cubiertos |
-|--------|-------|----|-----|-----------------|
-| 1 | Autenticación + Ventas | 46 | HU-01 a HU-08, HU-23, HU-25 | Vendedor · Frontend (Login) |
-| 2 | Administrador | 14 | HU-09, HU-10, HU-24, HU-26 | Admin · Frontend (Landing) |
-| 3 | Inventario | 16 | HU-11 a HU-14, HU-25, HU-27 | Abastecedor · Frontend |
-| 4 | Servicios Técnicos | 26 | HU-15 a HU-19 | Técnico · Frontend |
-| 5 | Chatbot IA | 34 | HU-20 a HU-22, HU-28 | IA (Backend + Frontend) |
+| Sprint | Épica                          | SP  | HUs          |
+|--------|--------------------------------|-----|--------------|
+| 1      | Autenticación + Ventas + Admin | 52  | HU-01…HU-10 |
+| 2      | Inventario                     | 13  | HU-11…HU-14 |
+| 3      | Servicios Técnicos             | 26  | HU-15…HU-19 |
+| 4      | Chatbot IA                     | 29  | HU-20…HU-22 |
 
 ---
 
@@ -36,34 +35,28 @@
 
 | ID | Historia de Usuario | Épica | Sprint | SP | Prioridad |
 |----|---------------------|-------|--------|----|-----------|
-| HU-01 | Inicio de sesión con credenciales | Autenticación | 1 | 5 | Crítica |
-| HU-02 | Cierre de sesión | Autenticación | 1 | 2 | Alta |
-| HU-03 | Control de acceso por rol | Autenticación | 1 | 5 | Crítica |
-| HU-04 | Registrar una venta | Ventas | 1 | 13 | Crítica |
-| HU-05 | Consultar disponibilidad de stock | Ventas | 1 | 3 | Alta |
-| HU-06 | Generar comprobante PDF de venta | Ventas | 1 | 5 | Alta |
-| HU-07 | Registrar cliente en la venta | Ventas | 1 | 3 | Media |
-| HU-08 | Visualizar historial de ventas | Ventas | 1 | 3 | Media |
-| HU-09 | Registrar nuevo empleado | Administrador | 2 | 5 | Alta |
-| HU-10 | Listar empleados de la sede | Administrador | 2 | 2 | Media |
-| HU-11 | Registrar nuevo ítem en el catálogo | Inventario | 3 | 5 | Alta |
-| HU-12 | Actualizar stock de ítem existente | Inventario | 3 | 3 | Alta |
-| HU-13 | Consultar catálogo de productos | Inventario | 3 | 3 | Media |
-| HU-14 | Consultar repuestos disponibles | Inventario | 3 | 2 | Media |
-| HU-15 | Registrar ingreso de equipo al serv. técnico | Serv. Técnicos | 4 | 8 | Alta |
-| HU-16 | Actualizar estado de reparación | Serv. Técnicos | 4 | 5 | Alta |
-| HU-17 | Registrar repuestos utilizados en reparación | Serv. Técnicos | 4 | 5 | Alta |
-| HU-18 | Consultar historial de reparaciones | Serv. Técnicos | 4 | 3 | Alta |
-| HU-19 | Registrar adelanto de pago de reparación | Serv. Técnicos | 4 | 5 | Media |
-| HU-20 | Consultar productos en lenguaje natural | Chatbot IA | 5 | 13 | Alta |
-| HU-21 | Respuestas con datos en tiempo real | Chatbot IA | 5 | 8 | Alta |
-| HU-22 | Historial de conversación del chatbot | Chatbot IA | 5 | 5 | Media |
-| HU-23 | Refresh tokens + revocación JWT | Autenticación | 1 | 5 | Crítica |
-| HU-24 | Revocar tokens al desactivar empleado | Administrador | 2 | 2 | Alta |
-| HU-25 | Deadlock handling + orden items por id ASC | Ventas | 1+3 | 2 | Alta |
-| HU-26 | Interceptor audit trail (SET LOCAL actor_id) | Seguridad | 2 | 5 | Alta |
-| HU-27 | N+1 queries: QueryBuilder en listados | Inventario | 3 | 3 | Media |
-| HU-28 | Chatbot seguro: RO + schema/rol + sanitiz. | Chatbot IA | 5 | 8 | Alta |
+| HU-01 | Inicio de sesión con credenciales | E1 Autenticación | 1 | 5 | Crítica |
+| HU-02 | Cierre de sesión | E1 Autenticación | 1 | 2 | Alta |
+| HU-03 | Control de acceso por rol | E1 Autenticación | 1 | 5 | Crítica |
+| HU-04 | Renovación automática de sesión | E1 Autenticación | 1 | 5 | Crítica |
+| HU-05 | Administrar empleados de la sede | E3 Administrador | 1 | 8 | Alta |
+| HU-06 | Registrar una venta | E2 Ventas | 1 | 13 | Crítica |
+| HU-07 | Consultar disponibilidad de stock | E2 Ventas | 1 | 3 | Alta |
+| HU-08 | Generar comprobante PDF de venta | E2 Ventas | 1 | 5 | Alta |
+| HU-09 | Registrar cliente en la venta | E2 Ventas | 1 | 3 | Media |
+| HU-10 | Visualizar historial de ventas | E2 Ventas | 1 | 3 | Media |
+| HU-11 | Registrar nuevo ítem en el catálogo | E4 Inventario | 2 | 5 | Alta |
+| HU-12 | Actualizar stock de ítem existente | E4 Inventario | 2 | 3 | Alta |
+| HU-13 | Consultar catálogo de productos | E4 Inventario | 2 | 3 | Media |
+| HU-14 | Consultar repuestos disponibles | E4 Inventario | 2 | 2 | Media |
+| HU-15 | Registrar ingreso de equipo al serv. técnico | E5 Serv. Técnicos | 3 | 8 | Alta |
+| HU-16 | Actualizar estado de reparación | E5 Serv. Técnicos | 3 | 5 | Alta |
+| HU-17 | Registrar repuestos utilizados en reparación | E5 Serv. Técnicos | 3 | 5 | Alta |
+| HU-18 | Consultar historial de reparaciones | E5 Serv. Técnicos | 3 | 3 | Alta |
+| HU-19 | Registrar adelanto de pago de reparación | E5 Serv. Técnicos | 3 | 5 | Media |
+| HU-20 | Consultar productos en lenguaje natural | E6 Chatbot IA | 4 | 13 | Alta |
+| HU-21 | Respuestas con datos en tiempo real | E6 Chatbot IA | 4 | 8 | Alta |
+| HU-22 | Seguridad del chatbot | E6 Chatbot IA | 4 | 8 | Alta |
 
 ---
 
@@ -71,34 +64,28 @@
 
 | ID | Alfredo | Christian | ¿Consenso? | SP Final | Nota |
 |----|---------|-----------|------------|----------|------|
-| HU-01 | 5 | 5 | Sí | 5 | — |
-| HU-02 | 2 | 2 | Sí | 2 | — |
-| HU-03 | 5 | 8 | No | 5 | NestJS Guards nativos reducen esfuerzo |
-| HU-04 | 13 | 8 | No | 13 | Validación stock + transacción atómica + múltiples productos |
-| HU-05 | 3 | 3 | Sí | 3 | — |
-| HU-06 | 5 | 5 | Sí | 5 | — |
-| HU-07 | 3 | 2 | No | 3 | Flujo embebido búsqueda/creación cliente dentro de venta |
-| HU-08 | 3 | 3 | Sí | 3 | — |
-| HU-09 | 5 | 5 | Sí | 5 | — |
-| HU-10 | 2 | 2 | Sí | 2 | — |
-| HU-11 | 5 | 5 | Sí | 5 | — |
-| HU-12 | 3 | 3 | Sí | 3 | — |
-| HU-13 | 3 | 2 | No | 3 | Incluye búsqueda por nombre, SKU y categoría |
-| HU-14 | 2 | 2 | Sí | 2 | — |
-| HU-15 | 8 | 8 | Sí | 8 | — |
-| HU-16 | 5 | 5 | Sí | 5 | — |
-| HU-17 | 5 | 8 | No | 5 | Descuento stock reutiliza lógica del módulo ventas |
-| HU-18 | 3 | 3 | Sí | 3 | — |
-| HU-19 | 5 | 5 | Sí | 5 | — |
+| HU-01 | 5  | 5  | Sí | 5  | — |
+| HU-02 | 2  | 2  | Sí | 2  | — |
+| HU-03 | 5  | 8  | No | 5  | Guards nativos de NestJS reducen esfuerzo |
+| HU-04 | 5  | 5  | Sí | 5  | — |
+| HU-05 | 5  | 8  | No | 8  | Crear y listar; incluye desactivación con revocación de acceso |
+| HU-06 | 13 | 8  | No | 13 | Validación stock + transacción atómica + múltiples productos |
+| HU-07 | 3  | 3  | Sí | 3  | — |
+| HU-08 | 5  | 5  | Sí | 5  | — |
+| HU-09 | 3  | 2  | No | 3  | Flujo embebido búsqueda/creación de cliente dentro de venta |
+| HU-10 | 3  | 3  | Sí | 3  | — |
+| HU-11 | 5  | 5  | Sí | 5  | — |
+| HU-12 | 3  | 3  | Sí | 3  | — |
+| HU-13 | 3  | 2  | No | 3  | Incluye búsqueda por nombre, SKU y categoría |
+| HU-14 | 2  | 2  | Sí | 2  | — |
+| HU-15 | 8  | 8  | Sí | 8  | — |
+| HU-16 | 5  | 5  | Sí | 5  | — |
+| HU-17 | 5  | 8  | No | 5  | Descuento de stock reutiliza lógica del módulo ventas |
+| HU-18 | 3  | 3  | Sí | 3  | — |
+| HU-19 | 5  | 5  | Sí | 5  | — |
 | HU-20 | 13 | 13 | Sí | 13 | — |
-| HU-21 | 8 | 8 | Sí | 8 | — |
-| HU-22 | 5 | 5 | Sí | 5 | — |
-| HU-23 | 5 | 5 | Sí | 5 | Tabla `RefreshTokens` + endpoints /auth/refresh y /auth/logout |
-| HU-24 | 2 | 2 | Sí | 2 | Revocar refresh tokens al desactivar — inyectar repo en EmpleadosService |
-| HU-25 | 2 | 2 | Sí | 2 | Captura 40P01 + ordenar items por id_item ASC en ventas/compras |
-| HU-26 | 5 | 5 | Sí | 5 | Interceptor global AuditInterceptor — BD ya tiene fn_get_actor_id() |
-| HU-27 | 3 | 3 | Sí | 3 | QueryBuilder en ItemsService + ComprasService, máx 2 queries por listado |
-| HU-28 | 8 | 8 | Sí | 8 | Usuario chatbot_ro + ChatbotDataSource + schema/rol + sanitización |
+| HU-21 | 8  | 8  | Sí | 8  | — |
+| HU-22 | 8  | 8  | Sí | 8  | — |
 
 ---
 
@@ -160,7 +147,7 @@ ALTER DATABASE guru_tech SET timezone = 'America/Lima';
 {
   sub: number;        // id_empleado
   id_sede: number;    // sede del empleado
-  roles: string[];    // ['vendedor' | 'admin' | 'abastecedor' | 'tecnico']
+  rol: string;        // 'vendedor' | 'admin' | 'abastecedor' | 'tecnico'
   nombre: string;
 }
 ```
@@ -169,7 +156,7 @@ ALTER DATABASE guru_tech SET timezone = 'America/Lima';
 ```typescript
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('<rol>')
-@Decorator('CurrentUser') → { id_empleado, id_sede, roles }
+@Decorator('CurrentUser') → { id_empleado, id_sede, rol }
 ```
 
 ### Manejo de errores de trigger
@@ -266,8 +253,7 @@ Datos seed: Recibido(1) → En Diagnóstico(2) → Esperando Repuesto(3) → En 
 | `created_by` | int | FK → Empleados self-ref (ON DELETE SET NULL) |
 | UNIQUE | (tipo_documento, nro_documento) | — |
 
-#### `Empleado_Roles`
-PK compuesta: `(id_empleado, id_rol)` — relación N:M entre Empleados y Roles.
+> `Empleados` incluye columna `id_rol INT NOT NULL FK → Roles`. Un empleado tiene exactamente un rol. La tabla `Empleado_Roles` fue eliminada.
 
 #### `Clientes`
 Columnas análogas a Empleados: `id_cliente` · `tipo_documento` · `nro_documento` (UNIQUE pair) · `nombre_completo` · `telefono` · `direccion_completa` · `es_extranjero` · `created_at` · `updated_at`
@@ -280,13 +266,13 @@ Columnas análogas a Empleados: `id_cliente` · `tipo_documento` · `nro_documen
 | `tipo` | CHECK IN ('producto', 'repuesto') |
 | `sku` | varchar(50) UNIQUE |
 | `id_marca` | FK → Marcas |
-| `id_categoria` | FK → Categorias |
 | `calidad` | solo si tipo='repuesto' (`chk_calidad_solo_repuesto`) |
 | `especificaciones` | jsonb — para búsquedas GIN |
 | `precio_compra_actual` | decimal(12,2) CHECK >= 0 |
 | `precio_venta_actual` | decimal(12,2) CHECK >= precio_compra_actual |
 | CONSTRAINT | precio_venta >= precio_compra |
-| CONSTRAINT | id_categoria NOT NULL si tipo='producto' |
+
+> La columna `id_categoria` fue eliminada. Usar tabla `Item_Categorias(id_item FK, id_categoria FK, PK compuesta)`. Un producto puede tener N categorías (mínimo 1 — enforceado por trigger `trg_item_categorias_check`).
 
 #### `Inventario_Sedes`
 | Columna | Restricción |
@@ -545,6 +531,12 @@ Misma lógica que ventas pero sobre `Reparacion_Repuestos_Usados`:
 - `trg_reparaciones_check_sede_habilitada` — idem.
 - `trg_compras_check_sede_habilitada` — idem.
 
+### 9.12 Triggers de Item_Categorias
+
+| Trigger | Evento | Efecto |
+|---------|--------|--------|
+| `trg_item_categorias_check` | AFTER DELETE Item_Categorias | Lanza EXCEPTION si id_item es tipo='producto' y quedaría sin categorías |
+
 ---
 
 ## 10. VISTAS SQL — CATÁLOGO COMPLETO
@@ -716,7 +708,7 @@ const itemsOrdenados = [...dto.items].sort((a, b) => a.id_item - b.id_item);
 
 **Navegación post-login:**
 ```typescript
-switch (roles[0]) {
+switch (rol) {
   case 'vendedor':      redirect('/dashboard/vendedor');
   case 'admin':         redirect('/dashboard/admin');
   case 'abastecedor':   redirect('/dashboard/abastecedor');
@@ -859,7 +851,7 @@ const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const result = await generateText({
   model: openai('gpt-4o-mini'),
-  system: buildSystemPrompt(user.roles, user.id_sede),
+  system: buildSystemPrompt(user.rol, user.id_sede),
   tools: {
     buscar_productos: tool({
       description: 'Busca productos en el catálogo de la sede',

@@ -28,4 +28,7 @@ export class Empleado {
   // 'activo' | 'inactivo'. Desactivar preserva historial de ventas.
   @Column({ name: 'estado', default: 'activo' })
   estado: string;
+
+  @Column({ name: 'id_rol', type: 'int' })
+  id_rol: number;
 }

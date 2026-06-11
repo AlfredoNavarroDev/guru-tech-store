@@ -31,16 +31,15 @@ export async function seedEmpleados(qr: QueryRunner): Promise<void> {
     '    id=4  suspendido  DNI 10003099  sede 1 → login debe retornar 401',
   );
 
-  // Roles para JWT payload (tabla N:M)
-  console.log('  Insertando Empleado_Roles...');
+  // id_rol directo en empleados (tabla N:M eliminada)
+  console.log('  Asignando id_rol en empleados...');
   await qr.query(`
-    INSERT INTO Empleado_Roles (id_empleado, id_rol) VALUES
-    (1, 1),  -- Roberto → propietario
-    (2, 3),  -- Luis    → vendedor
-    (3, 3),  -- Carla   → vendedor
-    (4, 3)   -- Jorge   → vendedor (suspendido, igual tiene rol asignado)
+    UPDATE empleados SET id_rol = 1 WHERE id_empleado = 1;
+    UPDATE empleados SET id_rol = 3 WHERE id_empleado = 2;
+    UPDATE empleados SET id_rol = 3 WHERE id_empleado = 3;
+    UPDATE empleados SET id_rol = 3 WHERE id_empleado = 4;
   `);
-  console.log('  OK - roles asignados');
+  console.log('  OK - roles asignados directamente en empleados');
 
   await qr.query(
     `SELECT setval(pg_get_serial_sequence('Empleados', 'id_empleado'), 4)`,

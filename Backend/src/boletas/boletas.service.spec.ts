@@ -6,14 +6,24 @@ import { DataSource } from 'typeorm';
 import { BoletasService } from './boletas.service';
 import { Boleta } from './entities/boleta.entity';
 
-jest.mock('puppeteer', () => ({
-  launch: jest.fn().mockResolvedValue({
-    newPage: jest.fn().mockResolvedValue({
-      setContent: jest.fn().mockResolvedValue(undefined),
-      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf-content')),
+jest.mock('@sparticuz/chromium', () => ({
+  default: {
+    args: [],
+    executablePath: jest.fn().mockResolvedValue('/usr/bin/chromium'),
+    headless: true,
+  },
+}));
+
+jest.mock('puppeteer-core', () => ({
+  default: {
+    launch: jest.fn().mockResolvedValue({
+      newPage: jest.fn().mockResolvedValue({
+        setContent: jest.fn().mockResolvedValue(undefined),
+        pdf: jest.fn().mockResolvedValue(Buffer.from('pdf-content')),
+      }),
+      close: jest.fn().mockResolvedValue(undefined),
     }),
-    close: jest.fn().mockResolvedValue(undefined),
-  }),
+  },
 }));
 
 const mockS3Send = jest.fn().mockResolvedValue({});

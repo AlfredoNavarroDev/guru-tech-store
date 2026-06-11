@@ -21,6 +21,7 @@ const createMockRepository = () => ({
   findOne: jest.fn(),
   save: jest.fn().mockResolvedValue({}),
   create: jest.fn().mockReturnValue({}),
+  update: jest.fn().mockResolvedValue({}),
 });
 
 describe('AuthService', () => {
@@ -77,14 +78,13 @@ describe('AuthService', () => {
         '\n🔍 Acción   : login() con credenciales válidas (empleado activo, password correcto)',
       );
       console.log(
-        '📌 Espera   : objeto { access_token, refresh_token, nombre, roles, id_sede, sede }',
+        '📌 Espera   : objeto { access_token, refresh_token, nombre, rol, id_sede, sede }',
       );
 
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       dataSource.query
-        .mockResolvedValueOnce([{ nombre_rol: 'vendedor' }])
-        .mockResolvedValueOnce([{ nombre: 'Sede Central' }]);
+        .mockResolvedValueOnce([{ nombre_rol: 'vendedor', nombre_sede: 'Sede Central' }]);
       jwtService.sign
         .mockReturnValueOnce('jwt-token')
         .mockReturnValueOnce('refresh-jwt-token');
@@ -97,41 +97,16 @@ describe('AuthService', () => {
         access_token: 'jwt-token',
         refresh_token: 'refresh-jwt-token',
         nombre: 'Juan Perez',
-        roles: ['vendedor'],
+        rol: 'vendedor',
         id_sede: 2,
         sede: 'Sede Central',
       });
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 1,
         id_sede: 2,
-        roles: ['vendedor'],
+        rol: 'vendedor',
         nombre: 'Juan Perez',
       });
-    });
-
-    it('returns multiple roles when employee has several', async () => {
-      console.log(
-        '\n🔍 Acción   : login() con empleado que tiene varios roles',
-      );
-      console.log('📌 Espera   : roles: ["vendedor", "supervisor"]');
-
-      empleadoRepo.findOne.mockResolvedValue(empleado);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      dataSource.query
-        .mockResolvedValueOnce([
-          { nombre_rol: 'vendedor' },
-          { nombre_rol: 'supervisor' },
-        ])
-        .mockResolvedValueOnce([{ nombre: 'Sede Central' }]);
-      jwtService.sign
-        .mockReturnValueOnce('jwt-token')
-        .mockReturnValueOnce('refresh-jwt-token');
-
-      const result = await service.login(dto);
-
-      console.log('✅ Resultado: roles =', result.roles);
-
-      expect(result.roles).toEqual(['vendedor', 'supervisor']);
     });
 
     it('throws UnauthorizedException when employee not found', async () => {
@@ -216,17 +191,15 @@ describe('AuthService', () => {
       expect(jwtService.sign).not.toHaveBeenCalled();
     });
 
-    it('queries getRoles with correct employee id', async () => {
+    it('queries getEmpleadoData with correct employee id', async () => {
       console.log(
-        '\n🔍 Acción   : login() exitoso — verificar que getRoles usa id_empleado correcto',
+        '\n🔍 Acción   : login() exitoso — verificar que getEmpleadoData usa id_empleado correcto',
       );
       console.log('📌 Espera   : dataSource.query llamado con id_empleado = 1');
 
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      dataSource.query
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ nombre: 'Sin sede' }]);
+      dataSource.query.mockResolvedValueOnce([]);
       jwtService.sign
         .mockReturnValueOnce('jwt-token')
         .mockReturnValueOnce('refresh-jwt-token');
@@ -235,11 +208,11 @@ describe('AuthService', () => {
 
       const [sql, params] = dataSource.query.mock.calls[0];
       console.log(
-        '✅ Resultado: SQL contiene WHERE er.id_empleado = $1, params =',
+        '✅ Resultado: SQL contiene WHERE e.id_empleado = $1, params =',
         params,
       );
 
-      expect(sql).toContain('WHERE er.id_empleado = $1');
+      expect(sql).toContain('WHERE e.id_empleado = $1');
       expect(params).toEqual([1]);
     });
   });
@@ -265,7 +238,7 @@ describe('AuthService', () => {
         '\n🔍 Acción   : refresh() con token válido, record activo, empleado activo',
       );
       console.log(
-        '📌 Espera   : { access_token, refresh_token, nombre, roles, id_sede, sede }',
+        '📌 Espera   : { access_token, refresh_token, nombre, rol, id_sede, sede }',
       );
 
       jwtService.verify.mockReturnValue(decoded);
@@ -274,8 +247,7 @@ describe('AuthService', () => {
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
       dataSource.query
-        .mockResolvedValueOnce([{ nombre_rol: 'vendedor' }])
-        .mockResolvedValueOnce([{ nombre: 'Sede Central' }]);
+        .mockResolvedValueOnce([{ nombre_rol: 'vendedor', nombre_sede: 'Sede Central' }]);
       jwtService.sign
         .mockReturnValueOnce('new-access-token')
         .mockReturnValueOnce('new-refresh-token');
@@ -288,7 +260,7 @@ describe('AuthService', () => {
         access_token: 'new-access-token',
         refresh_token: 'new-refresh-token',
         nombre: 'Juan Perez',
-        roles: ['vendedor'],
+        rol: 'vendedor',
         id_sede: 2,
         sede: 'Sede Central',
       });
@@ -309,8 +281,7 @@ describe('AuthService', () => {
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
       dataSource.query
-        .mockResolvedValueOnce([{ nombre_rol: 'vendedor' }])
-        .mockResolvedValueOnce([{ nombre: 'Sede Central' }]);
+        .mockResolvedValueOnce([{ nombre_rol: 'vendedor', nombre_sede: 'Sede Central' }]);
       jwtService.sign
         .mockReturnValueOnce('new-access-token')
         .mockReturnValueOnce('new-refresh-token');

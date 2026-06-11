@@ -3,3 +3,9 @@ dist
 .env
 .env.*
 coverage
+*.md
+test
+**/*.spec.ts
+**/*.e2e-spec.ts
+docs
+.git

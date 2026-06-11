@@ -1,4 +1,12 @@
-FROM node:20-slim
+FROM node:20-slim AS builder
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci && npm cache clean --force
+COPY . .
+RUN npm run build
+
+FROM node:20-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     fonts-liberation \
@@ -15,10 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
   && rm -rf /var/lib/apt/lists/*
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV NODE_ENV=production
 WORKDIR /app
+COPY --from=builder /app/dist ./dist
 COPY package*.json ./
-COPY entrypoint.dev.sh /entrypoint.dev.sh
-RUN chmod +x /entrypoint.dev.sh
+RUN npm ci --omit=dev && npm cache clean --force
 EXPOSE 3001
-ENTRYPOINT ["/entrypoint.dev.sh"]
-CMD ["npm", "run", "start:dev"]
+CMD ["node", "dist/main"]

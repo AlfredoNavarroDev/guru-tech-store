@@ -9,7 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as Handlebars from 'handlebars';
-import * as puppeteer from 'puppeteer';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
@@ -376,16 +377,16 @@ export class BoletasService implements OnModuleInit {
     return `${prefix}-${String(seq).padStart(7, '0')}`;
   }
 
-  // Genera PDF con Puppeteer (headless Chrome). --no-sandbox para Docker.
   private async generatePdf(html: string): Promise<Buffer> {
     const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
+        ...chromium.args,
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
       ],
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
     try {
       const page = await browser.newPage();

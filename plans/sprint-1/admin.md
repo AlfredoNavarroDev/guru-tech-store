@@ -45,7 +45,7 @@ src/
 ## Módulo — Auth
 
 Compartido con Sprint 1. Ver `sprint-1/vendedor.md`.  
-El JWT incluye `roles: ['admin']`.
+El JWT incluye `rol: 'admin'`.
 
 ---
 
@@ -68,7 +68,7 @@ class CreateEmpleadoDto {
   tipo_documento: string;       // 'DNI' | 'CE' | 'pasaporte'
   nro_documento: string;
   nombre_completo: string;
-  cargo: string;                // 'vendedor' | 'tecnico' | 'abastecedor' | 'admin'
+  id_rol: number;               // FK → Roles(id_rol)
   email: string;
   telefono?: string;
   password: string;             // mínimo 8 caracteres
@@ -81,7 +81,7 @@ class UpdateEmpleadoDto {
   nombre_completo?: string;
   telefono?: string;
   email?: string;
-  cargo?: string;
+  id_rol?: number;              // FK → Roles(id_rol)
 }
 ```
 
@@ -102,7 +102,7 @@ class UpdateEstadoEmpleadoDto {
 ### Reglas de negocio (validar en service)
 1. `id_sede` extraído del JWT — el admin solo puede gestionar empleados de su sede.
 2. Al crear empleado: hash de password con **bcrypt** (10 rounds) antes de persistir.
-3. `cargo` determina el rol JWT del empleado → validar contra lista permitida.
+3. `id_rol` debe existir en la tabla `Roles` → validar FK antes de persistir.
 4. No se puede desactivar al propio admin (evitar lock-out).
 5. Filtrar en `GET /empleados` siempre por `id_sede = :sede_del_jwt`.
 6. **HU-24:** Al desactivar un empleado (`activo = false`) → revocar todos sus refresh tokens activos.
@@ -133,7 +133,7 @@ async updateEstado(id: number, dto: UpdateEstadoEmpleadoDto, user: JwtPayload): 
 
 ### Filtros en GET /empleados
 ```
-?cargo=vendedor|tecnico|abastecedor|admin
+?id_rol=1|2|3|4
 ?activo=true|false
 ?page=1&limit=20
 ```
@@ -159,7 +159,7 @@ await this.empleadosRepo.save(empleado);
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 
-@Decorator('CurrentUser') → { id_empleado, id_sede, roles }
+@Decorator('CurrentUser') → { id_empleado, id_sede, rol }
 ```
 
 ---

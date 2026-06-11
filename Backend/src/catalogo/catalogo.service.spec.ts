@@ -118,45 +118,45 @@ describe('CatalogoService', () => {
     it('uses JOIN when categoria is provided', async () => {
       console.log('\n🔍 Acción   : findAll(1, { categoria:3 })');
       console.log(
-        '📌 Espera   : SQL usa JOIN Items con id_categoria, params incluye 3',
+        '📌 Espera   : SQL usa JOIN item_categorias con ic.id_categoria, params incluye 3',
       );
 
       await service.findAll(1, { categoria: 3 });
 
       const [sql, params] = dataSource.query.mock.calls[0];
       console.log(
-        '✅ Resultado: SQL contiene JOIN Items =',
-        sql.includes('JOIN Items'),
-        '| id_categoria presente =',
-        sql.includes('id_categoria'),
+        '✅ Resultado: SQL contiene item_categorias =',
+        sql.includes('item_categorias'),
+        '| ic.id_categoria presente =',
+        sql.includes('ic.id_categoria'),
         '| params =',
         params,
       );
 
-      expect(sql).toContain('JOIN Items');
-      expect(sql).toContain('id_categoria');
+      expect(sql).toContain('item_categorias');
+      expect(sql).toContain('ic.id_categoria');
       expect(params).toContain(3);
     });
 
     it('adds marca filter inside categoria branch', async () => {
       console.log('\n🔍 Acción   : findAll(1, { categoria:3, marca:2 })');
       console.log(
-        '📌 Espera   : SQL contiene id_categoria AND id_marca, params incluye 3 y 2',
+        '📌 Espera   : SQL contiene ic.id_categoria AND id_marca, params incluye 3 y 2',
       );
 
       await service.findAll(1, { categoria: 3, marca: 2 });
 
       const [sql, params] = dataSource.query.mock.calls[0];
       console.log(
-        '✅ Resultado: id_categoria =',
-        sql.includes('id_categoria'),
+        '✅ Resultado: ic.id_categoria =',
+        sql.includes('ic.id_categoria'),
         '| id_marca =',
         sql.includes('id_marca'),
         '| params =',
         params,
       );
 
-      expect(sql).toContain('id_categoria');
+      expect(sql).toContain('ic.id_categoria');
       expect(sql).toContain('id_marca');
       expect(params).toContain(2);
       expect(params).toContain(3);
@@ -241,13 +241,13 @@ describe('CatalogoService', () => {
 
       const [sql, params] = dataSource.query.mock.calls[0];
       console.log('✅ Resultado:');
-      console.log('   id_categoria:', sql.includes('id_categoria'));
-      console.log('   id_marca    :', sql.includes('id_marca'));
-      console.log('   ILIKE       :', sql.includes('ILIKE'));
-      console.log('   con_stock   :', sql.includes('stock_disponible > 0'));
-      console.log('   params      :', params);
+      console.log('   ic.id_categoria:', sql.includes('ic.id_categoria'));
+      console.log('   id_marca       :', sql.includes('id_marca'));
+      console.log('   ILIKE          :', sql.includes('ILIKE'));
+      console.log('   con_stock      :', sql.includes('stock_disponible > 0'));
+      console.log('   params         :', params);
 
-      expect(sql).toContain('id_categoria');
+      expect(sql).toContain('ic.id_categoria');
       expect(sql).toContain('id_marca');
       expect(sql).toContain('ILIKE');
       expect(sql).toContain('stock_disponible > 0');

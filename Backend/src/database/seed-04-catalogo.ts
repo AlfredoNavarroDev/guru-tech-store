@@ -5,36 +5,41 @@ import { QueryRunner } from 'typeorm';
 export async function seedCatalogo(qr: QueryRunner): Promise<void> {
   console.log('\n[Seed 04] Catálogo...');
 
-  // Solo productos (tipo='producto' requiere id_categoria NOT NULL)
+  // Solo productos (tipo='producto')
   console.log('  Insertando Items (productos)...');
   await qr.query(`
     INSERT INTO Items
-      (id_item, tipo, sku, nombre, id_marca, id_categoria, modelo,
+      (id_item, tipo, sku, nombre, id_marca, modelo,
        precio_compra_actual, precio_venta_actual)
     VALUES
-      (1, 'producto', 'PRD-001', 'Cable USB-C 2m',
-          3, 1, NULL,          8.50,  25.00),
-      (2, 'producto', 'PRD-002', 'Cargador 20W USB-C',
-          3, 1, NULL,         22.00,  55.00),
-      (3, 'producto', 'PRD-003', 'Funda silicona iPhone 15',
-          2, 2, 'iPhone 15',  12.00,  35.00),
-      (4, 'producto', 'PRD-004', 'Funda Samsung Galaxy S24',
-          1, 2, 'Galaxy S24', 10.00,  30.00),
-      (5, 'producto', 'PRD-005', 'Auriculares Bluetooth',
-          3, 3, NULL,         35.00,  85.00),
-      (6, 'producto', 'PRD-006', 'Power Bank 10000mAh',
-          3, 4, NULL,         45.00, 110.00),
-      -- ids 7-9 sin promo activa → promo_nombre=NULL en vista
-      (7, 'producto', 'PRD-007', 'Soporte celular para auto',
-          5, 4, NULL,         10.00,  28.00),
-      (8, 'producto', 'PRD-008', 'Limpiador de pantalla 100ml',
-          5, 4, NULL,          5.00,  15.00),
-      (9, 'producto', 'PRD-009', 'Memoria USB 32GB',
-          4, 4, NULL,          8.00,  22.00)
+      (1, 'producto', 'PRD-001', 'Cable USB-C 2m',             3, NULL,         8.50,  25.00),
+      (2, 'producto', 'PRD-002', 'Cargador 20W USB-C',         3, NULL,        22.00,  55.00),
+      (3, 'producto', 'PRD-003', 'Funda silicona iPhone 15',   2, 'iPhone 15', 12.00,  35.00),
+      (4, 'producto', 'PRD-004', 'Funda Samsung Galaxy S24',   1, 'Galaxy S24',10.00,  30.00),
+      (5, 'producto', 'PRD-005', 'Auriculares Bluetooth',       3, NULL,        35.00,  85.00),
+      (6, 'producto', 'PRD-006', 'Power Bank 10000mAh',         3, NULL,        45.00, 110.00),
+      (7, 'producto', 'PRD-007', 'Soporte celular para auto',   5, NULL,        10.00,  28.00),
+      (8, 'producto', 'PRD-008', 'Limpiador de pantalla 100ml', 5, NULL,         5.00,  15.00),
+      (9, 'producto', 'PRD-009', 'Memoria USB 32GB',            4, NULL,         8.00,  22.00)
   `);
   console.log(
     '  OK - 9 productos (ids 1-6 con promo, ids 7-9 sin promo activa)',
   );
+
+  console.log('  Insertando item_categorias...');
+  await qr.query(`
+    INSERT INTO item_categorias (id_item, id_categoria) VALUES
+    (1, 1),
+    (2, 1),
+    (3, 2),
+    (4, 2),
+    (5, 3),
+    (6, 4),
+    (7, 4),
+    (8, 4),
+    (9, 4)
+  `);
+  console.log('  OK - item_categorias asignadas');
 
   // Insert directo (sin trigger compras). 50 uds x item/sede, stock_minimo=5.
   console.log(

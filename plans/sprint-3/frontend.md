@@ -1,165 +1,160 @@
-# Sprint 3 — Frontend
+# Sprint 4 — Frontend
+
+> **Nota de esquema (refactor multi-categoría):** El campo `categoria` en las respuestas de items/catálogo es ahora un string con formato CSV producido por `STRING_AGG` desde la tabla `Item_Categorias`. El nombre del campo no cambia, pero su fuente es multi-categoría: un producto puede pertenecer a N categorías. No hay campo tipo array — sigue siendo un string plano (`"Accesorios, Audio"`). Aplica a cualquier vista o componente que consuma el catálogo (p.ej. filtros por categoría deben separar por coma si se necesita comparación individual).
 
 **Stack:** Next.js 14 · Tailwind CSS · Lucide React  
-**Entregables:** Panel de abastecedor — gestión de inventario, catálogo y compras
+**Entregables:** Panel del técnico — cola de reparaciones, gestión de estados, repuestos y adelantos
 
 ---
 
 ## Páginas
 
-| Ruta                            | Descripción                           |
-|---------------------------------|---------------------------------------|
-| `/dashboard/abastecedor`        | Overview de stock + alertas críticas  |
-| `/dashboard/abastecedor/items`  | Catálogo completo + crear/editar ítems|
-| `/dashboard/abastecedor/stock`  | Stock actual + ítems críticos         |
-| `/dashboard/abastecedor/compras`| Historial de compras + nueva compra   |
-| `/dashboard/abastecedor/proveedores` | Directorio de proveedores        |
+| Ruta                                  | Descripción                            |
+|---------------------------------------|----------------------------------------|
+| `/dashboard/tecnico`                  | Cola activa de reparaciones            |
+| `/dashboard/tecnico/reparaciones/:id` | Detalle de una reparación              |
+| `/dashboard/tecnico/historial`        | Reparaciones completadas               |
+| `/dashboard/tecnico/repuestos`        | Consulta de repuestos disponibles      |
 
 ---
 
-## Vista General — `/dashboard/abastecedor`
+## Cola Activa — `/dashboard/tecnico`
 
 ### Layout
 ```
 ┌────────────────────────────────────────────┐
-│   Abastecedor · Sede: [nombre]             │
+│   Técnico · Sede: [nombre]                 │
 ├──────────────┬─────────────────────────────┤
-│   Sidebar    │  Resumen de Inventario      │
+│   Sidebar    │  Cola de Reparaciones       │
 │              │  ─────────────────────────  │
-│  · Overview  │  [Alerta] X ítems críticos  │
-│  · Catálogo  │                             │
-│  · Stock     │  ┌──────┐ ┌──────┐ ┌─────┐│
-│  · Compras   │  │Total │ │Bajo  │ │Valor││
-│  · Proveedores│  │ítems │ │stock │ │inv. ││
-│              │  └──────┘ └──────┘ └─────┘│
+│  · Cola      │  [+ Registrar ingreso]      │
+│  · Historial │                             │
+│  · Repuestos │  Filtros: [estado ▼] [fecha]│
 │              │                             │
-│              │  Tabla: Ítems críticos      │
-│              │  [Nombre|Stock|Mínimo|Dif.] │
+│              │  Tarjetas de reparación:    │
+│              │  ┌─────────────────────┐    │
+│              │  │ #001 · Juan Pérez   │    │
+│              │  │ iPhone 13 · IMEI... │    │
+│              │  │ Estado: Diagnóstico │    │
+│              │  │ Ingresó: 29/05/2026 │    │
+│              │  │ [Ver detalle →]     │    │
+│              │  └─────────────────────┘    │
 └──────────────┴─────────────────────────────┘
 ```
 
-### Componentes
-- Cards con métricas de inventario (`NumberTicker` animado)
-- Tabla de ítems bajo stock mínimo (con badge rojo)
-- Botón rápido "Crear compra de reposición"
+### Tarjeta de Reparación
+- Badge de estado con color por etapa:
+  - 🔵 Recibido
+  - 🟡 Diagnóstico
+  - 🟠 En reparación
+  - 🟢 Listo para entrega
+  - ⚫ Entregado (historial)
+- Tiempo transcurrido desde ingreso
+- Nombre del cliente
+- Modelo del equipo
 
 ---
 
-## Catálogo — `/dashboard/abastecedor/items`
+## Detalle de Reparación — `/dashboard/tecnico/reparaciones/:id`
 
 ### Layout
 ```
-[+ Nuevo Ítem]    [Buscador]    [Filtros: tipo | marca | categoría]
+┌────────────────────────────────────────────────┐
+│  [← Volver]  Reparación #001 · [Estado badge] │
+├─────────────────────┬──────────────────────────┤
+│   Info del equipo   │   Flujo de estados       │
+│   ─────────────────  │   ──────────────────────  │
+│   Cliente: Juan P.  │   ○ Recibido ✓           │
+│   Equipo: iPhone 13 │   ○ Diagnóstico ✓        │
+│   IMEI: 356...      │   ● En reparación ←      │
+│   Estado encendido  │   ○ Listo para entrega   │
+│   Ingreso: 29/05    │   ○ Entregado            │
+│                     │                          │
+│                     │   [Avanzar estado →]     │
+├─────────────────────┴──────────────────────────┤
+│  Diagnóstico técnico                           │
+│  [Textarea + Guardar]                          │
+├────────────────────────────────────────────────┤
+│  Repuestos utilizados                          │
+│  [+ Agregar repuesto]                          │
+│  Nombre | Cantidad | Precio | [Quitar]         │
+├────────────────────────────────────────────────┤
+│  Cotización                                    │
+│  Monto cotizado: [_____]  Descuento: [_____]  │
+│  [Guardar cotización]                          │
+├────────────────────────────────────────────────┤
+│  Adelantos de pago                             │
+│  [+ Registrar adelanto]                        │
+│  Método | Monto | Fecha | Referencia           │
+│  Total adelantado: S/. XXX.XX                  │
+├────────────────────────────────────────────────┤
+│  [Marcar como entregado]                       │
+└────────────────────────────────────────────────┘
+```
+
+### Modal — Registrar Ingreso
+```
+Cliente: [Buscar o crear ▼]
+Marca: [_______]    Modelo: [_______]
+IMEI: [_______________]  (15 dígitos, opcional)
+¿Está encendido? [Sí / No]
+
+Checklist de estado:
+  [ ] Pantalla   [ ] Batería   [ ] Puertos
+  [ ] Cámara     [ ] Botones   [ ] Carcasa
+
+Estado inicial: [Recibido ▼]
+
+[Cancelar]  [Registrar ingreso]
+```
+
+### Modal — Agregar Repuesto
+```
+Repuesto: [Buscar repuesto ▼]
+Stock disponible: XX unidades
+
+Cantidad: [___]
+Precio cobrado: S/. [_____]
+
+[Cancelar]  [Agregar]
+```
+
+### Modal — Adelanto de Pago
+```
+Método: [Efectivo ▼]
+Monto:  S/. [_______]
+Referencia: [_____________]  (opcional)
+
+[Cancelar]  [Registrar adelanto]
+```
+
+---
+
+## Historial — `/dashboard/tecnico/historial`
+
+### Layout
+```
+Filtros: [fecha desde ─ hasta] [cliente ▼]
 
 Tabla:
-  SKU | Nombre | Tipo | Stock | Precio Compra | Precio Venta | [Editar]
-
-Paginación: < 1 2 3 ... >
-```
-
-### Modal — Crear/Editar Ítem
-```
-Nombre: [_____________]     SKU: [_______]
-Tipo:   [Producto ▼]        Categoría: [___▼]
-Marca:  [___________▼]
-
-Precio compra: [_____]      Precio venta: [______]
-Stock mínimo: [____]        Stock inicial: [____]  ← solo en creación
-
-Descripción: [________________________]
-
-[Cancelar]          [Guardar]
-```
-
-### Integración
-```typescript
-// POST /items
-await fetcher('/items', { method: 'POST', body: createItemDto }, token);
-
-// GET /items?tipo=producto&page=1&limit=20
-const { data, total } = await fetcher('/items?tipo=producto', token);
+  # | Cliente | Equipo | Ingreso | Entrega | Total | [Ver]
 ```
 
 ---
 
-## Stock — `/dashboard/abastecedor/stock`
+## Repuestos — `/dashboard/tecnico/repuestos`
 
 ### Layout
 ```
-[Tabs: Todo | Crítico]
+Buscar: [_____________]  Filtros: [marca ▼] [modelo ▼]
 
-Filtros: [tipo ▼] [marca ▼] [Solo reposición: ☑]
-
-Tabla:
-  Ítem | Tipo | Stock actual | Stock mín. | Estado | Precio compra
-
-Estado badges:
-  🟢 OK — sobre mínimo
-  🟡 Bajo — dentro del 20% del mínimo
-  🔴 Crítico — igual o bajo el mínimo
-```
-
-### Ajuste Directo de Stock (modal)
-```
-Ítem: [nombre del ítem]
-Cantidad: [±___]   Motivo: [ajuste_inventario ▼]
-Observación: [___________________]
-[Confirmar ajuste]
-```
-
----
-
-## Compras — `/dashboard/abastecedor/compras`
-
-### Layout
-```
-[+ Nueva Compra]                    [Filtros: proveedor | fecha]
-
-Tabla historial:
-  #Orden | Proveedor | Fecha | N° ítems | Total | [Ver detalle]
-```
-
-### Formulario — Nueva Compra (página separada o drawer)
-```
-Proveedor: [Seleccionar ▼]
-
-Ítems de la compra:
-  ┌──────────────────────────────────────────┐
-  │ Ítem    | Cant. | Costo unit. | P.venta  │
-  │ [___▼]  | [__]  | [_______]   | [______] │
-  │ [+ Agregar ítem]                         │
-  └──────────────────────────────────────────┘
-
-Total estimado: S/. XXXX.XX
-
-[Cancelar]          [Registrar compra]
-```
-
-### Integración
-```typescript
-// POST /compras
-await fetcher('/compras', {
-  method: 'POST',
-  body: { id_proveedor, items: [...] },
-}, token);
-```
-
----
-
-## Proveedores — `/dashboard/abastecedor/proveedores`
-
-### Layout
-```
-Buscador: [_______________]
-
-Cards de proveedores:
-  ┌─────────────────────────┐
-  │ [Logo/icono]            │
-  │ Nombre proveedor        │
-  │ Total órdenes: XX       │
-  │ Última compra: DD/MM/YY │
-  │ Total comprado: S/. XXX │
-  └─────────────────────────┘
+Grid de repuestos:
+  ┌──────────────────────┐
+  │ [Icono]              │
+  │ Nombre repuesto      │
+  │ Marca · Modelo       │
+  │ Stock: XX unidades   │
+  └──────────────────────┘
 ```
 
 ---
@@ -167,55 +162,22 @@ Cards de proveedores:
 ## Archivos a Crear
 
 ```
-app/dashboard/abastecedor/
-  page.tsx                    — overview
-  items/page.tsx
-  stock/page.tsx
-  compras/
-    page.tsx
-    nueva/page.tsx
-  proveedores/page.tsx
+app/dashboard/tecnico/
+  page.tsx                          — cola activa
+  historial/page.tsx
+  repuestos/page.tsx
+  reparaciones/
+    [id]/page.tsx                   — detalle
 
-components/abastecedor/
-  StockOverview.tsx           — cards métricas + tabla críticos
-  ItemsTable.tsx              — catálogo con paginación
-  ItemModal.tsx               — form crear/editar ítem
-  StockAjusteModal.tsx        — ajuste directo de stock
-  ComprasTable.tsx
-  NuevaCompraForm.tsx
-  ProveedoresGrid.tsx
-  StockBadge.tsx              — badge OK/Bajo/Crítico
+components/tecnico/
+  ReparacionCard.tsx                — tarjeta en la cola
+  EstadoBadge.tsx                   — badge coloreado por estado
+  EstadoStepper.tsx                 — visualización del flujo de estados
+  RegistrarIngresoModal.tsx
+  AgregarRepuestoModal.tsx
+  AdelantosPagoModal.tsx
+  CotizacionForm.tsx
+  DiagnosticoForm.tsx
+  RepuestosGrid.tsx
+  HistorialTable.tsx
 ```
-
----
-
-## Manejo de errores de concurrencia (HU-25)
-
-`NuevaCompraForm.tsx` debe distinguir entre error de negocio y deadlock:
-
-```typescript
-// NuevaCompraForm.tsx — onSubmit
-try {
-  const res = await apiFetch(`${API_URL}/compras`, { method: 'POST', body: ... });
-
-  if (!res.ok) {
-    const err = await res.json();
-
-    if (res.status === 409 && err.retry) {
-      // Deadlock detectado: mostrar toast de reintento
-      toast.warning('Conflicto al registrar la compra. Intente de nuevo en unos segundos.');
-      return;
-    }
-    if (res.status === 409) {
-      // Error de negocio (stock insuficiente, etc.)
-      toast.error(err.message ?? 'Error al registrar la compra');
-      return;
-    }
-    toast.error('Error inesperado');
-  }
-} catch {
-  toast.error('Sin conexión al servidor');
-}
-```
-
-> El mismo patrón aplica en `VentasForm.tsx` (Sprint 1) y `ReparacionForm.tsx` (Sprint 4) para sus respectivos 409 con `{ retry: true }`.

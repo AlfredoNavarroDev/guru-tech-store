@@ -9,49 +9,57 @@
 
 ## Resumen de Sprints
 
-| Sprint | Épica                   | SP  | HUs                          | Roles cubiertos              |
-|--------|-------------------------|-----|------------------------------|------------------------------|
-| 1      | Autenticación + Ventas  | 46  | HU-01 a HU-08, HU-23, HU-25 | Vendedor · Frontend (Login)  |
-| 2      | Administrador           | 14  | HU-09, HU-10, HU-24, HU-26  | Admin · Frontend (Landing)   |
-| 3      | Inventario              | 16  | HU-11 a HU-14, HU-25, HU-27 | Abastecedor · Frontend       |
-| 4      | Serv. Técnicos          | 26  | HU-15 a HU-19                | Técnico · Frontend           |
-| 5      | Chatbot IA              | 34  | HU-20 a HU-22, HU-28         | IA (Backend + Frontend)      |
-| **Total** |                     | **136** |                          |                              |
+| Sprint | Épica                          | SP      | HUs          |
+|--------|--------------------------------|---------|--------------|
+| 1      | Autenticación + Ventas + Admin | 52      | HU-01…HU-10 |
+| 2      | Inventario                     | 13      | HU-11…HU-14 |
+| 3      | Servicios Técnicos             | 26      | HU-15…HU-19 |
+| 4      | Chatbot IA                     | 29      | HU-20…HU-22 |
+| **Total** |                            | **120** |              |
+
+---
+
+## Épicas
+
+| ID | Épica              | Sprint | Descripción                                       | HUs | SP |
+|----|--------------------|--------|---------------------------------------------------|-----|----|
+| E1 | Autenticación      | 1      | Gestión de identidad y control de acceso por roles | 4  | 17 |
+| E2 | Ventas             | 1      | Registro de ventas, clientes y comprobantes        | 5  | 27 |
+| E3 | Administrador      | 1      | Gestión básica de personal de la sede              | 1  | 8  |
+| E4 | Inventario         | 2      | Catálogo de ítems, stock y repuestos               | 4  | 13 |
+| E5 | Servicios Técnicos | 3      | Reparaciones, estados, repuestos y pagos parciales | 5  | 26 |
+| E6 | Chatbot IA         | 4      | Asistente inteligente con datos en tiempo real     | 3  | 29 |
 
 ---
 
 ## Product Backlog
 
-| ID     | Historia de usuario                           | Épica          | Sprint | SP  | Prioridad |
-|--------|-----------------------------------------------|----------------|--------|-----|-----------|
-| HU-01  | Inicio de sesión con credenciales             | Autenticación  | 1      | 5   | Crítica   |
-| HU-02  | Cierre de sesión                              | Autenticación  | 1      | 2   | Alta      |
-| HU-03  | Control de acceso por rol                     | Autenticación  | 1      | 5   | Crítica   |
-| HU-04  | Registrar una venta                           | Ventas         | 1      | 13  | Crítica   |
-| HU-05  | Consultar disponibilidad de stock             | Ventas         | 1      | 3   | Alta      |
-| HU-06  | Generar comprobante PDF de venta              | Ventas         | 1      | 5   | Alta      |
-| HU-07  | Registrar cliente en la venta                 | Ventas         | 1      | 3   | Media     |
-| HU-08  | Visualizar historial de ventas                | Ventas         | 1      | 3   | Media     |
-| HU-09  | Registrar nuevo empleado                      | Administrador  | 2      | 5   | Alta      |
-| HU-10  | Listar empleados de la sede                   | Administrador  | 2      | 2   | Media     |
-| HU-11  | Registrar nuevo ítem en el catálogo           | Inventario     | 3      | 5   | Alta      |
-| HU-12  | Actualizar stock de ítem existente            | Inventario     | 3      | 3   | Alta      |
-| HU-13  | Consultar catálogo de productos               | Inventario     | 3      | 3   | Media     |
-| HU-14  | Consultar repuestos disponibles               | Inventario     | 3      | 2   | Media     |
-| HU-15  | Registrar ingreso de equipo al serv. técnico  | Serv. Técnicos | 4      | 8   | Alta      |
-| HU-16  | Actualizar estado de reparación               | Serv. Técnicos | 4      | 5   | Alta      |
-| HU-17  | Registrar repuestos utilizados en reparación  | Serv. Técnicos | 4      | 5   | Alta      |
-| HU-18  | Consultar historial de reparaciones           | Serv. Técnicos | 4      | 3   | Alta      |
-| HU-19  | Registrar adelanto de pago de reparación      | Serv. Técnicos | 4      | 5   | Media     |
-| HU-20  | Consultar productos en lenguaje natural       | Chatbot IA     | 5      | 13  | Alta      |
-| HU-21  | Respuestas con datos en tiempo real           | Chatbot IA     | 5      | 8   | Alta      |
-| HU-22  | Historial de conversación del chatbot         | Chatbot IA     | 5      | 5   | Media     |
-| HU-23  | Refresh tokens + revocación JWT              | Autenticación  | 1      | 5   | Crítica   |
-| HU-24  | Revocar tokens al desactivar empleado        | Administrador  | 2      | 2   | Alta      |
-| HU-25  | Deadlock handling + orden items por id ASC   | Ventas         | 1+3    | 2   | Alta      |
-| HU-26  | Interceptor audit trail (SET LOCAL actor_id) | Seguridad      | 2      | 5   | Alta      |
-| HU-27  | N+1 queries: QueryBuilder en listados        | Inventario     | 3      | 3   | Media     |
-| HU-28  | Chatbot seguro: RO + schema/rol + sanitiz.   | Chatbot IA     | 5      | 8   | Alta      |
+| ID     | Historia de usuario                               | Épica              | Sprint | SP  | Prioridad |
+|--------|---------------------------------------------------|--------------------|--------|-----|-----------|
+| HU-01  | Inicio de sesión con credenciales                 | E1 Autenticación   | 1      | 5   | Crítica   |
+| HU-02  | Cierre de sesión                                  | E1 Autenticación   | 1      | 2   | Alta      |
+| HU-03  | Control de acceso por rol                         | E1 Autenticación   | 1      | 5   | Crítica   |
+| HU-04  | Renovación automática de sesión                   | E1 Autenticación   | 1      | 5   | Crítica   |
+| HU-05  | Administrar empleados de la sede                  | E3 Administrador   | 1      | 8   | Alta      |
+| HU-06  | Registrar una venta                               | E2 Ventas          | 1      | 13  | Crítica   |
+| HU-07  | Consultar disponibilidad de stock                 | E2 Ventas          | 1      | 3   | Alta      |
+| HU-08  | Generar comprobante PDF de venta                  | E2 Ventas          | 1      | 5   | Alta      |
+| HU-09  | Registrar cliente en la venta                     | E2 Ventas          | 1      | 3   | Media     |
+| HU-10  | Visualizar historial de ventas                    | E2 Ventas          | 1      | 3   | Media     |
+| HU-11  | Registrar nuevo ítem en el catálogo               | E4 Inventario      | 2      | 5   | Alta      |
+| HU-12  | Actualizar stock de ítem existente                | E4 Inventario      | 2      | 3   | Alta      |
+| HU-13  | Consultar catálogo de productos                   | E4 Inventario      | 2      | 3   | Media     |
+| HU-14  | Consultar repuestos disponibles                   | E4 Inventario      | 2      | 2   | Media     |
+| HU-15  | Registrar ingreso de equipo al serv. técnico      | E5 Serv. Técnicos  | 3      | 8   | Alta      |
+| HU-16  | Actualizar estado de reparación                   | E5 Serv. Técnicos  | 3      | 5   | Alta      |
+| HU-17  | Registrar repuestos utilizados en reparación      | E5 Serv. Técnicos  | 3      | 5   | Alta      |
+| HU-18  | Consultar historial de reparaciones               | E5 Serv. Técnicos  | 3      | 3   | Alta      |
+| HU-19  | Registrar adelanto de pago de reparación          | E5 Serv. Técnicos  | 3      | 5   | Media     |
+| HU-20  | Consultar productos en lenguaje natural           | E6 Chatbot IA      | 4      | 13  | Alta      |
+| HU-21  | Respuestas con datos en tiempo real               | E6 Chatbot IA      | 4      | 8   | Alta      |
+| HU-22  | Seguridad del chatbot                             | E6 Chatbot IA      | 4      | 8   | Alta      |
+
+**Total: 120 SP**
 
 ---
 
@@ -61,14 +69,14 @@
 |-------|---------|-----------|------------|----------|-------------------|
 | HU-01 | 5  | 5  | Sí | 5  | — |
 | HU-02 | 2  | 2  | Sí | 2  | — |
-| HU-03 | 5  | 8  | No | 5  | NestJS Guards nativos reducen esfuerzo de implementación |
-| HU-04 | 13 | 8  | No | 13 | Validación de stock + transacción atómica + múltiples productos |
-| HU-05 | 3  | 3  | Sí | 3  | — |
-| HU-06 | 5  | 5  | Sí | 5  | — |
-| HU-07 | 3  | 2  | No | 3  | Flujo embebido búsqueda/creación de cliente dentro de venta |
-| HU-08 | 3  | 3  | Sí | 3  | — |
-| HU-09 | 5  | 5  | Sí | 5  | — |
-| HU-10 | 2  | 2  | Sí | 2  | — |
+| HU-03 | 5  | 8  | No | 5  | Guards nativos de NestJS reducen esfuerzo |
+| HU-04 | 5  | 5  | Sí | 5  | — |
+| HU-05 | 5  | 8  | No | 8  | Crear y listar; incluye desactivación con revocación de acceso |
+| HU-06 | 13 | 8  | No | 13 | Validación stock + transacción atómica + múltiples productos |
+| HU-07 | 3  | 3  | Sí | 3  | — |
+| HU-08 | 5  | 5  | Sí | 5  | — |
+| HU-09 | 3  | 2  | No | 3  | Flujo embebido búsqueda/creación de cliente dentro de venta |
+| HU-10 | 3  | 3  | Sí | 3  | — |
 | HU-11 | 5  | 5  | Sí | 5  | — |
 | HU-12 | 3  | 3  | Sí | 3  | — |
 | HU-13 | 3  | 2  | No | 3  | Incluye búsqueda por nombre, SKU y categoría |
@@ -80,15 +88,9 @@
 | HU-19 | 5  | 5  | Sí | 5  | — |
 | HU-20 | 13 | 13 | Sí | 13 | — |
 | HU-21 | 8  | 8  | Sí | 8  | — |
-| HU-22 | 5  | 5  | Sí | 5  | — |
-| HU-23 | 5  | 5  | Sí | 5  | Tabla `RefreshTokens` + endpoints `/auth/refresh` y `/auth/logout` real |
-| HU-24 | 2  | 2  | Sí | 2  | Revocar refresh tokens al desactivar — inyectar repo en `EmpleadosService` |
-| HU-25 | 2  | 2  | Sí | 2  | Captura `40P01` + ordenar items por `id_item ASC` en ventas/compras |
-| HU-26 | 5  | 5  | Sí | 5  | Interceptor global `AuditInterceptor` — BD ya tiene `fn_get_actor_id()` |
-| HU-27 | 3  | 3  | Sí | 3  | QueryBuilder en `ItemsService` + `ComprasService`, máx 2 queries por listado |
-| HU-28 | 8  | 8  | Sí | 8  | Usuario `chatbot_ro` + `ChatbotDataSource` + schema/rol + sanitización |
+| HU-22 | 8  | 8  | Sí | 8  | — |
 
-**Total: 136 SP**
+**Total: 120 SP**
 
 ---
 
@@ -123,15 +125,13 @@ app/
 ## Dependencias entre Sprints
 
 ```
-Sprint 1 — Auth + Ventas (base del sistema)
+Sprint 1 — Auth + Ventas + Admin básico (base del sistema)
   │
-  ├─► Sprint 2 — Admin (requiere Auth de S1)
-  │
-  ├─► Sprint 3 — Inventario (requiere Auth de S1 + Items seed de BD)
+  ├─► Sprint 2 — Inventario (requiere Auth de S1 + Items seed de BD)
   │       │
-  │       └─► Sprint 4 — Serv. Técnicos (requiere Stock de S3 + Auth de S1)
+  │       └─► Sprint 3 — Serv. Técnicos (requiere Stock de S2 + Auth de S1)
   │                   │
-  │                   └─► Sprint 5 — Chatbot IA (requiere todos los módulos)
+  │                   └─► Sprint 4 — Chatbot IA (requiere todos los módulos)
 ```
 
 ---
@@ -140,11 +140,10 @@ Sprint 1 — Auth + Ventas (base del sistema)
 
 | Sprint | Backend | Frontend |
 |--------|---------|----------|
-| Sprint 1 | [vendedor.md](sprint-1/vendedor.md) | [frontend.md](sprint-1/frontend.md) |
-| Sprint 2 | [admin.md](sprint-2/admin.md) | [frontend.md](sprint-2/frontend.md) |
-| Sprint 3 | [abastecedor.md](sprint-3/abastecedor.md) | [frontend.md](sprint-3/frontend.md) |
-| Sprint 4 | [tecnico.md](sprint-4/tecnico.md) | [frontend.md](sprint-4/frontend.md) |
-| Sprint 5 | [ia.md](sprint-5/ia.md) | (incluido en ia.md) |
+| Sprint 1 | [vendedor.md](sprint-1/vendedor.md) · [admin.md](sprint-1/admin.md) | [frontend.md](sprint-1/frontend.md) |
+| Sprint 2 | [abastecedor.md](sprint-2/abastecedor.md) | [frontend.md](sprint-2/frontend.md) |
+| Sprint 3 | [tecnico.md](sprint-3/tecnico.md) | [frontend.md](sprint-3/frontend.md) |
+| Sprint 4 | [ia.md](sprint-4/ia.md) | (incluido en ia.md) |
 
 ---
 
@@ -198,7 +197,7 @@ Respuesta: `{ data: [...], total: number, page: number, limit: number }`
 
 ## Seguridad de Base de Datos
 
-### Usuario de solo lectura para chatbot (HU-28)
+### Usuario de solo lectura para chatbot (HU-22)
 ```sql
 CREATE USER chatbot_ro WITH PASSWORD '<password_seguro>';
 GRANT CONNECT ON DATABASE gurutech TO chatbot_ro;
@@ -234,7 +233,7 @@ R2_BUCKET_NAME=
 R2_PUBLIC_URL=
 
 # OpenAI (Chatbot IA) — gpt-4o-mini
-# Upgrade path: si gpt-4o-mini falla HU-28 en producción → migrar a claude-haiku-4-5-20251001
+# Upgrade path: si gpt-4o-mini falla HU-22 en producción → migrar a claude-haiku-4-5-20251001
 # y cambiar a @ai-sdk/anthropic (una línea en chatbot.service.ts)
 OPENAI_API_KEY=sk-...
 

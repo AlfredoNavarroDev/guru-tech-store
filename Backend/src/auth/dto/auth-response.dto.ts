@@ -13,9 +13,9 @@ export class AuthResponseDto {
   @ApiProperty({ description: 'Nombre del empleado' })
   nombre: string;
 
-  // Roles para que el frontend renderice menú; los guards los leen del JWT.
-  @ApiProperty({ description: 'Roles del empleado' })
-  roles: string[];
+  // Rol del empleado para que el frontend renderice menú.
+  @ApiProperty({ description: 'Rol del empleado' })
+  rol: string;
 
   // ID numérico de sede para filtrado multi-sede.
   @ApiProperty({ description: 'ID de la sede del empleado' })

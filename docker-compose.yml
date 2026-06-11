@@ -9,6 +9,9 @@ services:
       - .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./Backend:/app
+      - backend_node_modules:/app/node_modules
 
   frontend:
     build:
@@ -21,3 +24,10 @@ services:
       - HOST_IP=${HOST_IP:-}
     depends_on:
       - backend
+    volumes:
+      - ./Frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:

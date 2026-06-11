@@ -3,3 +3,9 @@ node_modules
 .env.local
 .env.*.local
 coverage
+*.md
+**/*.test.ts
+**/*.test.tsx
+docs
+.git
+public/*.pdf

@@ -187,7 +187,7 @@ CREATE OR REPLACE VIEW v_propietario_empleados_global AS
 SELECT
     e.id_empleado,
     s.id_sede,
-    s.nombre                                                    AS sede,
+    s.nombre                  AS sede,
     e.nombre_completo,
     e.tipo_documento,
     e.nro_documento,
@@ -195,19 +195,14 @@ SELECT
     e.estado,
     e.sueldo_semanal_soles,
     e.es_extranjero,
-    STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
+    r.nombre_rol              AS rol,
     e.created_by,
-    ec.nombre_completo                                          AS creado_por,
+    ec.nombre_completo        AS creado_por,
     e.created_at
 FROM Empleados e
-LEFT JOIN Sedes s           ON s.id_sede      = e.id_sede
-LEFT JOIN Empleado_Roles er ON er.id_empleado = e.id_empleado
-LEFT JOIN Roles r           ON r.id_rol       = er.id_rol
-LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
-GROUP BY e.id_empleado, s.id_sede, s.nombre,
-         e.nombre_completo, e.tipo_documento, e.nro_documento,
-         e.telefono, e.estado, e.sueldo_semanal_soles, e.es_extranjero,
-         e.created_by, ec.nombre_completo, e.created_at;
+LEFT JOIN Sedes s      ON s.id_sede      = e.id_sede
+LEFT JOIN Roles r      ON r.id_rol       = e.id_rol
+LEFT JOIN Empleados ec ON ec.id_empleado = e.created_by;
 
 
 -- 6-bis. Listado plano de Sedes para CRUD global del Propietario.
@@ -334,26 +329,21 @@ CREATE OR REPLACE VIEW v_gerente_empleados AS
 SELECT
     e.id_empleado,
     e.id_sede,
-    s.nombre                                                    AS sede,
+    s.nombre                  AS sede,
     e.nombre_completo,
     e.tipo_documento,
     e.nro_documento,
     e.telefono,
     e.estado,
     e.sueldo_semanal_soles,
-    STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
+    r.nombre_rol              AS rol,
     e.created_by,
-    ec.nombre_completo                                          AS creado_por,
+    ec.nombre_completo        AS creado_por,
     e.created_at
 FROM Empleados e
-JOIN  Sedes s               ON s.id_sede      = e.id_sede
-LEFT JOIN Empleado_Roles er ON er.id_empleado = e.id_empleado
-LEFT JOIN Roles r           ON r.id_rol       = er.id_rol
-LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
-GROUP BY e.id_empleado, e.id_sede, s.nombre,
-         e.nombre_completo, e.tipo_documento, e.nro_documento,
-         e.telefono, e.estado, e.sueldo_semanal_soles,
-         e.created_by, ec.nombre_completo, e.created_at;
+JOIN  Sedes s      ON s.id_sede      = e.id_sede
+LEFT JOIN Roles r  ON r.id_rol       = e.id_rol
+LEFT JOIN Empleados ec ON ec.id_empleado = e.created_by;
 
 
 -- 10. Compras/refill por sede con detalle de ítems y costos
@@ -390,22 +380,29 @@ JOIN Items i                  ON i.id_item      = dc.id_item;
 CREATE OR REPLACE VIEW v_vendedor_catalogo AS
 WITH promo_vigente AS (
     SELECT
-        COALESCE(pr.id_item_afectado, dv_cat.id_item) AS id_item,
+        COALESCE(pr.id_item_afectado, ic.id_item) AS id_item,
         pr.nombre          AS promo_nombre,
         pr.tipo_descuento  AS promo_tipo,
         pr.valor_descuento AS promo_valor
     FROM Promociones pr
-    LEFT JOIN Items dv_cat ON dv_cat.id_categoria = pr.id_categoria_afectada
+    LEFT JOIN Item_Categorias ic ON ic.id_categoria = pr.id_categoria_afectada
     WHERE pr.estado = 'activa'
       AND (pr.fecha_inicio IS NULL OR pr.fecha_inicio <= CURRENT_DATE)
       AND (pr.fecha_fin    IS NULL OR pr.fecha_fin    >= CURRENT_DATE)
+),
+categorias_por_item AS (
+    SELECT ic.id_item,
+           STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria) AS categorias
+    FROM Item_Categorias ic
+    JOIN Categorias cat ON cat.id_categoria = ic.id_categoria
+    GROUP BY ic.id_item
 )
 SELECT
     i.id_item,
     i.sku,
     i.nombre                  AS producto,
     m.nombre                  AS marca,
-    cat.nombre_categoria      AS categoria,
+    ci.categorias             AS categoria,
     i.modelo,
     i.precio_venta_actual,
     inv.id_sede,
@@ -422,11 +419,11 @@ SELECT
         ELSE i.precio_venta_actual
     END                       AS precio_con_descuento
 FROM Items i
-JOIN  Inventario_Sedes inv  ON inv.id_item      = i.id_item
-JOIN  Sedes s               ON s.id_sede        = inv.id_sede
-LEFT JOIN Marcas m          ON m.id_marca       = i.id_marca
-LEFT JOIN Categorias cat    ON cat.id_categoria = i.id_categoria
-LEFT JOIN promo_vigente pv  ON pv.id_item       = i.id_item
+JOIN  Inventario_Sedes inv   ON inv.id_item = i.id_item
+JOIN  Sedes s                ON s.id_sede   = inv.id_sede
+LEFT JOIN Marcas m           ON m.id_marca  = i.id_marca
+LEFT JOIN categorias_por_item ci ON ci.id_item = i.id_item
+LEFT JOIN promo_vigente pv   ON pv.id_item  = i.id_item
 WHERE i.tipo = 'producto';
 
 
@@ -715,28 +712,35 @@ ORDER BY orden;
 
 -- 21. Stock actual por sede con indicador de reposición
 CREATE OR REPLACE VIEW v_abastecedor_stock_actual AS
+WITH categorias_por_item AS (
+    SELECT ic.id_item,
+           STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria) AS categorias
+    FROM Item_Categorias ic
+    JOIN Categorias cat ON cat.id_categoria = ic.id_categoria
+    GROUP BY ic.id_item
+)
 SELECT
     inv.id_inventario,
     inv.id_sede,
-    s.nombre                                            AS sede,
+    s.nombre                                        AS sede,
     i.id_item,
     i.sku,
-    i.nombre                                            AS item,
+    i.nombre                                        AS item,
     i.tipo,
-    m.nombre                                            AS marca,
-    cat.nombre_categoria                                AS categoria,
+    m.nombre                                        AS marca,
+    ci.categorias                                   AS categoria,
     i.modelo,
     i.calidad,
     inv.cantidad_actual,
     inv.stock_minimo,
-    (inv.cantidad_actual - inv.stock_minimo)            AS diferencia_stock,
-    (inv.cantidad_actual <= inv.stock_minimo)           AS requiere_reposicion,
+    (inv.cantidad_actual - inv.stock_minimo)        AS diferencia_stock,
+    (inv.cantidad_actual <= inv.stock_minimo)       AS requiere_reposicion,
     i.precio_compra_actual
 FROM Inventario_Sedes inv
-JOIN  Sedes s           ON s.id_sede      = inv.id_sede
-JOIN  Items i           ON i.id_item      = inv.id_item
-LEFT JOIN Marcas m      ON m.id_marca     = i.id_marca
-LEFT JOIN Categorias cat ON cat.id_categoria = i.id_categoria;
+JOIN  Sedes s                ON s.id_sede  = inv.id_sede
+JOIN  Items i                ON i.id_item  = inv.id_item
+LEFT JOIN Marcas m           ON m.id_marca = i.id_marca
+LEFT JOIN categorias_por_item ci ON ci.id_item = i.id_item;
 
 
 -- 22. Solo ítems bajo stock mínimo, ordenados por urgencia

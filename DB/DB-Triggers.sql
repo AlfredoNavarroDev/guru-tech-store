@@ -1176,3 +1176,22 @@ DROP TRIGGER IF EXISTS trg_compras_check_sede_habilitada ON Compras_Refill;
 CREATE TRIGGER trg_compras_check_sede_habilitada
   BEFORE INSERT ON Compras_Refill
   FOR EACH ROW EXECUTE FUNCTION trg_compras_check_sede_habilitada();
+
+-- Trigger: mínimo 1 categoría para productos
+CREATE OR REPLACE FUNCTION fn_check_item_categorias()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF (SELECT tipo FROM items WHERE id_item = OLD.id_item) = 'producto' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM item_categorias WHERE id_item = OLD.id_item
+    ) THEN
+      RAISE EXCEPTION 'Un producto debe tener al menos una categoría (id_item=%)', OLD.id_item;
+    END IF;
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER trg_item_categorias_check
+  AFTER DELETE ON item_categorias
+  FOR EACH ROW EXECUTE FUNCTION fn_check_item_categorias();

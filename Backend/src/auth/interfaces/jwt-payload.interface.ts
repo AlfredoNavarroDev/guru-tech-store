@@ -6,8 +6,8 @@ export interface JwtPayload {
   // Sede del empleado para filtrado multi-sede.
   id_sede: number;
 
-  // Roles para guards (@Roles) sin consultar BD.
-  roles: string[];
+  // Rol único del empleado para guards (@Roles) sin consultar BD.
+  rol: string;
 
   // Nombre para UI sin llamada extra.
   nombre: string;

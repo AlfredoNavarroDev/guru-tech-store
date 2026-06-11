@@ -19,10 +19,11 @@ export class CatalogoService {
     let idx = 2;
 
     if (query.categoria !== undefined) {
-      // JOIN a Items necesario para filtrar por id_categoria.
+      // JOIN item_categorias (M:N) para categoría + Items para id_marca.
       sql = `SELECT vc.* FROM v_vendedor_catalogo vc
+             JOIN item_categorias ic ON ic.id_item = vc.id_item
              JOIN Items i ON i.id_item = vc.id_item
-             WHERE vc.id_sede = $1 AND i.id_categoria = $${idx++}`;
+             WHERE vc.id_sede = $1 AND ic.id_categoria = $${idx++}`;
       params.push(query.categoria);
       if (query.marca !== undefined) {
         sql += ` AND i.id_marca = $${idx++}`;

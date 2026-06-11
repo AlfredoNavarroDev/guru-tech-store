@@ -1,156 +1,224 @@
-# Sprint 2 — Frontend
+# Sprint 3 — Frontend
 
-**Stack:** Next.js 14 · Tailwind CSS · Magic UI · Lucide React  
-**Entregables:** Landing page pública + Panel de administración de empleados
+**Stack:** Next.js 14 · Tailwind CSS · Lucide React  
+**Entregables:** Panel de abastecedor — gestión de inventario, catálogo y compras
 
 ---
 
 ## Páginas
 
-| Ruta               | Archivo                         | Descripción                       |
-|--------------------|---------------------------------|-----------------------------------|
-| `/`                | `app/page.tsx`                  | Landing page pública              |
-| `/dashboard/admin` | `app/dashboard/admin/page.tsx`  | Panel admin — gestión empleados   |
+| Ruta                            | Descripción                           |
+|---------------------------------|---------------------------------------|
+| `/dashboard/abastecedor`        | Overview de stock + alertas críticas  |
+| `/dashboard/abastecedor/items`  | Catálogo completo + crear/editar ítems|
+| `/dashboard/abastecedor/stock`  | Stock actual + ítems críticos         |
+| `/dashboard/abastecedor/compras`| Historial de compras + nueva compra   |
+| `/dashboard/abastecedor/proveedores` | Directorio de proveedores        |
 
 ---
 
-## Landing Page (`/`)
-
-### Objetivo
-Página principal pública. Presenta el sistema. Tono profesional, tech, confiable.
-
-### Paleta de Colores
-| Token           | Valor     | Uso                      |
-|-----------------|-----------|--------------------------|
-| `bg-hero`       | `#0a0a0a` | Hero, secciones dark     |
-| `bg-section`    | `#ffffff` / `#f8f8f8` | Secciones light |
-| `accent-primary`| `#3b82f6` | Links, highlights        |
-| `accent-green`  | `#22c55e` | Badges, bullets positivos|
-| `text-muted`    | `#6b7280` | Subtítulos, labels       |
-
-### Secciones
-
-#### 1. Navbar
-- Sticky, `backdrop-blur-md bg-black/80 border-b border-white/10`
-- Logo: `Guru Tech Store` (texto bold)
-- Links: Plataforma, Soluciones, Recursos
-- CTAs: "Iniciar sesión" (ghost) + "Contacto" (`ShimmerButton`)
-
-#### 2. Hero (dark)
-- Fondo: `Meteors` — baja densidad
-- Badge: `AnimatedShinyText` — "✦ SISTEMA DE GESTION"
-- Headline: "Control de" + `WordRotate` (["inventario", "ventas", "personal"]) + "en múltiples sedes"
-- CTAs: `ShimmerButton` "Iniciar sesión →" + botón ghost "Ver demo ○"
-- Visual: Card/mockup del dashboard con `BorderBeam`
-
-#### 3. Stats Bar (light)
-- 4 columnas con `NumberTicker` al scroll:
-  - `99.9%` — "Garantía de tiempo de actividad"
-  - `1.2M+` — "Ops gestionadas"
-  - `150ms` — "Latencia de consulta"
-  - `24/7` — "Soporte experto"
-
-#### 4. Features — Funcionalidades principales
-- Fondo: `DotPattern` con máscara radial
-- `BentoGrid` 3 col desktop / 1 mobile
-- Cards con `BorderBeam` al hover:
-
-  | Card | Icono | Descripción |
-  |------|-------|-------------|
-  | Inventario inteligente | `Package` | Análisis tendencias, reposición auto |
-  | Asistente de IA | `Bot` | Consulta info en lenguaje natural |
-  | Omni-Ventas | `ShoppingCart` | Ventas unificadas |
-  | Multi-Sede | `Building2` | Gestión múltiples sedes |
-  | Gestión de pedidos | `ClipboardList` | Procesamiento y trazabilidad |
-  | Control de ventas | `TrendingUp` | Suite unificada de punto de venta |
-
-#### 5. Dark Section — "Diseñado para optimizar la gestión empresarial"
-- Fondo `#0a0a0a` con `WarpBackground`
-- `AnimatedGradientText` headline
-- 2 bullets: Motor de datos relacional · Seguridad inmutable
-
-#### 6. Meet Guru AI (dark)
-- Badge: "NEXT-GEN INTELLIGENCE"
-- Headline: "Meet Guru AI"
-- Features IA: gestión de ingresos, análisis y planificación
-- CTA: `ShimmerButton` "Solicitar acceso"
-
-#### 7. CTA Final (light)
-- `SparklesText`: "¿Listo para mejorar la gestión de tus operaciones comerciales?"
-- Dos `ShimmerButton`: "Solicitar acceso" + "Contactar al administrador"
-
-#### 8. Footer (dark)
-- 4 columnas: logo/tagline, Plataforma, Términos, Seguridad
-- `© 2026 GURU TECH STORE. SISTEMA DE GESTIÓN DE PRECISIÓN.`
-
-### Magic UI Components
-`meteors` · `animated-shiny-text` · `word-rotate` · `number-ticker` · `bento-grid` · `border-beam` · `dot-pattern` · `shimmer-button` · `sparkles-text` · `animated-gradient-text` · `warp-background`
-
-### Archivos
-```
-app/page.tsx
-components/landing/
-  Navbar.tsx
-  HeroSection.tsx
-  StatsSection.tsx
-  FeaturesSection.tsx
-  DarkOptimizeSection.tsx
-  AISection.tsx
-  CTASection.tsx
-  Footer.tsx
-```
-
----
-
-## Panel Admin — Gestión de Empleados
-
-### Objetivo
-Interfaz para que el admin registre y administre empleados de su sede.
+## Vista General — `/dashboard/abastecedor`
 
 ### Layout
 ```
-┌──────────────────────────────────────────┐
-│  Dashboard Admin · Sede: [nombre sede]   │
-├──────────────┬───────────────────────────┤
-│   Sidebar    │  Empleados de la Sede     │
-│              │  ─────────────────────── │
-│  · Empleados │  [+ Nuevo Empleado]       │
-│              │                           │
-│              │  Filtros: cargo | estado  │
-│              │                           │
-│              │  Tabla:                   │
-│              │  Nombre | Cargo | Estado  │
-│              │  [Editar] [Desactivar]    │
-└──────────────┴───────────────────────────┘
+┌────────────────────────────────────────────┐
+│   Abastecedor · Sede: [nombre]             │
+├──────────────┬─────────────────────────────┤
+│   Sidebar    │  Resumen de Inventario      │
+│              │  ─────────────────────────  │
+│  · Overview  │  [Alerta] X ítems críticos  │
+│  · Catálogo  │                             │
+│  · Stock     │  ┌──────┐ ┌──────┐ ┌─────┐│
+│  · Compras   │  │Total │ │Bajo  │ │Valor││
+│  · Proveedores│  │ítems │ │stock │ │inv. ││
+│              │  └──────┘ └──────┘ └─────┘│
+│              │                             │
+│              │  Tabla: Ítems críticos      │
+│              │  [Nombre|Stock|Mínimo|Dif.] │
+└──────────────┴─────────────────────────────┘
 ```
 
 ### Componentes
-- Tabla de empleados con paginación
-- Modal "Crear Empleado" con form validado
-- Modal "Editar Empleado"
-- Toggle de estado activo/inactivo
-- Badge de cargo con colores por rol
+- Cards con métricas de inventario (`NumberTicker` animado)
+- Tabla de ítems bajo stock mínimo (con badge rojo)
+- Botón rápido "Crear compra de reposición"
 
-### Integración con Backend
+---
+
+## Catálogo — `/dashboard/abastecedor/items`
+
+### Layout
+```
+[+ Nuevo Ítem]    [Buscador]    [Filtros: tipo | marca | categoría]
+
+Tabla:
+  SKU | Nombre | Tipo | Stock | Precio Compra | Precio Venta | [Editar]
+
+Paginación: < 1 2 3 ... >
+```
+
+### Modal — Crear/Editar Ítem
+
+> **Nota multi-categoría:** El campo `categoria` en la respuesta del catálogo es un string CSV (`STRING_AGG`) producido por la vista desde `Item_Categorias`. Un producto puede tener N categorías (mínimo 1). En el formulario, usar selector múltiple; en la tabla/listado, `categoria` llega como `"Accesorios, Audio"` (string plano, no array).
+
+```
+Nombre: [_____________]     SKU: [_______]
+Tipo:   [Producto ▼]        Categorías: [___▼] (selección múltiple)
+Marca:  [___________▼]
+
+Precio compra: [_____]      Precio venta: [______]
+Stock mínimo: [____]        Stock inicial: [____]  ← solo en creación
+
+Descripción: [________________________]
+
+[Cancelar]          [Guardar]
+```
+
+### Integración
 ```typescript
-// GET /empleados
-const { data: empleados } = await fetcher('/empleados', token);
+// POST /items
+await fetcher('/items', { method: 'POST', body: createItemDto }, token);
 
-// POST /empleados
-await fetch('/empleados', {
+// GET /items?tipo=producto&page=1&limit=20
+const { data, total } = await fetcher('/items?tipo=producto', token);
+```
+
+---
+
+## Stock — `/dashboard/abastecedor/stock`
+
+### Layout
+```
+[Tabs: Todo | Crítico]
+
+Filtros: [tipo ▼] [marca ▼] [Solo reposición: ☑]
+
+Tabla:
+  Ítem | Tipo | Stock actual | Stock mín. | Estado | Precio compra
+
+Estado badges:
+  🟢 OK — sobre mínimo
+  🟡 Bajo — dentro del 20% del mínimo
+  🔴 Crítico — igual o bajo el mínimo
+```
+
+### Ajuste Directo de Stock (modal)
+```
+Ítem: [nombre del ítem]
+Cantidad: [±___]   Motivo: [ajuste_inventario ▼]
+Observación: [___________________]
+[Confirmar ajuste]
+```
+
+---
+
+## Compras — `/dashboard/abastecedor/compras`
+
+### Layout
+```
+[+ Nueva Compra]                    [Filtros: proveedor | fecha]
+
+Tabla historial:
+  #Orden | Proveedor | Fecha | N° ítems | Total | [Ver detalle]
+```
+
+### Formulario — Nueva Compra (página separada o drawer)
+```
+Proveedor: [Seleccionar ▼]
+
+Ítems de la compra:
+  ┌──────────────────────────────────────────┐
+  │ Ítem    | Cant. | Costo unit. | P.venta  │
+  │ [___▼]  | [__]  | [_______]   | [______] │
+  │ [+ Agregar ítem]                         │
+  └──────────────────────────────────────────┘
+
+Total estimado: S/. XXXX.XX
+
+[Cancelar]          [Registrar compra]
+```
+
+### Integración
+```typescript
+// POST /compras
+await fetcher('/compras', {
   method: 'POST',
-  headers: { Authorization: `Bearer ${token}` },
-  body: JSON.stringify(createEmpleadoDto),
-});
+  body: { id_proveedor, items: [...] },
+}, token);
 ```
 
-### Archivos
+---
+
+## Proveedores — `/dashboard/abastecedor/proveedores`
+
+### Layout
 ```
-app/dashboard/admin/
-  page.tsx
-components/admin/
-  EmpleadosTable.tsx
-  CreateEmpleadoModal.tsx
-  EditEmpleadoModal.tsx
-  CargoBadge.tsx
+Buscador: [_______________]
+
+Cards de proveedores:
+  ┌─────────────────────────┐
+  │ [Logo/icono]            │
+  │ Nombre proveedor        │
+  │ Total órdenes: XX       │
+  │ Última compra: DD/MM/YY │
+  │ Total comprado: S/. XXX │
+  └─────────────────────────┘
 ```
+
+---
+
+## Archivos a Crear
+
+```
+app/dashboard/abastecedor/
+  page.tsx                    — overview
+  items/page.tsx
+  stock/page.tsx
+  compras/
+    page.tsx
+    nueva/page.tsx
+  proveedores/page.tsx
+
+components/abastecedor/
+  StockOverview.tsx           — cards métricas + tabla críticos
+  ItemsTable.tsx              — catálogo con paginación
+  ItemModal.tsx               — form crear/editar ítem
+  StockAjusteModal.tsx        — ajuste directo de stock
+  ComprasTable.tsx
+  NuevaCompraForm.tsx
+  ProveedoresGrid.tsx
+  StockBadge.tsx              — badge OK/Bajo/Crítico
+```
+
+---
+
+## Manejo de errores de concurrencia (HU-25)
+
+`NuevaCompraForm.tsx` debe distinguir entre error de negocio y deadlock:
+
+```typescript
+// NuevaCompraForm.tsx — onSubmit
+try {
+  const res = await apiFetch(`${API_URL}/compras`, { method: 'POST', body: ... });
+
+  if (!res.ok) {
+    const err = await res.json();
+
+    if (res.status === 409 && err.retry) {
+      // Deadlock detectado: mostrar toast de reintento
+      toast.warning('Conflicto al registrar la compra. Intente de nuevo en unos segundos.');
+      return;
+    }
+    if (res.status === 409) {
+      // Error de negocio (stock insuficiente, etc.)
+      toast.error(err.message ?? 'Error al registrar la compra');
+      return;
+    }
+    toast.error('Error inesperado');
+  }
+} catch {
+  toast.error('Sin conexión al servidor');
+}
+```
+
+> El mismo patrón aplica en `VentasForm.tsx` (Sprint 1) y `ReparacionForm.tsx` (Sprint 4) para sus respectivos 409 con `{ retry: true }`.
