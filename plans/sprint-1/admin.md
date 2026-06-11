@@ -1,7 +1,7 @@
-# Sprint 2 — Backend · Rol Admin
+# Sprint 1 — Backend · Rol Admin
 
 **Stack:** NestJS · TypeORM · PostgreSQL · class-validator · JWT · Swagger  
-**Story Points:** 14  
+**Story Points:** 15  
 **Épicas:** Administrador · Seguridad  
 **Dependencia:** Auth de Sprint 1 (incluyendo HU-23: `RefreshTokens` entity)
 
@@ -11,8 +11,7 @@
 
 | HU    | Historia                              | Épica         | Módulo     | SP | Prioridad |
 |-------|---------------------------------------|---------------|------------|----|-----------|
-| HU-09 | Registrar nuevo empleado              | Administrador | Empleados  | 5  | Alta      |
-| HU-10 | Listar empleados de sede              | Administrador | Empleados  | 2  | Media     |
+| HU-05 | Administrar empleados de la sede      | Administrador | Empleados  | 8  | Alta      |
 | HU-24 | Revocar tokens al desactivar empleado | Administrador | Empleados  | 2  | Alta      |
 | HU-26 | Interceptor audit trail (actor_id)    | Seguridad     | Common     | 5  | Alta      |
 
@@ -50,13 +49,13 @@ El JWT incluye `rol: 'admin'`.
 ---
 
 ## Módulo — Empleados
-**HU:** HU-09 · HU-10
+**HU:** HU-05
 
 ### Endpoints
 | Método | Ruta                          | Descripción                          |
 |--------|-------------------------------|--------------------------------------|
-| POST   | /empleados                    | Registrar nuevo empleado (HU-09)     |
-| GET    | /empleados                    | Listar empleados de la sede (HU-10)  |
+| POST   | /empleados                    | Registrar nuevo empleado (HU-05)     |
+| GET    | /empleados                    | Listar empleados de la sede (HU-05)  |
 | GET    | /empleados/:id                | Detalle de un empleado               |
 | PATCH  | /empleados/:id                | Actualizar datos del empleado        |
 | PATCH  | /empleados/:id/password       | Cambiar contraseña del empleado      |
@@ -242,8 +241,8 @@ src/app.module.ts             — registrar AuditInterceptor
 
 ## Orden de Implementación
 
-| Prioridad | Módulo          | HU cubierta        | Dependencias |
-|-----------|-----------------|--------------------|--------------|
-| 1         | Auth            | —                  | Sprint 1     |
-| 2         | AuditInterceptor| HU-26              | Auth, DataSource |
-| 3         | Empleados       | HU-09, HU-10, HU-24| Auth, HU-23  |
+| Prioridad | Módulo          | HU cubierta    | Dependencias |
+|-----------|-----------------|----------------|--------------|
+| 1         | Auth            | —              | Sprint 1     |
+| 2         | AuditInterceptor| HU-26          | Auth, DataSource |
+| 3         | Empleados       | HU-05, HU-24   | Auth, HU-23  |

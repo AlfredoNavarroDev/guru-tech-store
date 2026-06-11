@@ -1,9 +1,9 @@
-# Sprint 4 — Backend · Rol Técnico
+# Sprint 3 — Backend · Rol Técnico
 
 **Stack:** NestJS · TypeORM · PostgreSQL · class-validator · JWT · Swagger  
 **Story Points:** 26  
 **Épica:** Servicios Técnicos  
-**Dependencias:** Auth (Sprint 1) · Stock de repuestos (Sprint 3)
+**Dependencias:** Auth (Sprint 1) · Stock de repuestos (Sprint 2)
 
 ---
 

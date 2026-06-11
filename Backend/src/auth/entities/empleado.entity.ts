@@ -1,34 +1,46 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-// Entidad de empleado para autenticación. Vinculado a una sede para filtrado multi-sede vía JWT.
 @Entity('empleados')
 export class Empleado {
   @PrimaryGeneratedColumn({ name: 'id_empleado' })
   id_empleado: number;
 
-  // Nullable para admin global sin sede.
   @Column({ name: 'id_sede', type: 'int', nullable: true })
   id_sede: number | null;
 
-  // DNI, CE, pasaporte, etc.
+  @Column({ name: 'id_rol', type: 'int' })
+  id_rol: number;
+
   @Column({ name: 'tipo_documento' })
   tipo_documento: string;
 
-  // Identificador de login (único en BD).
   @Column({ name: 'nro_documento' })
   nro_documento: string;
 
   @Column({ name: 'nombre_completo' })
   nombre_completo: string;
 
-  // bcrypt.hash(password, 10). Nunca se devuelve al cliente.
   @Column({ name: 'password_hash' })
   password_hash: string;
 
-  // 'activo' | 'inactivo'. Desactivar preserva historial de ventas.
   @Column({ name: 'estado', default: 'activo' })
   estado: string;
 
-  @Column({ name: 'id_rol', type: 'int' })
-  id_rol: number;
+  @Column({ name: 'telefono', nullable: true })
+  telefono: string | null;
+
+  @Column({ name: 'sueldo_semanal_soles', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  sueldo_semanal_soles: number | null;
+
+  @Column({ name: 'es_extranjero', type: 'boolean', default: false })
+  es_extranjero: boolean;
+
+  @Column({ name: 'direccion_completa', type: 'text', nullable: true })
+  direccion_completa: string | null;
+
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  created_by: number | null;
+
+  @CreateDateColumn({ name: 'created_at' })
+  created_at: Date;
 }

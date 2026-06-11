@@ -2,4 +2,5 @@
 export * from './app.exception';
 export * from './auth.exceptions';
 export * from './clientes.exceptions';
+export * from './empleados.exceptions';
 export * from './ventas.exceptions';

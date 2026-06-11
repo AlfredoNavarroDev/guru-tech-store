@@ -1,4 +1,4 @@
-# Sprint 3 — Frontend
+# Sprint 2 — Frontend
 
 **Stack:** Next.js 14 · Tailwind CSS · Lucide React  
 **Entregables:** Panel de abastecedor — gestión de inventario, catálogo y compras

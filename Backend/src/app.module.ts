@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envValidationSchema } from './config/env.validation';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { CatalogoModule } from './catalogo/catalogo.module';
+import { EmpleadosModule } from './empleados/empleados.module';
 import { VentasModule } from './ventas/ventas.module';
 import { BoletasModule } from './boletas/boletas.module';
 import { PagosModule } from './pagos/pagos.module';
@@ -51,15 +54,22 @@ import { PagosModule } from './pagos/pagos.module';
       },
     }),
 
-    // Módulos del Sprint 1 — flujo de Vendedor.
+    // Módulos del Sprint 1.
     AuthModule,
     ClientesModule,
     CatalogoModule,
+    EmpleadosModule,
     VentasModule,
     BoletasModule,
     PagosModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
+  ],
 })
 export class AppModule {}

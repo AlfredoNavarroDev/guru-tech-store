@@ -1,4 +1,4 @@
-# Sprint 3 — Backend · Rol Abastecedor
+# Sprint 2 — Backend · Rol Abastecedor
 
 **Stack:** NestJS · TypeORM · PostgreSQL · class-validator · JWT · Swagger  
 **Story Points:** 16  

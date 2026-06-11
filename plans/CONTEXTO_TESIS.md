@@ -118,15 +118,13 @@ app/
 ### Dependencias entre Sprints
 
 ```
-Sprint 1 — Auth + Ventas (base del sistema)
+Sprint 1 — Auth + Ventas + Admin (base del sistema)
   │
-  ├─► Sprint 2 — Admin (requiere Auth de S1)
-  │
-  ├─► Sprint 3 — Inventario (requiere Auth de S1 + Items seed de BD)
-  │       │
-  │       └─► Sprint 4 — Serv. Técnicos (requiere Stock de S3 + Auth de S1)
-  │                   │
-  │                   └─► Sprint 5 — Chatbot IA (requiere todos los módulos)
+  └─► Sprint 2 — Inventario (requiere Auth de S1 + Items seed de BD)
+          │
+          └─► Sprint 3 — Serv. Técnicos (requiere Stock de S2 + Auth de S1)
+                      │
+                      └─► Sprint 4 — Chatbot IA (requiere todos los módulos)
 ```
 
 ---
@@ -721,9 +719,9 @@ Wrapper `apiFetch` que reintenta con refresh_token si recibe 401; redirige a /lo
 
 ---
 
-## 15. SPRINT 2 — BACKEND (Admin)
+## 15. SPRINT 1 — BACKEND (Admin)
 
-### Módulo: Empleados (HU-09, HU-10, HU-24) + AuditInterceptor (HU-26)
+### Módulo: Empleados (HU-05, HU-24) + AuditInterceptor (HU-26)
 
 **Admin solo gestiona empleados de su propia sede (id_sede del JWT).**
 
@@ -747,7 +745,7 @@ Registrado globalmente como `APP_INTERCEPTOR` en AppModule.
 
 ---
 
-## 16. SPRINT 2 — FRONTEND (Landing + Panel Admin)
+## 16. SPRINT 1 — FRONTEND (Landing + Panel Admin)
 
 ### Landing Page (`/`)
 
@@ -758,7 +756,7 @@ Tabla de empleados + modales crear/editar + toggle estado.
 
 ---
 
-## 17. SPRINT 3 — BACKEND (Abastecedor)
+## 17. SPRINT 2 — BACKEND (Abastecedor)
 
 ### Módulos: Items · Stock · Proveedores · Compras (HU-11 a HU-14, HU-25, HU-27)
 
@@ -778,7 +776,7 @@ Tabla de empleados + modales crear/editar + toggle estado.
 
 ---
 
-## 18. SPRINT 3 — FRONTEND (Abastecedor)
+## 18. SPRINT 2 — FRONTEND (Abastecedor)
 
 **Páginas:**
 - `/dashboard/abastecedor` — overview con cards métricas
@@ -789,7 +787,7 @@ Tabla de empleados + modales crear/editar + toggle estado.
 
 ---
 
-## 19. SPRINT 4 — BACKEND (Técnico)
+## 19. SPRINT 3 — BACKEND (Técnico)
 
 ### Módulos: Reparaciones · Pagos (adelantos) · Repuestos · Clientes · Estados (HU-15 a HU-19)
 
@@ -806,7 +804,7 @@ Tabla de empleados + modales crear/editar + toggle estado.
 
 ---
 
-## 20. SPRINT 4 — FRONTEND (Técnico)
+## 20. SPRINT 3 — FRONTEND (Técnico)
 
 **Páginas:**
 - `/dashboard/tecnico` — cola activa con tarjetas por estado (badges coloreados)
@@ -816,7 +814,7 @@ Tabla de empleados + modales crear/editar + toggle estado.
 
 ---
 
-## 21. SPRINT 5 — CHATBOT IA (Backend + Frontend)
+## 21. SPRINT 4 — CHATBOT IA (Backend + Frontend)
 
 ### Stack adicional: `ai` (Vercel AI SDK Core) · `@ai-sdk/openai` · `zod` · SSE streaming
 

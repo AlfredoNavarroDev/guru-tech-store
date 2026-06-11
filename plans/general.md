@@ -9,13 +9,13 @@
 
 ## Resumen de Sprints
 
-| Sprint | Épica                          | SP      | HUs          |
-|--------|--------------------------------|---------|--------------|
-| 1      | Autenticación + Ventas + Admin | 52      | HU-01…HU-10 |
-| 2      | Inventario                     | 13      | HU-11…HU-14 |
-| 3      | Servicios Técnicos             | 26      | HU-15…HU-19 |
-| 4      | Chatbot IA                     | 29      | HU-20…HU-22 |
-| **Total** |                            | **120** |              |
+| Sprint | Épica                          | SP      | HUs               |
+|--------|--------------------------------|---------|-------------------|
+| 1      | Autenticación + Ventas + Admin | 52      | HU-01…HU-10       |
+| 2      | Inventario                     | 13      | HU-11…HU-14       |
+| 3      | Servicios Técnicos             | 26      | HU-15…HU-19       |
+| 4      | Chatbot IA                     | 34      | HU-20…HU-22, HU-28 |
+| **Total** |                            | **125** |                   |
 
 ---
 
@@ -57,9 +57,10 @@
 | HU-19  | Registrar adelanto de pago de reparación          | E5 Serv. Técnicos  | 3      | 5   | Media     |
 | HU-20  | Consultar productos en lenguaje natural           | E6 Chatbot IA      | 4      | 13  | Alta      |
 | HU-21  | Respuestas con datos en tiempo real               | E6 Chatbot IA      | 4      | 8   | Alta      |
-| HU-22  | Seguridad del chatbot                             | E6 Chatbot IA      | 4      | 8   | Alta      |
+| HU-22  | Historial de conversación del chatbot             | E6 Chatbot IA      | 4      | 5   | Media     |
+| HU-28  | Chatbot seguro: RO + schema/rol + sanitización    | E6 Chatbot IA      | 4      | 8   | Alta      |
 
-**Total: 120 SP**
+**Total: 125 SP**
 
 ---
 
@@ -88,9 +89,10 @@
 | HU-19 | 5  | 5  | Sí | 5  | — |
 | HU-20 | 13 | 13 | Sí | 13 | — |
 | HU-21 | 8  | 8  | Sí | 8  | — |
-| HU-22 | 8  | 8  | Sí | 8  | — |
+| HU-22 | 5  | 5  | Sí | 5  | Historial de conversación (refinamiento de HU-22 original) |
+| HU-28 | 8  | 8  | Sí | 8  | Seguridad chatbot: usuario RO + schema por rol + sanitización |
 
-**Total: 120 SP**
+**Total: 125 SP**
 
 ---
 

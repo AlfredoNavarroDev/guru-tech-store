@@ -1,4 +1,4 @@
-# Sprint 4 — Frontend
+# Sprint 3 — Frontend
 
 > **Nota de esquema (refactor multi-categoría):** El campo `categoria` en las respuestas de items/catálogo es ahora un string con formato CSV producido por `STRING_AGG` desde la tabla `Item_Categorias`. El nombre del campo no cambia, pero su fuente es multi-categoría: un producto puede pertenecer a N categorías. No hay campo tipo array — sigue siendo un string plano (`"Accesorios, Audio"`). Aplica a cualquier vista o componente que consuma el catálogo (p.ej. filtros por categoría deben separar por coma si se necesita comparación individual).
 

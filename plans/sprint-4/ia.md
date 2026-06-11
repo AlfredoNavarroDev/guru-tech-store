@@ -1,10 +1,12 @@
-# Sprint 5 — Chatbot IA · Backend + Frontend
+# Sprint 4 — Chatbot IA · Backend + Frontend
 
 **Stack Backend:** NestJS · `ai` (Vercel AI SDK Core) · `@ai-sdk/openai` · `zod` · TypeORM · PostgreSQL · SSE  
 **Modelo:** `gpt-4o-mini` (OpenAI) — upgrade path: `claude-haiku-4-5-20251001` si HU-28 falla en producción  
 **Stack Frontend:** Next.js 14 · Tailwind CSS · Lucide React  
 **Story Points:** 34  
-**Épicas:** Chatbot IA · Seguridad  
+**Épicas:** Chatbot IA · Seguridad · Historial
+
+> **Nota:** general.md declaraba 29 SP (HU-20+HU-21+HU-22). HU-22 fue refinada en dos HUs: HU-22 (Historial, 5 SP) + HU-28 (Seguridad, 8 SP). Total real = 34 SP.  
 **Dependencias:** todos los módulos anteriores (accede a datos de items, ventas, reparaciones)
 
 ---
