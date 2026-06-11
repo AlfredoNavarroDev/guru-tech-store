@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import type { StringValue } from 'ms';
+import { randomUUID } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -71,41 +71,15 @@ export class AuthService {
 
   // Rotación de tokens: revoca el actual y emite uno nuevo.
   async refresh(token: string): Promise<AuthResponseDto> {
-    let decoded: { sub: number; type: string };
-
-    // verify lanza si expirado/firma inválida → convertimos a error de dominio.
-    try {
-      decoded = this.jwtService.verify<{ sub: number; type: string }>(token);
-    } catch {
-      throw new InvalidRefreshTokenException();
-    }
-
-    // type: 'refresh' evita que un access token se use como refresh.
-    if (decoded.type !== 'refresh') {
-      throw new InvalidRefreshTokenException();
-    }
-
-    // Verificamos que no esté revocado en BD.
-    const record = await this.refreshTokenRepo.findOne({
-      where: { id_empleado: decoded.sub, revoked: false },
-    });
-
+    const record = await this.findMatchingRefreshToken(token);
     if (!record) throw new InvalidRefreshTokenException();
-
-    // Doble check de expiración: JWT (criptográfico) + BD (revocación administrativa).
-    if (record.expires_at <= new Date())
-      throw new InvalidRefreshTokenException();
-
-    // bcrypt.compare confirma que el token es exactamente el emitido.
-    const match = await bcrypt.compare(token, record.token_hash);
-    if (!match) throw new InvalidRefreshTokenException();
 
     // Revocar antes de emitir: si falla a mitad, el viejo ya no sirve.
     record.revoked = true;
     await this.refreshTokenRepo.save(record);
 
     const empleado = await this.empleadoRepo.findOne({
-      where: { id_empleado: decoded.sub },
+      where: { id_empleado: record.id_empleado },
     });
 
     // Si el empleado fue desactivado con sesión abierta, se niega la renovación.
@@ -139,30 +113,21 @@ export class AuthService {
 
   // Cierra sesión revocando el refresh token activo. Silencioso ante tokens inválidos.
   async logout(userId: number, refreshTokenRaw: string): Promise<void> {
-    const record = await this.refreshTokenRepo.findOne({
-      where: { id_empleado: userId, revoked: false },
-    });
-
-    if (!record || record.expires_at <= new Date()) return;
-
-    const match = await bcrypt.compare(refreshTokenRaw, record.token_hash);
-    if (!match) return;
+    const record = await this.findMatchingRefreshToken(refreshTokenRaw, userId);
+    if (!record) return;
 
     record.revoked = true;
     await this.refreshTokenRepo.save(record);
   }
 
-  // Genera y persiste refresh token (JWT firmado + hash bcrypt en BD).
+  // Genera y persiste refresh token opaco (UUID v4 + hash bcrypt en BD).
   private async issueRefreshToken(id_empleado: number): Promise<string> {
     const refreshExpiresIn = this.configService.get<string>(
       'REFRESH_EXPIRES_IN',
       '7d',
     );
 
-    const refreshTokenRaw = this.jwtService.sign(
-      { sub: id_empleado, type: 'refresh' },
-      { expiresIn: refreshExpiresIn as StringValue },
-    );
+    const refreshTokenRaw = randomUUID();
 
     await this.refreshTokenRepo.update(
       { id_empleado, revoked: false },
@@ -182,6 +147,28 @@ export class AuthService {
     await this.refreshTokenRepo.save(entity);
 
     return refreshTokenRaw;
+  }
+
+  private async findMatchingRefreshToken(
+    refreshTokenRaw: string,
+    id_empleado?: number,
+  ): Promise<RefreshToken | null> {
+    const records = await this.refreshTokenRepo.find({
+      where:
+        id_empleado === undefined
+          ? { revoked: false }
+          : { id_empleado, revoked: false },
+    });
+
+    const now = new Date();
+    for (const record of records) {
+      if (record.expires_at <= now) continue;
+      if (await bcrypt.compare(refreshTokenRaw, record.token_hash)) {
+        return record;
+      }
+    }
+
+    return null;
   }
 
   // Convierte '30d' | '1h' | '15m' | '60s' a Date absoluto. Fallback: 30 días.

@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   OnModuleInit,
@@ -141,6 +142,7 @@ export class BoletasService implements OnModuleInit {
         `La venta ${idVenta} ya tiene boleta emitida`,
       );
     }
+    const r2Config = this.getR2Config();
 
     const { rows, pagosRows, head, total, subtotal } =
       await this.queryDatosVenta(idVenta, user.sub);
@@ -173,13 +175,13 @@ export class BoletasService implements OnModuleInit {
         const key = `boletas/ventas/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
-            Bucket: this.config.get<string>('R2_BUCKET_NAME'),
+            Bucket: r2Config.bucket,
             Key: key,
             Body: pdfBuffer,
             ContentType: 'application/pdf',
           }),
         );
-        boleta.url_pdf = `${this.config.get<string>('R2_PUBLIC_URL')}/${key}`;
+        boleta.url_pdf = `${r2Config.publicUrl}/${key}`;
         await manager.save(Boleta, boleta);
       } catch (err) {
         this.logger.error('Error generando PDF o subiendo a R2', err);
@@ -387,6 +389,31 @@ export class BoletasService implements OnModuleInit {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n);
+  }
+
+  private getR2Config(): {
+    bucket: string;
+    publicUrl: string;
+  } {
+    const required = [
+      'R2_ACCOUNT_ID',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME',
+      'R2_PUBLIC_URL',
+    ] as const;
+
+    const missing = required.filter((key) => !this.config.get<string>(key));
+    if (missing.length > 0) {
+      throw new InternalServerErrorException(
+        `Configuración R2 incompleta: ${missing.join(', ')}`,
+      );
+    }
+
+    return {
+      bucket: this.config.get<string>('R2_BUCKET_NAME')!,
+      publicUrl: this.config.get<string>('R2_PUBLIC_URL')!,
+    };
   }
 
   // Genera número correlativo B{sede}-{secuencial} (ej: B001-0000001).

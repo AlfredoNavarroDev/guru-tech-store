@@ -18,6 +18,7 @@ jest.mock('bcrypt', () => ({
 import * as bcrypt from 'bcrypt';
 
 const createMockRepository = () => ({
+  find: jest.fn(),
   findOne: jest.fn(),
   save: jest.fn().mockResolvedValue({}),
   create: jest.fn().mockReturnValue({}),
@@ -79,15 +80,13 @@ describe('AuthService', () => {
       dataSource.query.mockResolvedValueOnce([
         { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
       ]);
-      jwtService.sign
-        .mockReturnValueOnce('jwt-token')
-        .mockReturnValueOnce('refresh-jwt-token');
+      jwtService.sign.mockReturnValueOnce('jwt-token');
 
       const result = await service.login(dto);
 
       expect(result).toEqual({
         access_token: 'jwt-token',
-        refresh_token: 'refresh-jwt-token',
+        refresh_token: expect.any(String),
         nombre: 'Juan Perez',
         rol: 'vendedor',
         id_sede: 2,
@@ -99,6 +98,9 @@ describe('AuthService', () => {
         rol: 'vendedor',
         nombre: 'Juan Perez',
       });
+      expect(result.refresh_token).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
     });
 
     it('valida', async () => {
@@ -151,9 +153,7 @@ describe('AuthService', () => {
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       dataSource.query.mockResolvedValueOnce([]);
-      jwtService.sign
-        .mockReturnValueOnce('jwt-token')
-        .mockReturnValueOnce('refresh-jwt-token');
+      jwtService.sign.mockReturnValueOnce('jwt-token');
 
       await service.login(dto);
 
@@ -166,7 +166,6 @@ describe('AuthService', () => {
 
   describe('refresh', () => {
     const token = 'valid-refresh-token';
-    const decoded = { sub: 1, type: 'refresh' };
     const activeRecord = {
       id_empleado: 1,
       token_hash: 'hashed-token',
@@ -181,43 +180,41 @@ describe('AuthService', () => {
     };
 
     it('valida', async () => {
-      jwtService.verify.mockReturnValue(decoded);
-      refreshTokenRepo.findOne.mockResolvedValue({ ...activeRecord });
+      refreshTokenRepo.find.mockResolvedValue([{ ...activeRecord }]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
       dataSource.query.mockResolvedValueOnce([
         { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
       ]);
-      jwtService.sign
-        .mockReturnValueOnce('new-access-token')
-        .mockReturnValueOnce('new-refresh-token');
+      jwtService.sign.mockReturnValueOnce('new-access-token');
 
       const result = await service.refresh(token);
 
       expect(result).toEqual({
         access_token: 'new-access-token',
-        refresh_token: 'new-refresh-token',
+        refresh_token: expect.any(String),
         nombre: 'Juan Perez',
         rol: 'vendedor',
         id_sede: 2,
         sede: 'Sede Central',
       });
+      expect(jwtService.verify).not.toHaveBeenCalled();
+      expect(result.refresh_token).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
     });
 
     it('valida', async () => {
       const record = { ...activeRecord };
-      jwtService.verify.mockReturnValue(decoded);
-      refreshTokenRepo.findOne.mockResolvedValue(record);
+      refreshTokenRepo.find.mockResolvedValue([record]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
       dataSource.query.mockResolvedValueOnce([
         { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
       ]);
-      jwtService.sign
-        .mockReturnValueOnce('new-access-token')
-        .mockReturnValueOnce('new-refresh-token');
+      jwtService.sign.mockReturnValueOnce('new-access-token');
 
       await service.refresh(token);
 
@@ -228,9 +225,7 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      jwtService.verify.mockImplementation(() => {
-        throw new Error('invalid signature');
-      });
+      refreshTokenRepo.find.mockResolvedValue([]);
 
       let caught: Error | undefined;
       try {
@@ -243,7 +238,8 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      jwtService.verify.mockReturnValue({ sub: 1, type: 'access' });
+      refreshTokenRepo.find.mockResolvedValue([{ ...activeRecord }]);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       let caught: Error | undefined;
       try {
@@ -256,8 +252,7 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      jwtService.verify.mockReturnValue(decoded);
-      refreshTokenRepo.findOne.mockResolvedValue(null);
+      refreshTokenRepo.find.mockResolvedValue([]);
 
       let caught: Error | undefined;
       try {
@@ -270,11 +265,12 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      jwtService.verify.mockReturnValue(decoded);
-      refreshTokenRepo.findOne.mockResolvedValue({
-        ...activeRecord,
-        expires_at: new Date(Date.now() - 1_000),
-      });
+      refreshTokenRepo.find.mockResolvedValue([
+        {
+          ...activeRecord,
+          expires_at: new Date(Date.now() - 1_000),
+        },
+      ]);
 
       let caught: Error | undefined;
       try {
@@ -287,8 +283,7 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      jwtService.verify.mockReturnValue(decoded);
-      refreshTokenRepo.findOne.mockResolvedValue({ ...activeRecord });
+      refreshTokenRepo.find.mockResolvedValue([{ ...activeRecord }]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       let caught: Error | undefined;
@@ -313,7 +308,7 @@ describe('AuthService', () => {
 
     it('valida', async () => {
       const record = { ...activeRecord };
-      refreshTokenRepo.findOne.mockResolvedValue(record);
+      refreshTokenRepo.find.mockResolvedValue([record]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
 
@@ -326,7 +321,7 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      refreshTokenRepo.findOne.mockResolvedValue(null);
+      refreshTokenRepo.find.mockResolvedValue([]);
 
       await service.logout(1, rawToken);
 
@@ -334,10 +329,12 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      refreshTokenRepo.findOne.mockResolvedValue({
-        ...activeRecord,
-        expires_at: new Date(Date.now() - 1_000),
-      });
+      refreshTokenRepo.find.mockResolvedValue([
+        {
+          ...activeRecord,
+          expires_at: new Date(Date.now() - 1_000),
+        },
+      ]);
 
       await service.logout(1, rawToken);
 
@@ -345,7 +342,7 @@ describe('AuthService', () => {
     });
 
     it('valida', async () => {
-      refreshTokenRepo.findOne.mockResolvedValue({ ...activeRecord });
+      refreshTokenRepo.find.mockResolvedValue([{ ...activeRecord }]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await service.logout(1, rawToken);

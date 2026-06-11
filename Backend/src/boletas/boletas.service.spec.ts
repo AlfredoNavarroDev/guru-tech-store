@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BoletasService } from './boletas.service';
 import { Boleta } from './entities/boleta.entity';
@@ -164,6 +168,25 @@ describe('BoletasService', () => {
       await expect(service.emitir(1, mockUser)).rejects.toBeInstanceOf(
         ConflictException,
       );
+    });
+
+    it('valida', async () => {
+      dataSource.query.mockResolvedValueOnce([{ id_venta: 1 }]);
+      boletaRepo.findOne.mockResolvedValue(null);
+      configService.get.mockImplementation((key: string, def?: string) => {
+        const config: Record<string, string> = {
+          R2_ACCOUNT_ID: 'test-account-id',
+          R2_ACCESS_KEY_ID: 'test-key',
+          R2_SECRET_ACCESS_KEY: 'test-secret',
+          R2_PUBLIC_URL: 'https://cdn.test.com',
+        };
+        return config[key] ?? def ?? '';
+      });
+
+      await expect(service.emitir(1, mockUser)).rejects.toBeInstanceOf(
+        InternalServerErrorException,
+      );
+      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('valida', async () => {
