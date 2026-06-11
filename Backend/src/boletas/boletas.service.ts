@@ -15,11 +15,13 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
 import { Boleta } from './entities/boleta.entity';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 // Fila de v_boleta_venta: una por cada ítem de la venta.
 interface BolVistaRow {
   id_venta: number;
   id_sede: number;
+  id_empleado: number;
   sede_nombre: string;
   sede_direccion: string | null;
   sede_telefono: string | null;
@@ -128,7 +130,9 @@ export class BoletasService implements OnModuleInit {
   }
 
   // Emite boleta para una venta. Idempotente: una venta → una boleta.
-  async emitir(idVenta: number): Promise<Boleta> {
+  async emitir(idVenta: number, user: JwtPayload): Promise<Boleta> {
+    await this.assertVentaOwnedByUser(idVenta, user.sub);
+
     const existing = await this.boletaRepo.findOne({
       where: { id_venta: idVenta },
     });
@@ -139,7 +143,7 @@ export class BoletasService implements OnModuleInit {
     }
 
     const { rows, pagosRows, head, total, subtotal } =
-      await this.queryDatosVenta(idVenta);
+      await this.queryDatosVenta(idVenta, user.sub);
     const numero = await this.generarNumero(head.id_sede);
 
     let boleta = this.boletaRepo.create({
@@ -259,7 +263,9 @@ export class BoletasService implements OnModuleInit {
   }
 
   // Busca boleta por venta. Lanza 404 si no existe.
-  async findByVenta(idVenta: number): Promise<Boleta> {
+  async findByVenta(idVenta: number, user: JwtPayload): Promise<Boleta> {
+    await this.assertVentaOwnedByUser(idVenta, user.sub);
+
     const boleta = await this.boletaRepo.findOne({
       where: { id_venta: idVenta },
     });
@@ -269,7 +275,10 @@ export class BoletasService implements OnModuleInit {
   }
 
   // Extrae y calcula todos los datos de la venta necesarios para la boleta.
-  private async queryDatosVenta(idVenta: number): Promise<{
+  private async queryDatosVenta(
+    idVenta: number,
+    idEmpleado?: number,
+  ): Promise<{
     rows: BolVistaRow[];
     pagosRows: PagoRow[];
     head: BolVistaRow;
@@ -277,8 +286,10 @@ export class BoletasService implements OnModuleInit {
     subtotal: number;
   }> {
     const rows = await this.dataSource.query<BolVistaRow[]>(
-      `SELECT * FROM v_boleta_venta WHERE id_venta = $1`,
-      [idVenta],
+      `SELECT * FROM v_boleta_venta WHERE id_venta = $1${
+        idEmpleado !== undefined ? ' AND id_empleado = $2' : ''
+      }`,
+      idEmpleado !== undefined ? [idVenta, idEmpleado] : [idVenta],
     );
     if (!rows.length)
       throw new NotFoundException(`Venta ${idVenta} no encontrada`);
@@ -304,6 +315,18 @@ export class BoletasService implements OnModuleInit {
     total = Math.max(0, parseFloat(total.toFixed(2)));
 
     return { rows, pagosRows, head, total, subtotal };
+  }
+
+  private async assertVentaOwnedByUser(
+    idVenta: number,
+    idEmpleado: number,
+  ): Promise<void> {
+    const rows = await this.dataSource.query<{ id_venta: number }[]>(
+      `SELECT id_venta FROM Ventas WHERE id_venta = $1 AND id_empleado = $2`,
+      [idVenta, idEmpleado],
+    );
+    if (!rows.length)
+      throw new NotFoundException(`Venta ${idVenta} no encontrada`);
   }
 
   // Construye el objeto de datos para la plantilla Handlebars.

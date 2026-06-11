@@ -44,7 +44,9 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, empleado.password_hash);
     if (!valid) throw new InvalidCredentialsException();
 
-    const { rol, sede: sedeNombre } = await this.getEmpleadoData(empleado.id_empleado);
+    const { rol, sede: sedeNombre } = await this.getEmpleadoData(
+      empleado.id_empleado,
+    );
 
     // Payload mínimo: sub, id_sede, rol, nombre.
     const payload: JwtPayload = {
@@ -111,7 +113,9 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-    const { rol, sede: sedeNombre } = await this.getEmpleadoData(empleado.id_empleado);
+    const { rol, sede: sedeNombre } = await this.getEmpleadoData(
+      empleado.id_empleado,
+    );
 
     const payload: JwtPayload = {
       sub: empleado.id_empleado,

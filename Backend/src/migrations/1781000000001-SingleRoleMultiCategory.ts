@@ -85,8 +85,12 @@ export class SingleRoleMultiCategory1781000000001 implements MigrationInterface 
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Remove trigger + function
-    await queryRunner.query(`DROP TRIGGER IF EXISTS trg_item_categorias_check ON item_categorias CASCADE`);
-    await queryRunner.query(`DROP FUNCTION IF EXISTS fn_check_item_categorias CASCADE`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS trg_item_categorias_check ON item_categorias CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS fn_check_item_categorias CASCADE`,
+    );
 
     // Restore id_categoria on Items (nullable — can't restore constraint without data)
     await queryRunner.query(`ALTER TABLE items ADD COLUMN id_categoria INT`);

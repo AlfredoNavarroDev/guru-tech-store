@@ -49,16 +49,13 @@ export class EmpleadosController {
     @Body() dto: CreateEmpleadoDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<EmpleadoResponseDto> {
-    return this.empleadosService.create(dto, user) as Promise<EmpleadoResponseDto>;
+    return this.empleadosService.create(dto, user);
   }
 
   @Get()
   @ApiOperation({ summary: 'HU-05 — Listar empleados de la sede (paginado)' })
   @ApiOkResponse({ description: 'Lista paginada de empleados' })
-  findAll(
-    @Query() query: QueryEmpleadosDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  findAll(@Query() query: QueryEmpleadosDto, @CurrentUser() user: JwtPayload) {
     return this.empleadosService.findAll(user, query);
   }
 
@@ -70,7 +67,7 @@ export class EmpleadosController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ): Promise<EmpleadoResponseDto> {
-    return this.empleadosService.findOne(id, user) as Promise<EmpleadoResponseDto>;
+    return this.empleadosService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -82,7 +79,7 @@ export class EmpleadosController {
     @Body() dto: UpdateEmpleadoDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<EmpleadoResponseDto> {
-    return this.empleadosService.update(id, dto, user) as Promise<EmpleadoResponseDto>;
+    return this.empleadosService.update(id, dto, user);
   }
 
   @Patch(':id/password')
@@ -100,10 +97,15 @@ export class EmpleadosController {
 
   @Patch(':id/estado')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'HU-05 + HU-24 — Activar/desactivar empleado (revoca tokens si inactivo)' })
+  @ApiOperation({
+    summary:
+      'HU-05 + HU-24 — Activar/desactivar empleado (revoca tokens si inactivo)',
+  })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'Empleado no encontrado' })
-  @ApiForbiddenResponse({ description: 'No puedes desactivar tu propia cuenta' })
+  @ApiForbiddenResponse({
+    description: 'No puedes desactivar tu propia cuenta',
+  })
   updateEstado(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEstadoEmpleadoDto,

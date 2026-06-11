@@ -17,6 +17,7 @@ import { UpdateEmpleadoDto } from './dto/update-empleado.dto';
 import { UpdatePasswordEmpleadoDto } from './dto/update-password-empleado.dto';
 import { UpdateEstadoEmpleadoDto } from './dto/update-estado-empleado.dto';
 import { QueryEmpleadosDto } from './dto/query-empleados.dto';
+import { EmpleadoResponseDto } from './dto/empleado-response.dto';
 
 @Injectable()
 export class EmpleadosService {
@@ -28,7 +29,10 @@ export class EmpleadosService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateEmpleadoDto, currentUser: JwtPayload): Promise<Empleado> {
+  async create(
+    dto: CreateEmpleadoDto,
+    currentUser: JwtPayload,
+  ): Promise<EmpleadoResponseDto> {
     await this.validateRolExists(dto.id_rol);
     await this.validateDocumentoUnico(dto.tipo_documento, dto.nro_documento);
 
@@ -46,10 +50,13 @@ export class EmpleadosService {
       direccion_completa: dto.direccion_completa ?? null,
       created_by: currentUser.sub,
     });
-    return this.empleadosRepo.save(empleado);
+    return this.toResponse(await this.empleadosRepo.save(empleado));
   }
 
-  async findAll(currentUser: JwtPayload, query: QueryEmpleadosDto): Promise<PaginatedResult<Empleado>> {
+  async findAll(
+    currentUser: JwtPayload,
+    query: QueryEmpleadosDto,
+  ): Promise<PaginatedResult<EmpleadoResponseDto>> {
     const qb = this.empleadosRepo
       .createQueryBuilder('e')
       .where('e.id_sede = :id_sede', { id_sede: currentUser.id_sede })
@@ -61,12 +68,14 @@ export class EmpleadosService {
       qb.andWhere('e.id_rol = :id_rol', { id_rol: query.id_rol });
     }
     if (query.activo !== undefined) {
-      qb.andWhere('e.estado = :estado', { estado: query.activo ? 'activo' : 'inactivo' });
+      qb.andWhere('e.estado = :estado', {
+        estado: query.activo ? 'activo' : 'inactivo',
+      });
     }
 
     const [items, total] = await qb.getManyAndCount();
     return {
-      items,
+      items: items.map((empleado) => this.toResponse(empleado)),
       total,
       page: query.page,
       limit: query.limit,
@@ -74,29 +83,44 @@ export class EmpleadosService {
     };
   }
 
-  async findOne(id: number, currentUser: JwtPayload): Promise<Empleado> {
+  async findOne(
+    id: number,
+    currentUser: JwtPayload,
+  ): Promise<EmpleadoResponseDto> {
     const empleado = await this.empleadosRepo.findOne({
       where: { id_empleado: id, id_sede: currentUser.id_sede },
     });
     if (!empleado) throw new EmpleadoNotFoundException(id);
-    return empleado;
+    return this.toResponse(empleado);
   }
 
-  async update(id: number, dto: UpdateEmpleadoDto, currentUser: JwtPayload): Promise<Empleado> {
-    const empleado = await this.findOne(id, currentUser);
+  async update(
+    id: number,
+    dto: UpdateEmpleadoDto,
+    currentUser: JwtPayload,
+  ): Promise<EmpleadoResponseDto> {
+    const empleado = await this.findEntity(id, currentUser);
     if (dto.id_rol !== undefined) await this.validateRolExists(dto.id_rol);
     Object.assign(empleado, dto);
-    return this.empleadosRepo.save(empleado);
+    return this.toResponse(await this.empleadosRepo.save(empleado));
   }
 
-  async updatePassword(id: number, dto: UpdatePasswordEmpleadoDto, currentUser: JwtPayload): Promise<void> {
-    const empleado = await this.findOne(id, currentUser);
+  async updatePassword(
+    id: number,
+    dto: UpdatePasswordEmpleadoDto,
+    currentUser: JwtPayload,
+  ): Promise<void> {
+    const empleado = await this.findEntity(id, currentUser);
     empleado.password_hash = await bcrypt.hash(dto.nueva_password, 10);
     await this.empleadosRepo.save(empleado);
   }
 
   // HU-24: Al desactivar → revocar todos los refresh tokens activos del empleado.
-  async updateEstado(id: number, dto: UpdateEstadoEmpleadoDto, currentUser: JwtPayload): Promise<void> {
+  async updateEstado(
+    id: number,
+    dto: UpdateEstadoEmpleadoDto,
+    currentUser: JwtPayload,
+  ): Promise<void> {
     if (id === currentUser.sub) throw new EmpleadoSelfDeactivateException();
     await this.findOne(id, currentUser);
 
@@ -107,7 +131,26 @@ export class EmpleadosService {
       );
     }
 
-    await this.empleadosRepo.update(id, { estado: dto.activo ? 'activo' : 'inactivo' });
+    await this.empleadosRepo.update(id, {
+      estado: dto.activo ? 'activo' : 'inactivo',
+    });
+  }
+
+  private async findEntity(
+    id: number,
+    currentUser: JwtPayload,
+  ): Promise<Empleado> {
+    const empleado = await this.empleadosRepo.findOne({
+      where: { id_empleado: id, id_sede: currentUser.id_sede },
+    });
+    if (!empleado) throw new EmpleadoNotFoundException(id);
+    return empleado;
+  }
+
+  private toResponse(empleado: Empleado): EmpleadoResponseDto {
+    const safe = { ...empleado } as Partial<Empleado>;
+    delete safe.password_hash;
+    return safe as EmpleadoResponseDto;
   }
 
   private async validateRolExists(id_rol: number): Promise<void> {
@@ -115,8 +158,13 @@ export class EmpleadosService {
     if (!rol) throw new RolNotFoundException(id_rol);
   }
 
-  private async validateDocumentoUnico(tipo_documento: string, nro_documento: string): Promise<void> {
-    const exists = await this.empleadosRepo.findOne({ where: { tipo_documento, nro_documento } });
+  private async validateDocumentoUnico(
+    tipo_documento: string,
+    nro_documento: string,
+  ): Promise<void> {
+    const exists = await this.empleadosRepo.findOne({
+      where: { tipo_documento, nro_documento },
+    });
     if (exists) throw new EmpleadoDocumentoDuplicadoException();
   }
 }

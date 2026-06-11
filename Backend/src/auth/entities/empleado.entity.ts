@@ -1,4 +1,9 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity('empleados')
 export class Empleado {
@@ -29,7 +34,13 @@ export class Empleado {
   @Column({ name: 'telefono', nullable: true })
   telefono: string | null;
 
-  @Column({ name: 'sueldo_semanal_soles', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'sueldo_semanal_soles',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   sueldo_semanal_soles: number | null;
 
   @Column({ name: 'es_extranjero', type: 'boolean', default: false })

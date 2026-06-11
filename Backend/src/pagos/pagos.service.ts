@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Pago } from './entities/pago.entity';
 import { CreatePagoVentaDto } from './dto/create-pago-venta.dto';
 import { VentaNotFoundException } from '../common/exceptions';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 // Servicio de pagos. Permite cobro diferido y pagos mixtos con distintos métodos.
 @Injectable()
@@ -19,8 +20,9 @@ export class PagosService {
   async createForVenta(
     idVenta: number,
     dto: CreatePagoVentaDto,
+    user: JwtPayload,
   ): Promise<Pago> {
-    await this.assertVentaExists(idVenta);
+    await this.assertVentaOwnedByUser(idVenta, user.sub);
     const pago = this.pagoRepo.create({
       id_venta: idVenta,
       // id_reparacion null: este método es exclusivo de ventas.
@@ -35,16 +37,19 @@ export class PagosService {
   }
 
   // Pagos de una venta (útil para cierre de caja).
-  async findByVenta(idVenta: number): Promise<Pago[]> {
-    await this.assertVentaExists(idVenta);
+  async findByVenta(idVenta: number, user: JwtPayload): Promise<Pago[]> {
+    await this.assertVentaOwnedByUser(idVenta, user.sub);
     return this.pagoRepo.find({ where: { id_venta: idVenta } });
   }
 
-  // Verifica existencia de venta sin cargar entidad completa. Lanza 404 si no existe.
-  private async assertVentaExists(idVenta: number): Promise<void> {
+  // Verifica existencia y ownership sin cargar entidad completa.
+  private async assertVentaOwnedByUser(
+    idVenta: number,
+    idEmpleado: number,
+  ): Promise<void> {
     const rows = await this.dataSource.query<{ id_venta: number }[]>(
-      `SELECT id_venta FROM Ventas WHERE id_venta = $1`,
-      [idVenta],
+      `SELECT id_venta FROM Ventas WHERE id_venta = $1 AND id_empleado = $2`,
+      [idVenta, idEmpleado],
     );
     if (!rows.length) throw new VentaNotFoundException(idVenta);
   }

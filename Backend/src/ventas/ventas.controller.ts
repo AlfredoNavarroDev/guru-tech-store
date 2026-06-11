@@ -84,30 +84,42 @@ export class VentasController {
   createPago(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreatePagoVentaDto,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.pagosService.createForVenta(id, dto);
+    return this.pagosService.createForVenta(id, dto, user);
   }
 
   // HU-04: Lista los pagos asociados a una venta.
   @Get(':id/pagos')
   @ApiOperation({ summary: 'HU-04 — Ver pagos de una venta' })
-  findPagos(@Param('id', ParseIntPipe) id: number) {
-    return this.pagosService.findByVenta(id);
+  findPagos(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.pagosService.findByVenta(id, user);
   }
 
   // ── Boletas ────────────────────────────────────────────────────────────
 
   // HU-06: Emite la boleta en PDF para una venta (paso separado de la venta).
+  @Post(':id/boleta')
   @Post(':id/boletas')
   @ApiOperation({ summary: 'HU-06 — Emitir boleta PDF para una venta' })
-  emitirBoleta(@Param('id', ParseIntPipe) id: number) {
-    return this.boletasService.emitir(id);
+  emitirBoleta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.boletasService.emitir(id, user);
   }
 
   // HU-06: Obtiene la boleta ya emitida de una venta.
+  @Get(':id/boleta')
   @Get(':id/boletas')
   @ApiOperation({ summary: 'HU-06 — Obtener boleta de una venta' })
-  findBoleta(@Param('id', ParseIntPipe) id: number) {
-    return this.boletasService.findByVenta(id);
+  findBoleta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.boletasService.findByVenta(id, user);
   }
 }

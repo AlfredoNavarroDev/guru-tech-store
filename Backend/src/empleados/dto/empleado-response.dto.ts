@@ -40,7 +40,7 @@ export class EmpleadoResponseDto {
   estado: string;
 
   @Expose()
-  @ApiPropertyOptional({ example: 1200.00, nullable: true })
+  @ApiPropertyOptional({ example: 1200.0, nullable: true })
   sueldo_semanal_soles: number | null;
 
   @Expose()

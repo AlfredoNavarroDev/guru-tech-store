@@ -69,14 +69,7 @@ describe('VentasService', () => {
         .mockResolvedValueOnce({}),
     });
 
-    it('creates venta and returns it with detalles loaded', async () => {
-      console.log(
-        '\n🔍 Acción   : create() con item válido (precio=100, cantidad=2, importe=200)',
-      );
-      console.log(
-        '📌 Espera   : Venta guardada con detalles cargados via ventaRepo.findOne',
-      );
-
+    it('valida', async () => {
       const manager = buildManager();
       dataSource.transaction.mockImplementation(
         (cb: (m: typeof manager) => Promise<void>) => cb(manager),
@@ -86,13 +79,6 @@ describe('VentasService', () => {
 
       const result = await service.create({ items: [validItem] }, mockUser);
 
-      console.log(
-        '✅ Resultado: id_venta =',
-        result.id_venta,
-        '| detalles.length =',
-        (result as any).detalles?.length,
-      );
-
       expect(result).toEqual(savedVenta);
       expect(dataSource.transaction).toHaveBeenCalled();
       expect(ventaRepo.findOne).toHaveBeenCalledWith({
@@ -101,14 +87,7 @@ describe('VentasService', () => {
       });
     });
 
-    it('passes correct employee and sede to manager.create', async () => {
-      console.log(
-        '\n🔍 Acción   : create() — verificar que usa id_empleado y id_sede del JWT',
-      );
-      console.log(
-        '📌 Espera   : manager.create(Venta, { id_empleado: 10, id_sede: 1 })',
-      );
-
+    it('valida', async () => {
       const manager = buildManager();
       dataSource.transaction.mockImplementation(
         (cb: (m: typeof manager) => Promise<void>) => cb(manager),
@@ -118,12 +97,6 @@ describe('VentasService', () => {
       await service.create({ items: [validItem] }, mockUser);
 
       const createCall = manager.create.mock.calls[0][1];
-      console.log(
-        '✅ Resultado: id_empleado =',
-        createCall.id_empleado,
-        '| id_sede =',
-        createCall.id_sede,
-      );
 
       expect(manager.create).toHaveBeenCalledWith(
         Venta,
@@ -134,14 +107,7 @@ describe('VentasService', () => {
       );
     });
 
-    it('throws BadRequestException when monto_descuento > 0 without justificacion', async () => {
-      console.log(
-        '\n🔍 Acción   : create() con monto_descuento=10 sin justificacion_descuento',
-      );
-      console.log(
-        '📌 Espera   : BadRequestException antes de abrir transacción',
-      );
-
+    it('valida', async () => {
       let caught: Error | undefined;
       try {
         await service.create(
@@ -152,28 +118,11 @@ describe('VentasService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-      console.log(
-        '   transaction() llamado:',
-        dataSource.transaction.mock.calls.length,
-        'veces',
-      );
-
       expect(caught).toBeInstanceOf(DescuentoSinJustificacionException);
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('does not throw when monto_descuento > 0 with justificacion', async () => {
-      console.log(
-        '\n🔍 Acción   : create() con monto_descuento=10 y justificacion_descuento presente',
-      );
-      console.log('📌 Espera   : sin excepción, venta creada normalmente');
-
+    it('valida', async () => {
       const manager = buildManager();
       dataSource.transaction.mockImplementation(
         (cb: (m: typeof manager) => Promise<void>) => cb(manager),
@@ -193,20 +142,10 @@ describe('VentasService', () => {
         error = e as Error;
       }
 
-      console.log(
-        '✅ Resultado: excepción lanzada =',
-        error?.constructor?.name ?? 'ninguna',
-      );
-
       expect(error).toBeUndefined();
     });
 
-    it('throws BadRequestException when importe does not match precio * cantidad', async () => {
-      console.log(
-        '\n🔍 Acción   : create() con importe=999 pero precio=100 * cantidad=2 = 200',
-      );
-      console.log('📌 Espera   : BadRequestException "Importe inválido"');
-
+    it('valida', async () => {
       const badItem = { ...validItem, importe: 999 };
 
       let caught: Error | undefined;
@@ -216,25 +155,11 @@ describe('VentasService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
       expect(caught).toBeInstanceOf(ImporteInvalidoException);
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('throws ConflictException when transaction throws Stock insuficiente', async () => {
-      console.log(
-        '\n🔍 Acción   : create() cuando el trigger BD lanza "Stock insuficiente"',
-      );
-      console.log(
-        '📌 Espera   : ConflictException envolviendo el error del trigger',
-      );
-
+    it('valida', async () => {
       dataSource.transaction.mockRejectedValue(
         new Error('Stock insuficiente para id_item 1'),
       );
@@ -246,22 +171,10 @@ describe('VentasService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
       expect(caught).toBeInstanceOf(StockInsuficienteException);
     });
 
-    it('rethrows unknown transaction errors', async () => {
-      console.log(
-        '\n🔍 Acción   : create() cuando la transacción falla por error desconocido',
-      );
-      console.log('📌 Espera   : error re-lanzado sin envolver');
-
+    it('valida', async () => {
       dataSource.transaction.mockRejectedValue(
         new Error('DB connection failed'),
       );
@@ -273,13 +186,6 @@ describe('VentasService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
       expect(caught?.message).toBe('DB connection failed');
     });
   });
@@ -287,28 +193,13 @@ describe('VentasService', () => {
   describe('findAll', () => {
     const baseQuery: QueryVentasDto = { page: 1, limit: 20 };
 
-    it('returns paginated result with total and totalPages', async () => {
-      console.log(
-        '\n🔍 Acción   : findAll() sin filtros, page=1, limit=20, total=3 registros',
-      );
-      console.log(
-        '📌 Espera   : { items, total:3, page:1, limit:20, totalPages:1 }',
-      );
-
+    it('valida', async () => {
       const rows = [{ id_venta: 1 }];
       dataSource.query
         .mockResolvedValueOnce([{ total: '3' }])
         .mockResolvedValueOnce(rows);
 
       const result = await service.findAll(mockUser, baseQuery);
-
-      console.log(
-        '✅ Resultado:',
-        JSON.stringify({
-          ...result,
-          items: `[${result.items.length} item(s)]`,
-        }),
-      );
 
       expect(result).toEqual({
         items: rows,
@@ -319,12 +210,7 @@ describe('VentasService', () => {
       });
     });
 
-    it('filters by id_empleado from user.sub', async () => {
-      console.log(
-        '\n🔍 Acción   : findAll() — verificar que solo trae ventas del empleado autenticado',
-      );
-      console.log('📌 Espera   : primer param del query = user.sub (10)');
-
+    it('valida', async () => {
       dataSource.query
         .mockResolvedValueOnce([{ total: '0' }])
         .mockResolvedValueOnce([]);
@@ -332,15 +218,11 @@ describe('VentasService', () => {
       await service.findAll(mockUser, baseQuery);
 
       const [, params] = dataSource.query.mock.calls[0];
-      console.log('✅ Resultado: params[0] =', params[0]);
 
       expect(params[0]).toBe(mockUser.sub);
     });
 
-    it('appends fecha_desde filter', async () => {
-      console.log('\n🔍 Acción   : findAll({ fecha_desde: "2026-01-01" })');
-      console.log('📌 Espera   : SQL contiene "fecha_emision >="');
-
+    it('valida', async () => {
       dataSource.query
         .mockResolvedValueOnce([{ total: '0' }])
         .mockResolvedValueOnce([]);
@@ -351,20 +233,11 @@ describe('VentasService', () => {
       });
 
       const [sql] = dataSource.query.mock.calls[0];
-      console.log(
-        '✅ Resultado: SQL contiene "fecha_emision >=" =',
-        sql.includes('fecha_emision >='),
-      );
 
       expect(sql).toContain('fecha_emision >=');
     });
 
-    it('appends fecha_hasta with 23:59:59', async () => {
-      console.log('\n🔍 Acción   : findAll({ fecha_hasta: "2026-12-31" })');
-      console.log(
-        '📌 Espera   : SQL contiene "fecha_emision <=", param incluye "23:59:59"',
-      );
-
+    it('valida', async () => {
       dataSource.query
         .mockResolvedValueOnce([{ total: '0' }])
         .mockResolvedValueOnce([]);
@@ -378,18 +251,12 @@ describe('VentasService', () => {
       const fechaParam = params.find((p: string | number) =>
         String(p).includes('23:59:59'),
       );
-      console.log('✅ Resultado: param fecha_hasta =', fechaParam);
 
       expect(sql).toContain('fecha_emision <=');
       expect(params).toContain('2026-12-31 23:59:59');
     });
 
-    it('appends id_cliente subquery filter', async () => {
-      console.log('\n🔍 Acción   : findAll({ id_cliente: 5 })');
-      console.log(
-        '📌 Espera   : SQL contiene subquery de id_cliente, params incluye 5',
-      );
-
+    it('valida', async () => {
       dataSource.query
         .mockResolvedValueOnce([{ total: '0' }])
         .mockResolvedValueOnce([]);
@@ -397,51 +264,28 @@ describe('VentasService', () => {
       await service.findAll(mockUser, { ...baseQuery, id_cliente: 5 });
 
       const [sql, params] = dataSource.query.mock.calls[0];
-      console.log(
-        '✅ Resultado: SQL contiene "id_cliente" =',
-        sql.includes('id_cliente'),
-        '| params =',
-        params,
-      );
 
       expect(sql).toContain('id_cliente');
       expect(params).toContain(5);
     });
 
-    it('calculates correct totalPages for non-round division', async () => {
-      console.log('\n🔍 Acción   : findAll() con total=45 registros, limit=20');
-      console.log('📌 Espera   : totalPages = ceil(45/20) = 3');
-
+    it('valida', async () => {
       dataSource.query
         .mockResolvedValueOnce([{ total: '45' }])
         .mockResolvedValueOnce([]);
 
       const result = await service.findAll(mockUser, { page: 1, limit: 20 });
 
-      console.log('✅ Resultado: totalPages =', result.totalPages);
-
       expect(result.totalPages).toBe(3);
     });
   });
 
   describe('findOne', () => {
-    it('returns rows when venta found for this employee', async () => {
-      console.log(
-        '\n🔍 Acción   : findOne(1) — venta existe y pertenece al empleado',
-      );
-      console.log('📌 Espera   : array de filas de v_vendedor_ventas');
-
+    it('valida', async () => {
       const rows = [{ id_venta: 1 }, { id_venta: 1 }];
       dataSource.query.mockResolvedValue(rows);
 
       const result = await service.findOne(1, mockUser);
-
-      console.log(
-        '✅ Resultado:',
-        result.length,
-        'fila(s), id_venta =',
-        (result[0] as any).id_venta,
-      );
 
       expect(result).toEqual(rows);
       expect(dataSource.query).toHaveBeenCalledWith(
@@ -450,14 +294,7 @@ describe('VentasService', () => {
       );
     });
 
-    it('filters by id_empleado so employees cannot see others sales', async () => {
-      console.log(
-        '\n🔍 Acción   : findOne(1) con empleado que no es propietario de la venta',
-      );
-      console.log(
-        '📌 Espera   : NotFoundException (query usa AND id_empleado = $2)',
-      );
-
+    it('valida', async () => {
       dataSource.query.mockResolvedValue([]);
 
       let caught: Error | undefined;
@@ -468,23 +305,12 @@ describe('VentasService', () => {
       }
 
       const [sql, params] = dataSource.query.mock.calls[0];
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '| SQL contiene "id_empleado = $2" =',
-        sql.includes('id_empleado = $2'),
-        '| params =',
-        params,
-      );
 
       expect(caught).toBeInstanceOf(VentaNotFoundException);
       expect(sql).toContain('id_empleado = $2');
     });
 
-    it('throws NotFoundException when venta does not exist', async () => {
-      console.log('\n🔍 Acción   : findOne(999) — venta inexistente');
-      console.log('📌 Espera   : NotFoundException "Venta 999 no encontrada"');
-
+    it('valida', async () => {
       dataSource.query.mockResolvedValue([]);
 
       let caught: Error | undefined;
@@ -493,13 +319,6 @@ describe('VentasService', () => {
       } catch (e) {
         caught = e as Error;
       }
-
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
 
       expect(caught).toBeInstanceOf(VentaNotFoundException);
     });

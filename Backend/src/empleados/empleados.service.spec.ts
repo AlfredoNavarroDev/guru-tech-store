@@ -21,7 +21,12 @@ const createMockRepository = () => ({
   createQueryBuilder: jest.fn(),
 });
 
-const mockUser: JwtPayload = { sub: 1, id_sede: 2, rol: 'administrador', nombre: 'Admin' };
+const mockUser: JwtPayload = {
+  sub: 1,
+  id_sede: 2,
+  rol: 'administrador',
+  nombre: 'Admin',
+};
 
 describe('EmpleadosService', () => {
   let service: EmpleadosService;
@@ -59,54 +64,56 @@ describe('EmpleadosService', () => {
       password: 'Contraseña123',
     };
 
-    it('create: valid dto → hashes password and saves', async () => {
-      console.log('\n🔍 Acción   : create() con dto válido');
-      console.log('📌 Espera   : password hasheada, empleado guardado');
-
+    it('valida', async () => {
       rolesRepo.findOne.mockResolvedValue({ id_rol: 3 });
       empleadosRepo.findOne.mockResolvedValue(null);
-      const saved = { id_empleado: 5, ...dto, password_hash: 'hashed', id_sede: 2 };
+      const saved = {
+        id_empleado: 5,
+        ...dto,
+        password_hash: 'hashed',
+        id_sede: 2,
+      };
       empleadosRepo.create.mockReturnValue(saved);
       empleadosRepo.save.mockResolvedValue(saved);
 
       const result = await service.create(dto, mockUser);
 
-      console.log('✅ Resultado: id_empleado =', result.id_empleado);
-
       expect(result.id_empleado).toBe(5);
+      expect(result).not.toHaveProperty('password_hash');
       expect(empleadosRepo.save).toHaveBeenCalledTimes(1);
       // password field debe no aparecer en create() (se reemplaza por password_hash)
-      const createCall = empleadosRepo.create.mock.calls[0][0] as Record<string, unknown>;
+      const createCall = empleadosRepo.create.mock.calls[0][0] as Record<
+        string,
+        unknown
+      >;
       expect(createCall).not.toHaveProperty('password');
       expect(createCall).toHaveProperty('password_hash');
     });
 
-    it('create: rol no existe → throws RolNotFoundException', async () => {
-      console.log('\n🔍 Acción   : create() con id_rol=99 inexistente');
-      console.log('📌 Espera   : RolNotFoundException');
-
+    it('valida', async () => {
       rolesRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;
-      try { await service.create({ ...dto, id_rol: 99 }, mockUser); } catch (e) { caught = e as Error; }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
+      try {
+        await service.create({ ...dto, id_rol: 99 }, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
 
       expect(caught).toBeInstanceOf(RolNotFoundException);
       expect(empleadosRepo.save).not.toHaveBeenCalled();
     });
 
-    it('create: documento duplicado → throws EmpleadoDocumentoDuplicadoException', async () => {
-      console.log('\n🔍 Acción   : create() con DNI 12345678 ya registrado');
-      console.log('📌 Espera   : EmpleadoDocumentoDuplicadoException');
-
+    it('valida', async () => {
       rolesRepo.findOne.mockResolvedValue({ id_rol: 3 });
       empleadosRepo.findOne.mockResolvedValue({ id_empleado: 10 });
 
       let caught: Error | undefined;
-      try { await service.create(dto, mockUser); } catch (e) { caught = e as Error; }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
+      try {
+        await service.create(dto, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
 
       expect(caught).toBeInstanceOf(EmpleadoDocumentoDuplicadoException);
       expect(empleadosRepo.save).not.toHaveBeenCalled();
@@ -116,34 +123,32 @@ describe('EmpleadosService', () => {
   // ─── findAll ───────────────────────────────────────────────────────────────
 
   describe('findAll', () => {
-    it('findAll: sin filtros → retorna lista paginada', async () => {
-      console.log('\n🔍 Acción   : findAll() sin filtros');
-      console.log('📌 Espera   : PaginatedResult con items y total');
-
+    it('valida', async () => {
       const mockQb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[{ id_empleado: 1 }], 1]),
+        getManyAndCount: jest
+          .fn()
+          .mockResolvedValue([
+            [{ id_empleado: 1, password_hash: 'secret' }],
+            1,
+          ]),
       };
       empleadosRepo.createQueryBuilder.mockReturnValue(mockQb);
 
       const result = await service.findAll(mockUser, { page: 1, limit: 20 });
 
-      console.log('✅ Resultado: total =', result.total, '| items =', result.items.length);
-
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
+      expect(result.items[0]).not.toHaveProperty('password_hash');
       expect(result.totalPages).toBe(1);
       expect(mockQb.andWhere).not.toHaveBeenCalled();
     });
 
-    it('findAll: con id_rol y activo → aplica filtros adicionales', async () => {
-      console.log('\n🔍 Acción   : findAll({ id_rol: 3, activo: true })');
-      console.log('📌 Espera   : andWhere llamado 2 veces');
-
+    it('valida', async () => {
       const mockQb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -154,9 +159,12 @@ describe('EmpleadosService', () => {
       };
       empleadosRepo.createQueryBuilder.mockReturnValue(mockQb);
 
-      await service.findAll(mockUser, { page: 1, limit: 20, id_rol: 3, activo: true });
-
-      console.log('✅ Resultado: andWhere llamado', mockQb.andWhere.mock.calls.length, 'veces');
+      await service.findAll(mockUser, {
+        page: 1,
+        limit: 20,
+        id_rol: 3,
+        activo: true,
+      });
 
       expect(mockQb.andWhere).toHaveBeenCalledTimes(2);
     });
@@ -165,32 +173,31 @@ describe('EmpleadosService', () => {
   // ─── findOne ───────────────────────────────────────────────────────────────
 
   describe('findOne', () => {
-    it('findOne: id existe en sede → retorna empleado', async () => {
-      console.log('\n🔍 Acción   : findOne(5) — empleado de la sede del admin');
-      console.log('📌 Espera   : retorna empleado con id_empleado=5');
-
-      empleadosRepo.findOne.mockResolvedValue({ id_empleado: 5, id_sede: 2 });
+    it('valida', async () => {
+      empleadosRepo.findOne.mockResolvedValue({
+        id_empleado: 5,
+        id_sede: 2,
+        password_hash: 'secret',
+      });
 
       const result = await service.findOne(5, mockUser);
 
-      console.log('✅ Resultado: id_empleado =', result.id_empleado);
-
       expect(result.id_empleado).toBe(5);
+      expect(result).not.toHaveProperty('password_hash');
       expect(empleadosRepo.findOne).toHaveBeenCalledWith({
         where: { id_empleado: 5, id_sede: 2 },
       });
     });
 
-    it('findOne: id no existe → throws EmpleadoNotFoundException', async () => {
-      console.log('\n🔍 Acción   : findOne(999) — empleado inexistente');
-      console.log('📌 Espera   : EmpleadoNotFoundException');
-
+    it('valida', async () => {
       empleadosRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;
-      try { await service.findOne(999, mockUser); } catch (e) { caught = e as Error; }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
+      try {
+        await service.findOne(999, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
 
       expect(caught).toBeInstanceOf(EmpleadoNotFoundException);
     });
@@ -199,32 +206,37 @@ describe('EmpleadosService', () => {
   // ─── update ────────────────────────────────────────────────────────────────
 
   describe('update', () => {
-    it('update: datos válidos → retorna empleado actualizado', async () => {
-      console.log('\n🔍 Acción   : update(5, { nombre_completo: "Nuevo Nombre" })');
-      console.log('📌 Espera   : retorna empleado con nombre actualizado');
-
-      const existing = { id_empleado: 5, nombre_completo: 'Viejo Nombre', id_sede: 2 };
+    it('valida', async () => {
+      const existing = {
+        id_empleado: 5,
+        nombre_completo: 'Viejo Nombre',
+        id_sede: 2,
+      };
       empleadosRepo.findOne.mockResolvedValue(existing);
-      empleadosRepo.save.mockResolvedValue({ ...existing, nombre_completo: 'Nuevo Nombre' });
+      empleadosRepo.save.mockResolvedValue({
+        ...existing,
+        nombre_completo: 'Nuevo Nombre',
+      });
 
-      const result = await service.update(5, { nombre_completo: 'Nuevo Nombre' }, mockUser);
-
-      console.log('✅ Resultado: nombre_completo =', result.nombre_completo);
+      const result = await service.update(
+        5,
+        { nombre_completo: 'Nuevo Nombre' },
+        mockUser,
+      );
 
       expect(result.nombre_completo).toBe('Nuevo Nombre');
     });
 
-    it('update: id_rol inválido → throws RolNotFoundException', async () => {
-      console.log('\n🔍 Acción   : update(5, { id_rol: 99 }) — rol inexistente');
-      console.log('📌 Espera   : RolNotFoundException');
-
+    it('valida', async () => {
       empleadosRepo.findOne.mockResolvedValue({ id_empleado: 5, id_sede: 2 });
       rolesRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;
-      try { await service.update(5, { id_rol: 99 }, mockUser); } catch (e) { caught = e as Error; }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
+      try {
+        await service.update(5, { id_rol: 99 }, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
 
       expect(caught).toBeInstanceOf(RolNotFoundException);
       expect(empleadosRepo.save).not.toHaveBeenCalled();
@@ -234,101 +246,90 @@ describe('EmpleadosService', () => {
   // ─── updatePassword ────────────────────────────────────────────────────────
 
   describe('updatePassword', () => {
-    it('updatePassword: válido → guarda hash nueva contraseña', async () => {
-      console.log('\n🔍 Acción   : updatePassword(5, { nueva_password: "NewPass123" })');
-      console.log('📌 Espera   : password_hash actualizado, save() llamado');
-
-      const existing = { id_empleado: 5, password_hash: 'old_hash', id_sede: 2 };
+    it('valida', async () => {
+      const existing = {
+        id_empleado: 5,
+        password_hash: 'old_hash',
+        id_sede: 2,
+      };
       empleadosRepo.findOne.mockResolvedValue(existing);
-      empleadosRepo.save.mockResolvedValue({ ...existing, password_hash: 'new_hash' });
+      empleadosRepo.save.mockResolvedValue({
+        ...existing,
+        password_hash: 'new_hash',
+      });
 
-      await service.updatePassword(5, { nueva_password: 'NewPass123' }, mockUser);
-
-      console.log('✅ Resultado: save() llamado', empleadosRepo.save.mock.calls.length, 'vez');
+      await service.updatePassword(
+        5,
+        { nueva_password: 'NewPass123' },
+        mockUser,
+      );
 
       expect(empleadosRepo.save).toHaveBeenCalledTimes(1);
       const savedArg = empleadosRepo.save.mock.calls[0][0] as Empleado;
       // Debe ser un hash bcrypt, no la contraseña en texto plano
       expect(savedArg.password_hash).not.toBe('NewPass123');
-      expect(await bcrypt.compare('NewPass123', savedArg.password_hash)).toBe(true);
+      expect(await bcrypt.compare('NewPass123', savedArg.password_hash)).toBe(
+        true,
+      );
     });
   });
 
   // ─── updateEstado ──────────────────────────────────────────────────────────
 
   describe('updateEstado', () => {
-    it('updateEstado: desactivar → revoca refresh tokens y actualiza estado', async () => {
-      console.log('\n🔍 Acción   : updateEstado(5, { activo: false }) — HU-24');
-      console.log('📌 Espera   : UPDATE refreshtokens ejecutado, estado = inactivo');
-
+    it('valida', async () => {
       empleadosRepo.findOne.mockResolvedValue({ id_empleado: 5, id_sede: 2 });
       empleadosRepo.update.mockResolvedValue({ affected: 1 });
       dataSource.query.mockResolvedValue(undefined);
 
       await service.updateEstado(5, { activo: false }, mockUser);
 
-      console.log('✅ Resultado: dataSource.query llamado', dataSource.query.mock.calls.length, 'vez(ces)');
-
       expect(dataSource.query).toHaveBeenCalledWith(
         expect.stringContaining('revoked = true'),
         [5],
       );
-      expect(empleadosRepo.update).toHaveBeenCalledWith(5, { estado: 'inactivo' });
+      expect(empleadosRepo.update).toHaveBeenCalledWith(5, {
+        estado: 'inactivo',
+      });
     });
 
-    it('updateEstado: activar → NO revoca tokens, estado = activo', async () => {
-      console.log('\n🔍 Acción   : updateEstado(5, { activo: true })');
-      console.log('📌 Espera   : dataSource.query NO llamado, estado = activo');
-
+    it('valida', async () => {
       empleadosRepo.findOne.mockResolvedValue({ id_empleado: 5, id_sede: 2 });
       empleadosRepo.update.mockResolvedValue({ affected: 1 });
 
       await service.updateEstado(5, { activo: true }, mockUser);
 
-      console.log('✅ Resultado: dataSource.query llamado', dataSource.query.mock.calls.length, 'vez(ces)');
-
       expect(dataSource.query).not.toHaveBeenCalled();
-      expect(empleadosRepo.update).toHaveBeenCalledWith(5, { estado: 'activo' });
+      expect(empleadosRepo.update).toHaveBeenCalledWith(5, {
+        estado: 'activo',
+      });
     });
 
-    it('updateEstado: admin intenta desactivarse a sí mismo → throws EmpleadoSelfDeactivateException', async () => {
-      console.log('\n🔍 Acción   : updateEstado(1, { activo: false }) — admin.sub = 1');
-      console.log('📌 Espera   : EmpleadoSelfDeactivateException (403)');
-
+    it('valida', async () => {
       let caught: Error | undefined;
-      try { await service.updateEstado(1, { activo: false }, mockUser); } catch (e) { caught = e as Error; }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
+      try {
+        await service.updateEstado(1, { activo: false }, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
 
       expect(caught).toBeInstanceOf(EmpleadoSelfDeactivateException);
       expect(dataSource.query).not.toHaveBeenCalled();
     });
 
-    it('updateEstado: empleado no encontrado → throws EmpleadoNotFoundException', async () => {
-      console.log('\n🔍 Acción   : updateEstado(999, { activo: false }) — no existe');
-      console.log('📌 Espera   : EmpleadoNotFoundException');
-
+    it('valida', async () => {
       empleadosRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;
-      try { await service.updateEstado(999, { activo: false }, mockUser); } catch (e) { caught = e as Error; }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
+      try {
+        await service.updateEstado(999, { activo: false }, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
 
       expect(caught).toBeInstanceOf(EmpleadoNotFoundException);
     });
   });
 
-  afterAll(() => {
-    console.log('\n╔══════════════════════════════════════════════════════════╗');
-    console.log('║              EmpleadosService — Tests completados         ║');
-    console.log('╠══════════════════════════════════════════════════════════╣');
-    console.log('║  create       : valid, rol not found, doc duplicado (3)  ║');
-    console.log('║  findAll      : sin filtros, con filtros (2)              ║');
-    console.log('║  findOne      : found, not found (2)                     ║');
-    console.log('║  update       : valid, rol not found (2)                  ║');
-    console.log('║  updatePassword: hash check (1)                          ║');
-    console.log('║  updateEstado : deactivate, activate, self, not found (4)║');
-    console.log('╚══════════════════════════════════════════════════════════╝');
-  });
+  afterAll(() => {});
 });

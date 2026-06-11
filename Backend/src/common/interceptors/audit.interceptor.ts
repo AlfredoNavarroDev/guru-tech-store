@@ -1,4 +1,9 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Observable } from 'rxjs';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
@@ -7,7 +12,10 @@ import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 export class AuditInterceptor implements NestInterceptor {
   constructor(private readonly dataSource: DataSource) {}
 
-  async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
+  async intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Promise<Observable<unknown>> {
     const request = context.switchToHttp().getRequest<{ user?: JwtPayload }>();
 
     // set_config con tercer parámetro true = LOCAL (dura solo el request actual).

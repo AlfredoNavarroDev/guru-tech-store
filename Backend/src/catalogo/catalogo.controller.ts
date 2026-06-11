@@ -9,11 +9,11 @@ import { CatalogoService } from './catalogo.service';
 import { QueryCatalogoDto } from './dto/query-catalogo.dto';
 
 // Solo lectura: catálogo filtrado por sede del vendedor (HU-05).
-@ApiTags('catalogos')
+@ApiTags('catalogo')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('vendedor')
-@Controller('catalogos')
+@Controller(['catalogo', 'catalogos'])
 export class CatalogoController {
   constructor(private readonly catalogoService: CatalogoService) {}
 

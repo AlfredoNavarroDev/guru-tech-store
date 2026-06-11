@@ -73,25 +73,17 @@ describe('AuthService', () => {
       estado: 'activo',
     };
 
-    it('returns token and employee data on success', async () => {
-      console.log(
-        '\n🔍 Acción   : login() con credenciales válidas (empleado activo, password correcto)',
-      );
-      console.log(
-        '📌 Espera   : objeto { access_token, refresh_token, nombre, rol, id_sede, sede }',
-      );
-
+    it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      dataSource.query
-        .mockResolvedValueOnce([{ nombre_rol: 'vendedor', nombre_sede: 'Sede Central' }]);
+      dataSource.query.mockResolvedValueOnce([
+        { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
+      ]);
       jwtService.sign
         .mockReturnValueOnce('jwt-token')
         .mockReturnValueOnce('refresh-jwt-token');
 
       const result = await service.login(dto);
-
-      console.log('✅ Resultado:', JSON.stringify(result));
 
       expect(result).toEqual({
         access_token: 'jwt-token',
@@ -109,12 +101,7 @@ describe('AuthService', () => {
       });
     });
 
-    it('throws UnauthorizedException when employee not found', async () => {
-      console.log('\n🔍 Acción   : login() con nro_documento inexistente');
-      console.log(
-        '📌 Espera   : UnauthorizedException "Credenciales inválidas"',
-      );
-
+    it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;
@@ -124,23 +111,11 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
       expect(caught).toBeInstanceOf(InvalidCredentialsException);
       expect(jwtService.sign).not.toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException when employee estado is not activo', async () => {
-      console.log('\n🔍 Acción   : login() con empleado en estado "inactivo"');
-      console.log(
-        '📌 Espera   : UnauthorizedException "Credenciales inválidas"',
-      );
-
+    it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue({
         ...empleado,
         estado: 'inactivo',
@@ -153,23 +128,11 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
       expect(caught).toBeInstanceOf(InvalidCredentialsException);
       expect(jwtService.sign).not.toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException when password is invalid', async () => {
-      console.log('\n🔍 Acción   : login() con password incorrecto');
-      console.log(
-        '📌 Espera   : UnauthorizedException "Credenciales inválidas"',
-      );
-
+    it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
@@ -180,23 +143,11 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
       expect(caught).toBeInstanceOf(InvalidCredentialsException);
       expect(jwtService.sign).not.toHaveBeenCalled();
     });
 
-    it('queries getEmpleadoData with correct employee id', async () => {
-      console.log(
-        '\n🔍 Acción   : login() exitoso — verificar que getEmpleadoData usa id_empleado correcto',
-      );
-      console.log('📌 Espera   : dataSource.query llamado con id_empleado = 1');
-
+    it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       dataSource.query.mockResolvedValueOnce([]);
@@ -207,10 +158,6 @@ describe('AuthService', () => {
       await service.login(dto);
 
       const [sql, params] = dataSource.query.mock.calls[0];
-      console.log(
-        '✅ Resultado: SQL contiene WHERE e.id_empleado = $1, params =',
-        params,
-      );
 
       expect(sql).toContain('WHERE e.id_empleado = $1');
       expect(params).toEqual([1]);
@@ -233,28 +180,20 @@ describe('AuthService', () => {
       estado: 'activo',
     };
 
-    it('returns new tokens on success', async () => {
-      console.log(
-        '\n🔍 Acción   : refresh() con token válido, record activo, empleado activo',
-      );
-      console.log(
-        '📌 Espera   : { access_token, refresh_token, nombre, rol, id_sede, sede }',
-      );
-
+    it('valida', async () => {
       jwtService.verify.mockReturnValue(decoded);
       refreshTokenRepo.findOne.mockResolvedValue({ ...activeRecord });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
-      dataSource.query
-        .mockResolvedValueOnce([{ nombre_rol: 'vendedor', nombre_sede: 'Sede Central' }]);
+      dataSource.query.mockResolvedValueOnce([
+        { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
+      ]);
       jwtService.sign
         .mockReturnValueOnce('new-access-token')
         .mockReturnValueOnce('new-refresh-token');
 
       const result = await service.refresh(token);
-
-      console.log('✅ Resultado:', JSON.stringify(result));
 
       expect(result).toEqual({
         access_token: 'new-access-token',
@@ -266,29 +205,21 @@ describe('AuthService', () => {
       });
     });
 
-    it('revokes old refresh token before issuing new one', async () => {
-      console.log(
-        '\n🔍 Acción   : refresh() — verificar que revoca el token anterior',
-      );
-      console.log(
-        '📌 Espera   : record.revoked = true y refreshTokenRepo.save llamado',
-      );
-
+    it('valida', async () => {
       const record = { ...activeRecord };
       jwtService.verify.mockReturnValue(decoded);
       refreshTokenRepo.findOne.mockResolvedValue(record);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
-      dataSource.query
-        .mockResolvedValueOnce([{ nombre_rol: 'vendedor', nombre_sede: 'Sede Central' }]);
+      dataSource.query.mockResolvedValueOnce([
+        { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
+      ]);
       jwtService.sign
         .mockReturnValueOnce('new-access-token')
         .mockReturnValueOnce('new-refresh-token');
 
       await service.refresh(token);
-
-      console.log('✅ Resultado: record.revoked =', record.revoked);
 
       expect(record.revoked).toBe(true);
       expect(refreshTokenRepo.save).toHaveBeenCalledWith(
@@ -296,10 +227,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws InvalidRefreshTokenException when JWT verification fails', async () => {
-      console.log('\n🔍 Acción   : refresh() con token JWT malformado');
-      console.log('📌 Espera   : InvalidRefreshTokenException');
-
+    it('valida', async () => {
       jwtService.verify.mockImplementation(() => {
         throw new Error('invalid signature');
       });
@@ -311,15 +239,10 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log('✅ Resultado:', caught?.constructor?.name);
-
       expect(caught).toBeInstanceOf(InvalidRefreshTokenException);
     });
 
-    it('throws InvalidRefreshTokenException when token type is not refresh', async () => {
-      console.log('\n🔍 Acción   : refresh() con token de tipo "access"');
-      console.log('📌 Espera   : InvalidRefreshTokenException');
-
+    it('valida', async () => {
       jwtService.verify.mockReturnValue({ sub: 1, type: 'access' });
 
       let caught: Error | undefined;
@@ -329,17 +252,10 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log('✅ Resultado:', caught?.constructor?.name);
-
       expect(caught).toBeInstanceOf(InvalidRefreshTokenException);
     });
 
-    it('throws InvalidRefreshTokenException when no active record found', async () => {
-      console.log(
-        '\n🔍 Acción   : refresh() cuando no existe record activo en BD',
-      );
-      console.log('📌 Espera   : InvalidRefreshTokenException');
-
+    it('valida', async () => {
       jwtService.verify.mockReturnValue(decoded);
       refreshTokenRepo.findOne.mockResolvedValue(null);
 
@@ -350,17 +266,10 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log('✅ Resultado:', caught?.constructor?.name);
-
       expect(caught).toBeInstanceOf(InvalidRefreshTokenException);
     });
 
-    it('throws InvalidRefreshTokenException when record is expired', async () => {
-      console.log(
-        '\n🔍 Acción   : refresh() con record cuyo expires_at ya pasó',
-      );
-      console.log('📌 Espera   : InvalidRefreshTokenException');
-
+    it('valida', async () => {
       jwtService.verify.mockReturnValue(decoded);
       refreshTokenRepo.findOne.mockResolvedValue({
         ...activeRecord,
@@ -374,15 +283,10 @@ describe('AuthService', () => {
         caught = e as Error;
       }
 
-      console.log('✅ Resultado:', caught?.constructor?.name);
-
       expect(caught).toBeInstanceOf(InvalidRefreshTokenException);
     });
 
-    it('throws InvalidRefreshTokenException when token hash does not match', async () => {
-      console.log('\n🔍 Acción   : refresh() con token cuyo hash no coincide');
-      console.log('📌 Espera   : InvalidRefreshTokenException');
-
+    it('valida', async () => {
       jwtService.verify.mockReturnValue(decoded);
       refreshTokenRepo.findOne.mockResolvedValue({ ...activeRecord });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
@@ -393,8 +297,6 @@ describe('AuthService', () => {
       } catch (e) {
         caught = e as Error;
       }
-
-      console.log('✅ Resultado:', caught?.constructor?.name);
 
       expect(caught).toBeInstanceOf(InvalidRefreshTokenException);
     });
@@ -409,12 +311,7 @@ describe('AuthService', () => {
       revoked: false,
     };
 
-    it('revokes token when record is valid and hash matches', async () => {
-      console.log(
-        '\n🔍 Acción   : logout(1, token) — record activo, hash coincide',
-      );
-      console.log('📌 Espera   : record.revoked = true, save() llamado');
-
+    it('valida', async () => {
       const record = { ...activeRecord };
       refreshTokenRepo.findOne.mockResolvedValue(record);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -422,35 +319,21 @@ describe('AuthService', () => {
 
       await service.logout(1, rawToken);
 
-      console.log('✅ Resultado: record.revoked =', record.revoked);
-
       expect(record.revoked).toBe(true);
       expect(refreshTokenRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ revoked: true }),
       );
     });
 
-    it('does nothing when no active record found', async () => {
-      console.log('\n🔍 Acción   : logout(1, token) — sin record activo en BD');
-      console.log('📌 Espera   : save() NO se llama');
-
+    it('valida', async () => {
       refreshTokenRepo.findOne.mockResolvedValue(null);
 
       await service.logout(1, rawToken);
 
-      console.log(
-        '✅ Resultado: save() llamado',
-        refreshTokenRepo.save.mock.calls.length,
-        'veces',
-      );
-
       expect(refreshTokenRepo.save).not.toHaveBeenCalled();
     });
 
-    it('does nothing when record is expired', async () => {
-      console.log('\n🔍 Acción   : logout(1, token) — record expirado');
-      console.log('📌 Espera   : save() NO se llama');
-
+    it('valida', async () => {
       refreshTokenRepo.findOne.mockResolvedValue({
         ...activeRecord,
         expires_at: new Date(Date.now() - 1_000),
@@ -458,29 +341,14 @@ describe('AuthService', () => {
 
       await service.logout(1, rawToken);
 
-      console.log(
-        '✅ Resultado: save() llamado',
-        refreshTokenRepo.save.mock.calls.length,
-        'veces',
-      );
-
       expect(refreshTokenRepo.save).not.toHaveBeenCalled();
     });
 
-    it('does nothing when token hash does not match', async () => {
-      console.log('\n🔍 Acción   : logout(1, token) — hash no coincide');
-      console.log('📌 Espera   : save() NO se llama');
-
+    it('valida', async () => {
       refreshTokenRepo.findOne.mockResolvedValue({ ...activeRecord });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await service.logout(1, rawToken);
-
-      console.log(
-        '✅ Resultado: save() llamado',
-        refreshTokenRepo.save.mock.calls.length,
-        'veces',
-      );
 
       expect(refreshTokenRepo.save).not.toHaveBeenCalled();
     });

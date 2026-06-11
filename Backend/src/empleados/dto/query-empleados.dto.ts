@@ -11,7 +11,10 @@ export class QueryEmpleadosDto extends PaginationDto {
   @IsPositive()
   id_rol?: number;
 
-  @ApiPropertyOptional({ example: true, description: 'Filtrar por estado activo/inactivo' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Filtrar por estado activo/inactivo',
+  })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()

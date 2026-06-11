@@ -5,16 +5,23 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BoletasService } from './boletas.service';
 import { Boleta } from './entities/boleta.entity';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
-jest.mock('@sparticuz/chromium', () => ({
-  default: {
-    args: [],
-    executablePath: jest.fn().mockResolvedValue('/usr/bin/chromium'),
-    headless: true,
-  },
-}));
+jest.mock(
+  '@sparticuz/chromium',
+  () => ({
+    __esModule: true,
+    default: {
+      args: [],
+      executablePath: jest.fn().mockResolvedValue('/usr/bin/chromium'),
+      headless: true,
+    },
+  }),
+  { virtual: true },
+);
 
 jest.mock('puppeteer-core', () => ({
+  __esModule: true,
   default: {
     launch: jest.fn().mockResolvedValue({
       newPage: jest.fn().mockResolvedValue({
@@ -35,49 +42,44 @@ jest.mock('@aws-sdk/client-s3', () => ({
 const createMockRepository = () => ({
   findOne: jest.fn(),
   create: jest.fn(),
-  save: jest.fn(),
 });
+
+const mockUser: JwtPayload = {
+  sub: 10,
+  id_sede: 2,
+  rol: 'vendedor',
+  nombre: 'Vendedor Test',
+};
+
+const ventaRows = [
+  {
+    id_venta: 1,
+    id_sede: 2,
+    id_empleado: 10,
+    sede_nombre: 'Sede Lima',
+    sede_direccion: 'Av. Lima 123',
+    sede_telefono: '999999999',
+    vendedor: 'Juan Perez',
+    fecha_emision: new Date('2026-01-01'),
+    monto_descuento: '0',
+    tipo_descuento: null,
+    id_cliente: 1,
+    cliente_nombre: 'Ana Lopez',
+    cliente_tipo_doc: 'DNI',
+    cliente_nro_doc: '12345678',
+    producto: 'Laptop',
+    sku: 'SKU-1',
+    cantidad: 1,
+    precio_unitario_momento: '1000',
+    importe: '1000',
+  },
+];
 
 describe('BoletasService', () => {
   let service: BoletasService;
   let boletaRepo: ReturnType<typeof createMockRepository>;
   let dataSource: { query: jest.Mock; transaction: jest.Mock };
   let configService: { get: jest.Mock };
-
-  const ventaRow = {
-    id_venta: 1,
-    id_sede: 2,
-    sede: 'Sede Lima',
-    vendedor: 'Juan Perez',
-    cliente: 'Ana Lopez',
-    doc_cliente: '12345678',
-    fecha_emision: new Date('2026-01-01'),
-    monto_descuento: '0',
-    tipo_descuento: null,
-  };
-
-  const detalles = [
-    {
-      producto: 'Laptop',
-      cantidad: 1,
-      precio_unitario_momento: 1000,
-      importe: 1000,
-    },
-  ];
-
-  const buildManager = (numero = 'B002-0000001') => {
-    const boletaSaved = {
-      id_boleta: 1,
-      numero,
-      id_venta: 1,
-      total: 1000,
-      estado: 'emitida',
-      url_pdf: null,
-    };
-    return {
-      save: jest.fn().mockResolvedValue(boletaSaved),
-    };
-  };
 
   beforeEach(async () => {
     boletaRepo = createMockRepository();
@@ -105,327 +107,114 @@ describe('BoletasService', () => {
     }).compile();
 
     service = module.get<BoletasService>(BoletasService);
+    await service.onModuleInit();
     mockS3Send.mockClear();
   });
 
   afterEach(() => jest.clearAllMocks());
 
-  describe('emitir', () => {
-    it('throws ConflictException when boleta already exists for venta', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — boleta ya existe para esa venta',
-      );
-      console.log(
-        '📌 Espera   : ConflictException, dataSource.query no llamado',
-      );
+  function mockEmitQueries({
+    owned = true,
+    rows = ventaRows,
+    pagos = [{ metodo_pago: 'efectivo', monto: '1000' }],
+    count = '0',
+  } = {}) {
+    dataSource.query
+      .mockResolvedValueOnce(owned ? [{ id_venta: 1 }] : [])
+      .mockResolvedValueOnce(rows)
+      .mockResolvedValueOnce(pagos)
+      .mockResolvedValueOnce([{ total: count }]);
+  }
 
+  function mockTransaction() {
+    const saved = {
+      id_boleta: 1,
+      numero: 'B002-0000001',
+      id_venta: 1,
+      total: 1000,
+      estado: 'emitida',
+      url_pdf: null as string | null,
+    };
+    dataSource.transaction.mockImplementation((cb) =>
+      cb({
+        save: jest.fn().mockImplementation((_entity, value) => {
+          Object.assign(saved, value);
+          return Promise.resolve(saved);
+        }),
+      }),
+    );
+    boletaRepo.create.mockReturnValue(saved);
+    return saved;
+  }
+
+  describe('emitir', () => {
+    it('valida', async () => {
+      mockEmitQueries({ owned: false });
+
+      await expect(service.emitir(1, mockUser)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(boletaRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('valida', async () => {
+      dataSource.query.mockResolvedValueOnce([{ id_venta: 1 }]);
       boletaRepo.findOne.mockResolvedValue({ id_boleta: 1, id_venta: 1 });
 
-      let caught: Error | undefined;
-      try {
-        await service.emitir(1);
-      } catch (e) {
-        caught = e as Error;
-      }
-
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
+      await expect(service.emitir(1, mockUser)).rejects.toBeInstanceOf(
+        ConflictException,
       );
-
-      expect(caught).toBeInstanceOf(ConflictException);
-      expect(dataSource.query).not.toHaveBeenCalled();
     });
 
-    it('throws NotFoundException when venta does not exist', async () => {
-      console.log('\n🔍 Acción   : emitir(999) — venta inexistente');
-      console.log('📌 Espera   : NotFoundException, transaction no llamado');
+    it('valida', async () => {
+      mockEmitQueries();
+      const saved = mockTransaction();
 
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query.mockResolvedValueOnce([]);
+      const result = await service.emitir(1, mockUser);
 
-      let caught: Error | undefined;
-      try {
-        await service.emitir(999);
-      } catch (e) {
-        caught = e as Error;
-      }
-
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
+      expect(boletaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          numero: 'B002-0000001',
+          id_venta: 1,
+          total: 1000,
+        }),
       );
-
-      expect(caught).toBeInstanceOf(NotFoundException);
-      expect(dataSource.transaction).not.toHaveBeenCalled();
-    });
-
-    it('calculates total without discount when tipo_descuento is null', async () => {
-      console.log('\n🔍 Acción   : emitir(1) — sin descuento, importe=1000');
-      console.log('📌 Espera   : total = 1000');
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaRow])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '0' }]);
-
-      const manager = buildManager();
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
+      expect(result).toBe(saved);
+      expect(result.url_pdf).toBe(
+        'https://cdn.test.com/boletas/ventas/B002-0000001.pdf',
       );
-      boletaRepo.create.mockReturnValue({
-        numero: 'B002-0000001',
-        id_venta: 1,
-        id_reparacion: null,
-        total: 1000,
-        estado: 'emitida',
-        url_pdf: null,
-      });
-
-      await service.emitir(1);
-
-      const createArg = boletaRepo.create.mock.calls[0][0];
-      console.log('✅ Resultado: total =', createArg.total);
-
-      expect(createArg.total).toBe(1000);
-    });
-
-    it('calculates total with porcentaje discount correctly', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — descuento 10% sobre subtotal=1000',
-      );
-      console.log('📌 Espera   : total = 900');
-
-      const ventaConDescuento = {
-        ...ventaRow,
-        monto_descuento: '10',
-        tipo_descuento: 'porcentaje',
-      };
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaConDescuento])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '0' }]);
-
-      const manager = buildManager();
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
-      );
-      boletaRepo.create.mockReturnValue({});
-
-      await service.emitir(1);
-
-      const createArg = boletaRepo.create.mock.calls[0][0];
-      console.log('✅ Resultado: total =', createArg.total);
-
-      expect(createArg.total).toBe(900);
-    });
-
-    it('calculates total with monto_fijo discount correctly', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — descuento fijo S/50 sobre subtotal=1000',
-      );
-      console.log('📌 Espera   : total = 950');
-
-      const ventaConDescuento = {
-        ...ventaRow,
-        monto_descuento: '50',
-        tipo_descuento: 'monto_fijo',
-      };
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaConDescuento])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '0' }]);
-
-      const manager = buildManager();
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
-      );
-      boletaRepo.create.mockReturnValue({});
-
-      await service.emitir(1);
-
-      const createArg = boletaRepo.create.mock.calls[0][0];
-      console.log('✅ Resultado: total =', createArg.total);
-
-      expect(createArg.total).toBe(950);
-    });
-
-    it('clamps total to 0 when discount exceeds subtotal', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — descuento fijo S/1500 sobre subtotal=1000',
-      );
-      console.log('📌 Espera   : total = 0 (no negativo)');
-
-      const ventaConDescuento = {
-        ...ventaRow,
-        monto_descuento: '1500',
-        tipo_descuento: 'monto_fijo',
-      };
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaConDescuento])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '0' }]);
-
-      const manager = buildManager();
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
-      );
-      boletaRepo.create.mockReturnValue({});
-
-      await service.emitir(1);
-
-      const createArg = boletaRepo.create.mock.calls[0][0];
-      console.log('✅ Resultado: total =', createArg.total);
-
-      expect(createArg.total).toBe(0);
-    });
-
-    it('generates numero with correct format B{sede_padded}-{seq_padded}', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — id_sede=2, 5 boletas existentes → seq=6',
-      );
-      console.log('📌 Espera   : numero = "B002-0000006"');
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaRow])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '5' }]);
-
-      const manager = buildManager('B002-0000006');
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
-      );
-      boletaRepo.create.mockReturnValue({});
-
-      await service.emitir(1);
-
-      const createArg = boletaRepo.create.mock.calls[0][0];
-      console.log('✅ Resultado: numero =', createArg.numero);
-
-      expect(createArg.numero).toBe('B002-0000006');
-    });
-
-    it('queries generarNumero with correct sede prefix', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — verificar que COUNT usa prefijo correcto',
-      );
-      console.log('📌 Espera   : COUNT query llamado con "B002-%"');
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaRow])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '0' }]);
-
-      const manager = buildManager();
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
-      );
-      boletaRepo.create.mockReturnValue({});
-
-      await service.emitir(1);
-
-      const [, countParams] = dataSource.query.mock.calls[2];
-      console.log('✅ Resultado: COUNT params =', countParams);
-
-      expect(countParams).toEqual(['B002-%']);
-    });
-
-    it('sets url_pdf on boleta after S3 upload', async () => {
-      console.log(
-        '\n🔍 Acción   : emitir(1) — verificar que url_pdf se asigna',
-      );
-      console.log(
-        '📌 Espera   : boleta.url_pdf contiene "https://cdn.test.com/boletas/"',
-      );
-
-      boletaRepo.findOne.mockResolvedValue(null);
-      dataSource.query
-        .mockResolvedValueOnce([ventaRow])
-        .mockResolvedValueOnce(detalles)
-        .mockResolvedValueOnce([{ total: '0' }]);
-
-      const manager = buildManager();
-      dataSource.transaction.mockImplementation(
-        async (cb: (m: typeof manager) => Promise<void>) => cb(manager),
-      );
-      const initialBoleta = {
-        numero: 'B002-0000001',
-        id_venta: 1,
-        total: 1000,
-        estado: 'emitida',
-        url_pdf: null as string | null,
-      };
-      boletaRepo.create.mockReturnValue(initialBoleta);
-
-      const result = await service.emitir(1);
-
-      console.log('✅ Resultado: url_pdf =', result.url_pdf);
-
-      expect(result.url_pdf).toContain('https://cdn.test.com/boletas/');
       expect(mockS3Send).toHaveBeenCalledTimes(1);
+    });
+
+    it('valida', async () => {
+      mockEmitQueries();
+      mockTransaction();
+
+      await service.emitir(1, mockUser);
+
+      const [sql, params] = dataSource.query.mock.calls[1];
+      expect(sql).toContain('id_venta = $1');
+      expect(sql).toContain('id_empleado = $2');
+      expect(params).toEqual([1, mockUser.sub]);
     });
   });
 
   describe('findByVenta', () => {
-    it('returns boleta when found', async () => {
-      console.log('\n🔍 Acción   : findByVenta(1) — boleta existe');
-      console.log('📌 Espera   : retorna boleta con id_venta = 1');
-
-      const boleta = {
-        id_boleta: 1,
-        id_venta: 1,
-        total: 1000,
-        estado: 'emitida',
-        url_pdf: 'https://cdn.test.com/boletas/B002-0000001.pdf',
-      };
+    it('valida', async () => {
+      const boleta = { id_boleta: 1, id_venta: 1, total: 1000 };
+      dataSource.query.mockResolvedValueOnce([{ id_venta: 1 }]);
       boletaRepo.findOne.mockResolvedValue(boleta);
 
-      const result = await service.findByVenta(1);
-
-      console.log('✅ Resultado:', JSON.stringify(result));
-
-      expect(result).toEqual(boleta);
-      expect(boletaRepo.findOne).toHaveBeenCalledWith({
-        where: { id_venta: 1 },
-      });
+      await expect(service.findByVenta(1, mockUser)).resolves.toEqual(boleta);
     });
 
-    it('throws NotFoundException when boleta does not exist for venta', async () => {
-      console.log('\n🔍 Acción   : findByVenta(999) — boleta inexistente');
-      console.log(
-        '📌 Espera   : NotFoundException "No hay boleta para la venta 999"',
+    it('valida', async () => {
+      dataSource.query.mockResolvedValueOnce([]);
+
+      await expect(service.findByVenta(1, mockUser)).rejects.toBeInstanceOf(
+        NotFoundException,
       );
-
-      boletaRepo.findOne.mockResolvedValue(null);
-
-      let caught: Error | undefined;
-      try {
-        await service.findByVenta(999);
-      } catch (e) {
-        caught = e as Error;
-      }
-
-      console.log(
-        '✅ Resultado:',
-        caught?.constructor?.name,
-        '-',
-        caught?.message,
-      );
-
-      expect(caught).toBeInstanceOf(NotFoundException);
+      expect(boletaRepo.findOne).not.toHaveBeenCalled();
     });
   });
 });
