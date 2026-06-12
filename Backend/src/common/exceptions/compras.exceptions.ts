@@ -3,7 +3,11 @@ import { AppException } from './app.exception';
 
 export class CompraNotFoundException extends AppException {
   constructor(id: number) {
-    super('COMPRA_NOT_FOUND', `Compra ${id} no encontrada`, HttpStatus.NOT_FOUND);
+    super(
+      'COMPRA_NOT_FOUND',
+      `Compra ${id} no encontrada`,
+      HttpStatus.NOT_FOUND,
+    );
   }
 }
 

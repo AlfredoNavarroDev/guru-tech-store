@@ -9,7 +9,11 @@ export class ItemNotFoundException extends AppException {
 
 export class ItemSkuDuplicadoException extends AppException {
   constructor(sku: string) {
-    super('ITEM_SKU_DUPLICADO', `SKU '${sku}' ya está en uso`, HttpStatus.CONFLICT);
+    super(
+      'ITEM_SKU_DUPLICADO',
+      `SKU '${sku}' ya está en uso`,
+      HttpStatus.CONFLICT,
+    );
   }
 }
 

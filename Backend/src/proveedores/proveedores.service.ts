@@ -19,7 +19,9 @@ export class ProveedoresService {
   ) {}
 
   async create(dto: CreateProveedorDto): Promise<ProveedorResponseDto> {
-    const existing = await this.proveedorRepo.findOne({ where: { ruc: dto.ruc } });
+    const existing = await this.proveedorRepo.findOne({
+      where: { ruc: dto.ruc },
+    });
     if (existing) throw new ProveedorRucDuplicadoException(dto.ruc);
 
     const proveedor = this.proveedorRepo.create({
@@ -31,7 +33,9 @@ export class ProveedoresService {
     return this.toResponse(await this.proveedorRepo.save(proveedor));
   }
 
-  async findAll(query: PaginationDto): Promise<PaginatedResult<ProveedorResponseDto>> {
+  async findAll(
+    query: PaginationDto,
+  ): Promise<PaginatedResult<ProveedorResponseDto>> {
     const [items, total] = await this.proveedorRepo.findAndCount({
       order: { razon_social: 'ASC' },
       skip: (query.page - 1) * query.limit,
@@ -47,18 +51,26 @@ export class ProveedoresService {
   }
 
   async findOne(id: number): Promise<ProveedorResponseDto> {
-    const proveedor = await this.proveedorRepo.findOne({ where: { id_proveedor: id } });
+    const proveedor = await this.proveedorRepo.findOne({
+      where: { id_proveedor: id },
+    });
     if (!proveedor) throw new ProveedorNotFoundException(id);
     return this.toResponse(proveedor);
   }
 
-  async update(id: number, dto: UpdateProveedorDto): Promise<ProveedorResponseDto> {
-    const proveedor = await this.proveedorRepo.findOne({ where: { id_proveedor: id } });
+  async update(
+    id: number,
+    dto: UpdateProveedorDto,
+  ): Promise<ProveedorResponseDto> {
+    const proveedor = await this.proveedorRepo.findOne({
+      where: { id_proveedor: id },
+    });
     if (!proveedor) throw new ProveedorNotFoundException(id);
 
     if (dto.ruc) {
       const dup = await this.proveedorRepo.findOne({ where: { ruc: dto.ruc } });
-      if (dup && dup.id_proveedor !== id) throw new ProveedorRucDuplicadoException(dto.ruc);
+      if (dup && dup.id_proveedor !== id)
+        throw new ProveedorRucDuplicadoException(dto.ruc);
     }
 
     Object.assign(proveedor, {

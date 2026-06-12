@@ -46,7 +46,10 @@ describe('ComprasService', () => {
       providers: [
         ComprasService,
         { provide: getRepositoryToken(CompraRefill), useValue: compraRepo },
-        { provide: getRepositoryToken(DetalleCompraRefill), useValue: detalleRepo },
+        {
+          provide: getRepositoryToken(DetalleCompraRefill),
+          useValue: detalleRepo,
+        },
         { provide: DataSource, useValue: ds },
       ],
     }).compile();
@@ -58,7 +61,16 @@ describe('ComprasService', () => {
 
   describe('create', () => {
     it('create: crea compra vacía → retorna CompraResponseDto', async () => {
-      const saved = { id_compra: 1, id_sede_destino: 1, id_proveedor: 1, id_empleado_refiller: 2, fecha_compra: new Date(), created_at: new Date(), updated_at: null, detalles: [] };
+      const saved = {
+        id_compra: 1,
+        id_sede_destino: 1,
+        id_proveedor: 1,
+        id_empleado_refiller: 2,
+        fecha_compra: new Date(),
+        created_at: new Date(),
+        updated_at: null,
+        detalles: [],
+      };
       compraRepo.create.mockReturnValueOnce(saved);
       compraRepo.save.mockResolvedValueOnce(saved);
       ds.query.mockResolvedValueOnce([mockCompraRow]).mockResolvedValueOnce([]);
@@ -71,9 +83,14 @@ describe('ComprasService', () => {
 
     it('create: sede deshabilitada → lanza SedeDeshabilitadaException', async () => {
       compraRepo.create.mockReturnValueOnce({});
-      compraRepo.save.mockRejectedValueOnce({ message: 'La sede 1 está deshabilitada. No se pueden registrar compras con destino a ella.' });
+      compraRepo.save.mockRejectedValueOnce({
+        message:
+          'La sede 1 está deshabilitada. No se pueden registrar compras con destino a ella.',
+      });
 
-      await expect(service.create({ id_proveedor: 1 }, mockUser)).rejects.toThrow(SedeDeshabilitadaException);
+      await expect(
+        service.create({ id_proveedor: 1 }, mockUser),
+      ).rejects.toThrow(SedeDeshabilitadaException);
     });
   });
 
@@ -95,9 +112,7 @@ describe('ComprasService', () => {
 
   describe('findOne', () => {
     it('findOne: id válido de la sede → retorna compra con detalles', async () => {
-      ds.query
-        .mockResolvedValueOnce([mockCompraRow])
-        .mockResolvedValueOnce([]);
+      ds.query.mockResolvedValueOnce([mockCompraRow]).mockResolvedValueOnce([]);
 
       const result = await service.findOne(1, mockUser.id_sede);
 
@@ -108,7 +123,9 @@ describe('ComprasService', () => {
     it('findOne: no pertenece a sede → lanza CompraNotFoundException', async () => {
       ds.query.mockResolvedValueOnce([]);
 
-      await expect(service.findOne(999, mockUser.id_sede)).rejects.toThrow(CompraNotFoundException);
+      await expect(service.findOne(999, mockUser.id_sede)).rejects.toThrow(
+        CompraNotFoundException,
+      );
     });
   });
 
@@ -118,7 +135,16 @@ describe('ComprasService', () => {
       detalleRepo.create.mockReturnValueOnce({});
       detalleRepo.save.mockResolvedValueOnce({});
 
-      await service.addItem(1, { id_item: 10, cantidad_comprada: 5, costo_unidad: 120, precio_venta_sugerido: 220 }, mockUser);
+      await service.addItem(
+        1,
+        {
+          id_item: 10,
+          cantidad_comprada: 5,
+          costo_unidad: 120,
+          precio_venta_sugerido: 220,
+        },
+        mockUser,
+      );
 
       expect(detalleRepo.save).toHaveBeenCalledTimes(1);
     });
@@ -127,7 +153,16 @@ describe('ComprasService', () => {
       ds.query.mockResolvedValueOnce([]);
 
       await expect(
-        service.addItem(999, { id_item: 10, cantidad_comprada: 5, costo_unidad: 120, precio_venta_sugerido: 220 }, mockUser),
+        service.addItem(
+          999,
+          {
+            id_item: 10,
+            cantidad_comprada: 5,
+            costo_unidad: 120,
+            precio_venta_sugerido: 220,
+          },
+          mockUser,
+        ),
       ).rejects.toThrow(CompraNotFoundException);
     });
   });
@@ -135,10 +170,16 @@ describe('ComprasService', () => {
   describe('updateItem', () => {
     it('updateItem: trigger falla por stock insuficiente → lanza StockInsuficienteCompraException', async () => {
       ds.query.mockResolvedValueOnce([{ id_compra: 1 }]);
-      const mockDetalle = { id_item: 10, cantidad_comprada: 10, id_compra: 1, id_detalle_compra: 5 };
+      const mockDetalle = {
+        id_item: 10,
+        cantidad_comprada: 10,
+        id_compra: 1,
+        id_detalle_compra: 5,
+      };
       detalleRepo.findOne.mockResolvedValueOnce(mockDetalle);
       detalleRepo.save.mockRejectedValueOnce({
-        message: 'No se puede reducir la cantidad comprada: el stock actual (3) es insuficiente para restar 7',
+        message:
+          'No se puede reducir la cantidad comprada: el stock actual (3) es insuficiente para restar 7',
       });
 
       await expect(
@@ -150,9 +191,9 @@ describe('ComprasService', () => {
       ds.query.mockResolvedValueOnce([{ id_compra: 1 }]);
       detalleRepo.findOne.mockResolvedValueOnce(null);
 
-      await expect(service.updateItem(1, 999, { cantidad_comprada: 3 }, mockUser)).rejects.toThrow(
-        DetalleCompraNotFoundException,
-      );
+      await expect(
+        service.updateItem(1, 999, { cantidad_comprada: 3 }, mockUser),
+      ).rejects.toThrow(DetalleCompraNotFoundException);
     });
   });
 
@@ -173,7 +214,9 @@ describe('ComprasService', () => {
       detalleRepo.findOne.mockResolvedValueOnce({ id_item: 10 });
       detalleRepo.remove.mockRejectedValueOnce({ code: '23514' });
 
-      await expect(service.removeItem(1, 10, mockUser)).rejects.toThrow(StockInsuficienteCompraException);
+      await expect(service.removeItem(1, 10, mockUser)).rejects.toThrow(
+        StockInsuficienteCompraException,
+      );
     });
   });
 

@@ -58,32 +58,44 @@ export class ItemsService {
     );
     if (existing.length > 0) throw new ItemSkuDuplicadoException(dto.sku);
 
-    const id = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const [row] = await manager.query<[{ id_item: number }]>(
-        `INSERT INTO items (tipo, sku, nombre, id_marca, modelo, calidad, especificaciones, precio_compra_actual, precio_venta_actual)
+    const id = await this.dataSource.transaction(
+      async (manager: EntityManager) => {
+        const [row] = await manager.query<[{ id_item: number }]>(
+          `INSERT INTO items (tipo, sku, nombre, id_marca, modelo, calidad, especificaciones, precio_compra_actual, precio_venta_actual)
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
          RETURNING id_item`,
-        [
-          dto.tipo, dto.sku, dto.nombre,
-          dto.id_marca ?? null, dto.modelo ?? null, dto.calidad ?? null,
-          dto.especificaciones ? JSON.stringify(dto.especificaciones) : null,
-          dto.precio_compra_actual, dto.precio_venta_actual,
-        ],
-      );
-      if (dto.categoria_ids?.length) {
-        const vals = dto.categoria_ids.map((_, i) => `($1, $${i + 2})`).join(', ');
-        await manager.query(
-          `INSERT INTO item_categorias (id_item, id_categoria) VALUES ${vals}`,
-          [row.id_item, ...dto.categoria_ids],
+          [
+            dto.tipo,
+            dto.sku,
+            dto.nombre,
+            dto.id_marca ?? null,
+            dto.modelo ?? null,
+            dto.calidad ?? null,
+            dto.especificaciones ? JSON.stringify(dto.especificaciones) : null,
+            dto.precio_compra_actual,
+            dto.precio_venta_actual,
+          ],
         );
-      }
-      return row.id_item;
-    });
+        if (dto.categoria_ids?.length) {
+          const vals = dto.categoria_ids
+            .map((_, i) => `($1, $${i + 2})`)
+            .join(', ');
+          await manager.query(
+            `INSERT INTO item_categorias (id_item, id_categoria) VALUES ${vals}`,
+            [row.id_item, ...dto.categoria_ids],
+          );
+        }
+        return row.id_item;
+      },
+    );
 
     return this.findOne(id);
   }
 
-  async findAll(query: QueryItemsDto, idSede?: number): Promise<PaginatedResult<ItemResponseDto>> {
+  async findAll(
+    query: QueryItemsDto,
+    idSede?: number,
+  ): Promise<PaginatedResult<ItemResponseDto>> {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
@@ -168,8 +180,12 @@ export class ItemsService {
       let setIdx = 1;
 
       const scalar: [keyof UpdateItemDto, string][] = [
-        ['tipo', 'tipo'], ['sku', 'sku'], ['nombre', 'nombre'],
-        ['id_marca', 'id_marca'], ['modelo', 'modelo'], ['calidad', 'calidad'],
+        ['tipo', 'tipo'],
+        ['sku', 'sku'],
+        ['nombre', 'nombre'],
+        ['id_marca', 'id_marca'],
+        ['modelo', 'modelo'],
+        ['calidad', 'calidad'],
         ['precio_compra_actual', 'precio_compra_actual'],
         ['precio_venta_actual', 'precio_venta_actual'],
       ];
@@ -197,7 +213,9 @@ export class ItemsService {
         }
         if (dto.categoria_ids.length > 0) {
           // Insert new FIRST (trigger only fires on DELETE — prevents 0-category state)
-          const vals = dto.categoria_ids.map((_, i) => `($1, $${i + 2})`).join(', ');
+          const vals = dto.categoria_ids
+            .map((_, i) => `($1, $${i + 2})`)
+            .join(', ');
           await manager.query(
             `INSERT INTO item_categorias (id_item, id_categoria) VALUES ${vals} ON CONFLICT DO NOTHING`,
             [id, ...dto.categoria_ids],
@@ -209,7 +227,10 @@ export class ItemsService {
           );
         } else {
           // repuesto: delete all categories (no minimum required)
-          await manager.query(`DELETE FROM item_categorias WHERE id_item = $1`, [id]);
+          await manager.query(
+            `DELETE FROM item_categorias WHERE id_item = $1`,
+            [id],
+          );
         }
       }
     });
@@ -230,6 +251,20 @@ export class ItemsService {
       }
       throw err;
     }
+  }
+
+  async findCategorias(): Promise<
+    { id_categoria: number; nombre_categoria: string }[]
+  > {
+    return this.dataSource.query(
+      `SELECT id_categoria, nombre_categoria FROM categorias ORDER BY nombre_categoria`,
+    );
+  }
+
+  async findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
+    return this.dataSource.query(
+      `SELECT id_marca, nombre FROM marcas ORDER BY nombre`,
+    );
   }
 
   private toResponse(row: ItemRow): ItemResponseDto {

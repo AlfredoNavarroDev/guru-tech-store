@@ -34,14 +34,16 @@ describe('ItemsService', () => {
     const mockManager = { query: jest.fn() };
     ds = {
       query: jest.fn(),
-      transaction: jest.fn().mockImplementation(
-        async (fn: (m: typeof mockManager) => Promise<unknown>) => {
-          mockManager.query
-            .mockResolvedValueOnce([{ id_item: 1 }]) // INSERT items RETURNING
-            .mockResolvedValueOnce([]);               // INSERT item_categorias
-          return fn(mockManager);
-        },
-      ),
+      transaction: jest
+        .fn()
+        .mockImplementation(
+          async (fn: (m: typeof mockManager) => Promise<unknown>) => {
+            mockManager.query
+              .mockResolvedValueOnce([{ id_item: 1 }]) // INSERT items RETURNING
+              .mockResolvedValueOnce([]); // INSERT item_categorias
+            return fn(mockManager);
+          },
+        ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -58,7 +60,7 @@ describe('ItemsService', () => {
   describe('create', () => {
     it('create: producto con categorias → retorna ItemResponseDto', async () => {
       ds.query
-        .mockResolvedValueOnce([])           // SKU check: no existe
+        .mockResolvedValueOnce([]) // SKU check: no existe
         .mockResolvedValueOnce([mockItemRow]); // findOne al final
 
       const result = await service.create({
@@ -78,11 +80,20 @@ describe('ItemsService', () => {
     it('create: repuesto sin categorias → no lanza error', async () => {
       ds.query
         .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ ...mockItemRow, tipo: 'repuesto', calidad: 'original', categorias_str: '' }]);
+        .mockResolvedValueOnce([
+          {
+            ...mockItemRow,
+            tipo: 'repuesto',
+            calidad: 'original',
+            categorias_str: '',
+          },
+        ]);
 
       ds.transaction.mockImplementation(
         async (fn: (m: { query: jest.Mock }) => Promise<unknown>) => {
-          const m = { query: jest.fn().mockResolvedValueOnce([{ id_item: 2 }]) };
+          const m = {
+            query: jest.fn().mockResolvedValueOnce([{ id_item: 2 }]),
+          };
           return fn(m);
         },
       );
@@ -194,8 +205,8 @@ describe('ItemsService', () => {
   describe('update', () => {
     it('update: campos válidos → llama UPDATE y retorna dto actualizado', async () => {
       ds.query
-        .mockResolvedValueOnce([mockItemRow])   // findOne (current)
-        .mockResolvedValueOnce([mockItemRow]);  // findOne al final
+        .mockResolvedValueOnce([mockItemRow]) // findOne (current)
+        .mockResolvedValueOnce([mockItemRow]); // findOne al final
 
       ds.transaction.mockImplementation(
         async (fn: (m: { query: jest.Mock }) => Promise<unknown>) => {
@@ -212,7 +223,9 @@ describe('ItemsService', () => {
     it('update: id no existe → lanza ItemNotFoundException', async () => {
       ds.query.mockResolvedValueOnce([]);
 
-      await expect(service.update(999, { nombre: 'X' })).rejects.toThrow(ItemNotFoundException);
+      await expect(service.update(999, { nombre: 'X' })).rejects.toThrow(
+        ItemNotFoundException,
+      );
     });
 
     it('update: SKU duplicado → lanza ItemSkuDuplicadoException', async () => {
@@ -220,7 +233,9 @@ describe('ItemsService', () => {
         .mockResolvedValueOnce([mockItemRow])
         .mockResolvedValueOnce([{ id_item: 5 }]);
 
-      await expect(service.update(1, { sku: 'PRD-002' })).rejects.toThrow(ItemSkuDuplicadoException);
+      await expect(service.update(1, { sku: 'PRD-002' })).rejects.toThrow(
+        ItemSkuDuplicadoException,
+      );
     });
   });
 
@@ -228,14 +243,12 @@ describe('ItemsService', () => {
 
   describe('remove', () => {
     it('remove: id válido → ejecuta DELETE', async () => {
-      ds.query
-        .mockResolvedValueOnce([mockItemRow])
-        .mockResolvedValueOnce([]);
+      ds.query.mockResolvedValueOnce([mockItemRow]).mockResolvedValueOnce([]);
 
       await service.remove(1);
 
-      const deleteCalls = ds.query.mock.calls.filter(
-        (c: [string, unknown[]]) => (c[0] as string).includes('DELETE FROM items'),
+      const deleteCalls = ds.query.mock.calls.filter((c: [string, unknown[]]) =>
+        (c[0] as string).includes('DELETE FROM items'),
       );
       expect(deleteCalls).toHaveLength(1);
     });

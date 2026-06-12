@@ -63,7 +63,9 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
     (8, 4),
     (9, 4)
   `);
-  console.log('  OK - 13 filas item_categorias (4 productos con 2 categorías, 5 con 1)');
+  console.log(
+    '  OK - 13 filas item_categorias (4 productos con 2 categorías, 5 con 1)',
+  );
 
   // Insert directo (sin trigger compras). Productos: 50 uds; repuestos: 30 uds, stock_minimo=3.
   console.log(
@@ -90,8 +92,8 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
   }
   console.log(
     `  OK - ${(items.length + repuestos.length) * sedes.length} registros de inventario` +
-    ` (${items.length} productos × ${sedes.length} sedes: 50 uds c/u;` +
-    ` ${repuestos.length} repuestos × ${sedes.length} sedes: 30 uds c/u)`,
+      ` (${items.length} productos × ${sedes.length} sedes: 50 uds c/u;` +
+      ` ${repuestos.length} repuestos × ${sedes.length} sedes: 30 uds c/u)`,
   );
 
   // 8 tipos para cubrir todas las ramas de filtrado de v_vendedor_catalogo

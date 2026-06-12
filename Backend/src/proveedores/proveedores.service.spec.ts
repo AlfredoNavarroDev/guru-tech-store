@@ -91,7 +91,9 @@ describe('ProveedoresService', () => {
     it('findOne: no existe → lanza ProveedorNotFoundException', async () => {
       repo.findOne.mockResolvedValueOnce(null);
 
-      await expect(service.findOne(999)).rejects.toThrow(ProveedorNotFoundException);
+      await expect(service.findOne(999)).rejects.toThrow(
+        ProveedorNotFoundException,
+      );
     });
   });
 
@@ -100,7 +102,10 @@ describe('ProveedoresService', () => {
       repo.findOne
         .mockResolvedValueOnce(mockProveedor)
         .mockResolvedValueOnce(null);
-      repo.save.mockResolvedValueOnce({ ...mockProveedor, razon_social: 'Nuevo Nombre' });
+      repo.save.mockResolvedValueOnce({
+        ...mockProveedor,
+        razon_social: 'Nuevo Nombre',
+      });
 
       const result = await service.update(1, { razon_social: 'Nuevo Nombre' });
 

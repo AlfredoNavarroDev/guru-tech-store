@@ -48,13 +48,51 @@ export class ItemsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'HU-13 / HU-14 — Listar ítems con filtros (tipo, nombre, sku, categoria)' })
+  @ApiOperation({
+    summary:
+      'HU-13 / HU-14 — Listar ítems con filtros (tipo, nombre, sku, categoria)',
+  })
   @ApiOkResponse({ type: ItemResponseDto, isArray: true })
-  findAll(
-    @Query() query: QueryItemsDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  findAll(@Query() query: QueryItemsDto, @CurrentUser() user: JwtPayload) {
     return this.itemsService.findAll(query, user.id_sede ?? undefined);
+  }
+
+  @Get('categorias')
+  @ApiOperation({ summary: 'Listar todas las categorías disponibles' })
+  @ApiOkResponse({
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id_categoria: { type: 'number' },
+          nombre_categoria: { type: 'string' },
+        },
+      },
+    },
+  })
+  findCategorias(): Promise<
+    { id_categoria: number; nombre_categoria: string }[]
+  > {
+    return this.itemsService.findCategorias();
+  }
+
+  @Get('marcas')
+  @ApiOperation({ summary: 'Listar todas las marcas disponibles' })
+  @ApiOkResponse({
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id_marca: { type: 'number' },
+          nombre: { type: 'string' },
+        },
+      },
+    },
+  })
+  findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
+    return this.itemsService.findMarcas();
   }
 
   @Get(':id')
