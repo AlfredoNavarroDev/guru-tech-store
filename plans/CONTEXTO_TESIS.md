@@ -243,7 +243,8 @@ Datos seed: Recibido(1) → En Diagnóstico(2) → Esperando Repuesto(3) → En 
 | `nro_documento` | varchar(30) | NOT NULL |
 | `nombre_completo` | varchar(150) | NOT NULL |
 | `telefono` | varchar(20) | — |
-| `sueldo_semanal_soles` | decimal(10,2) | CHECK >= 0 |
+| `sueldo_soles` | decimal(10,2) | CHECK >= 0 |
+| `frecuencia_pago` | varchar(20) | CHECK IN ('semanal','quincenal','mensual') DEFAULT 'semanal' |
 | `estado` | varchar(20) | CHECK IN ('activo','inactivo','suspendido') DEFAULT 'activo' |
 | `es_extranjero` | boolean | DEFAULT false |
 | `direccion_completa` | text | — |
@@ -630,9 +631,17 @@ Variable de entorno: `DB_URL_CHATBOT_RO`
 - 2 Abastecedores
 - Password hash placeholder para dev: `$2b$10$test.placeholder.hash.dev.only.xx`
 
-### Catálogo (14 items)
-- 8 productos (cables, cargadores, fundas, auriculares, accesorios)
-- 6 repuestos (pantallas y baterías Samsung/Apple/Xiaomi/Huawei)
+### Catálogo (15 items)
+- 9 productos (ids 1-9): cables, cargadores, fundas, auriculares, accesorios, memoria USB
+- 6 repuestos (ids 10-15): pantallas Samsung/Apple/Xiaomi + baterías Samsung/Apple/Huawei; campo `calidad`
+
+**Multi-categoría (M:N via `Item_Categorias`):**
+- Cable USB-C (1) → Cables y Cargadores + Accesorios
+- Cargador 20W (2) → Cables y Cargadores + Accesorios
+- Auriculares BT (5) → Auriculares + Accesorios
+- Power Bank (6) → Cables y Cargadores + Accesorios
+- Fundas (3,4), Accesorios varios (7,8,9) → 1 categoría c/u
+- Repuestos → no requieren categoría (trigger solo enforcea `tipo='producto'`)
 
 ### Datos transaccionales
 - 6 compras de reposición (3 sedes × 2: productos y repuestos)
@@ -701,9 +710,6 @@ const itemsOrdenados = [...dto.items].sort((a, b) => a.id_item - b.id_item);
 - Panel izquierdo: `AnimatedGridPattern` + logo + 3 feature bullets
 - Panel derecho: `MagicCard` + `BorderBeam` + formulario
 
-**Componentes Magic UI:**
-`MagicCard` · `BorderBeam` · `AnimatedGradientText` · `AnimatedGridPattern` · `DotPattern` · `ShimmerButton`
-
 **Navegación post-login:**
 ```typescript
 switch (rol) {
@@ -749,7 +755,7 @@ Registrado globalmente como `APP_INTERCEPTOR` en AppModule.
 
 ### Landing Page (`/`)
 
-**Secciones:** Navbar sticky · Hero con `Meteors` + `WordRotate` · Stats Bar con `NumberTicker` · Features `BentoGrid` · Dark Section con `WarpBackground` · Meet Guru AI · CTA Final · Footer
+**Secciones:** Navbar sticky · Hero · Stats Bar · Features · Dark Section · Meet Guru AI · CTA Final · Footer
 
 ### Panel Admin (`/dashboard/admin`)
 Tabla de empleados + modales crear/editar + toggle estado.

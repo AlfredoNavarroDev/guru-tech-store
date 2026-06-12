@@ -9,7 +9,7 @@ export class AddDocumentLengthConstraints1780900000001 implements MigrationInter
       ADD CONSTRAINT chk_nro_doc_len_empleado CHECK (
         (tipo_documento = 'DNI'       AND char_length(nro_documento) = 8)
         OR (tipo_documento = 'CE'        AND char_length(nro_documento) = 12)
-        OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) = 9)
+        OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) BETWEEN 6 AND 9)
       )
     `);
 
@@ -18,7 +18,7 @@ export class AddDocumentLengthConstraints1780900000001 implements MigrationInter
       ADD CONSTRAINT chk_nro_doc_len_cliente CHECK (
         (tipo_documento = 'DNI'       AND char_length(nro_documento) = 8)
         OR (tipo_documento = 'CE'        AND char_length(nro_documento) = 12)
-        OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) = 9)
+        OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) BETWEEN 6 AND 9)
       )
     `);
   }

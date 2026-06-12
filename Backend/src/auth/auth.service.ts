@@ -51,7 +51,7 @@ export class AuthService {
     // Payload mínimo: sub, id_sede, rol, nombre.
     const payload: JwtPayload = {
       sub: empleado.id_empleado,
-      id_sede: empleado.id_sede!,
+      id_sede: empleado.id_sede ?? null,
       rol,
       nombre: empleado.nombre_completo,
     };
@@ -64,7 +64,7 @@ export class AuthService {
       refresh_token,
       nombre: empleado.nombre_completo,
       rol,
-      id_sede: empleado.id_sede!,
+      id_sede: empleado.id_sede ?? null,
       sede: sedeNombre,
     };
   }
@@ -93,7 +93,7 @@ export class AuthService {
 
     const payload: JwtPayload = {
       sub: empleado.id_empleado,
-      id_sede: empleado.id_sede!,
+      id_sede: empleado.id_sede ?? null,
       rol,
       nombre: empleado.nombre_completo,
     };
@@ -106,7 +106,7 @@ export class AuthService {
       refresh_token,
       nombre: empleado.nombre_completo,
       rol,
-      id_sede: empleado.id_sede!,
+      id_sede: empleado.id_sede ?? null,
       sede: sedeNombre,
     };
   }

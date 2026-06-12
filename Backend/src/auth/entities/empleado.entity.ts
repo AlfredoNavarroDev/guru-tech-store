@@ -31,17 +31,20 @@ export class Empleado {
   @Column({ name: 'estado', default: 'activo' })
   estado: string;
 
-  @Column({ name: 'telefono', nullable: true })
+  @Column({ name: 'telefono', type: 'varchar', nullable: true, length: 20 })
   telefono: string | null;
 
   @Column({
-    name: 'sueldo_semanal_soles',
+    name: 'sueldo_soles',
     type: 'decimal',
     precision: 10,
     scale: 2,
     nullable: true,
   })
-  sueldo_semanal_soles: number | null;
+  sueldo_soles: number | null;
+
+  @Column({ name: 'frecuencia_pago', default: 'semanal' })
+  frecuencia_pago: 'semanal' | 'quincenal' | 'mensual';
 
   @Column({ name: 'es_extranjero', type: 'boolean', default: false })
   es_extranjero: boolean;

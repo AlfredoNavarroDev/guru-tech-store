@@ -7,25 +7,48 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
+  Boxes, ClipboardList, ShieldCheck, Wrench,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import type { AuthSession } from "@/lib/api/auth"
 
-interface AuthSession {
-  nombre: string
-  id_sede: number
-  roles: string[]
-  sede: string
-}
-
-const navLinks = [
+const vendedorNavLinks = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { href: "/dashboard/ventas", label: "Ventas", icon: Receipt },
   { href: "/dashboard/catalogo", label: "Catálogo", icon: Grid3X3 },
   { href: "/dashboard/clientes", label: "Clientes", icon: UserRound },
 ]
+
+const roleNavLinks = {
+  admin: [
+    { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
+    { href: "/dashboard/admin/empleados", label: "Empleados", icon: UserRound },
+  ],
+  administrador: [
+    { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
+    { href: "/dashboard/admin/empleados", label: "Empleados", icon: UserRound },
+  ],
+  abastecedor: [
+    { href: "/dashboard/abastecedor", label: "Abastecimiento", icon: Boxes },
+    { href: "/dashboard/abastecedor", label: "Compras", icon: ClipboardList },
+  ],
+  tecnico: [
+    { href: "/dashboard/tecnico", label: "Servicio técnico", icon: Wrench },
+    { href: "/dashboard/tecnico", label: "Repuestos", icon: Grid3X3 },
+  ],
+  vendedor: vendedorNavLinks,
+  propietario: vendedorNavLinks,
+  gerente: vendedorNavLinks,
+}
+
+function matchesRoute(pathname: string, href: string) {
+  if (pathname === href) return true
+  if (href === "/dashboard") return false
+  return pathname.startsWith(`${href}/`)
+}
 
 interface SidebarProps {
   session: AuthSession | null
@@ -39,6 +62,13 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
   const [collapsed, setCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
   const sessionLabel = session ? `${session.nombre} · ${session.sede}` : "Sesión no cargada"
+  const navLinks = session ? (roleNavLinks[session.rol as keyof typeof roleNavLinks] ?? vendedorNavLinks) : []
+  const showSalesCta = session ? ["vendedor", "propietario", "gerente"].includes(session.rol) : false
+  const activeNavIndex = navLinks.reduce((bestIndex, link, index) => {
+    if (!matchesRoute(pathname, link.href)) return bestIndex
+    if (bestIndex === -1) return index
+    return link.href.length > navLinks[bestIndex].href.length ? index : bestIndex
+  }, -1)
 
   useEffect(() => {
     // Razonamiento: diferir preferencia evita setState síncrono dentro del efecto inicial.
@@ -165,59 +195,60 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
         </div>
       </div>
 
-      {/* ── Nueva venta CTA ── */}
-      <div className={cn("px-3 pt-4 overflow-hidden", isCollapsed && "lg:flex lg:justify-center lg:px-0")}>
-        <AnimatePresence initial={false}>
-          {isCollapsed ? (
-            <motion.div
-              key="cta-icon"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.15 }}
-              className="hidden lg:flex lg:justify-center"
-            >
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Link href="/dashboard/catalogo" className="inline-flex">
-                      <Button size="icon" className="h-10 w-10 bg-lime hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  }
-                />
-                <TooltipContent side="right">Nueva venta</TooltipContent>
-              </Tooltip>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="cta-full"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Link href="/dashboard/catalogo">
-                <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
-                  <Zap className="h-4 w-4" />
-                  Nueva venta
-                </Button>
-              </Link>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {showSalesCta && (
+        <div className={cn("px-3 pt-4 overflow-hidden", isCollapsed && "lg:flex lg:justify-center lg:px-0")}>
+          <AnimatePresence initial={false}>
+            {isCollapsed ? (
+              <motion.div
+                key="cta-icon"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                className="hidden lg:flex lg:justify-center"
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Link href="/dashboard/catalogo" className="inline-flex">
+                        <Button size="icon" className="h-10 w-10 bg-lime hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    }
+                  />
+                  <TooltipContent side="right">Nueva venta</TooltipContent>
+                </Tooltip>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="cta-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Link href="/dashboard/catalogo">
+                  <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
+                    <Zap className="h-4 w-4" />
+                    Nueva venta
+                  </Button>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       <div className="mx-4 my-4 border-t border-white/10" />
 
       {/* ── Nav links ── */}
       <nav className="flex flex-1 flex-col gap-1 p-3 pt-2">
-        {navLinks.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
+        {navLinks.map(({ href, label, icon: Icon }, index) => {
+          const active = index === activeNavIndex
 
           return (
-            <Tooltip key={href} disabled={!isCollapsed}>
+            <Tooltip key={`${href}-${label}`} disabled={!isCollapsed}>
               <TooltipTrigger render={<div className="w-full" />}>
                 <Link
                   href={href}

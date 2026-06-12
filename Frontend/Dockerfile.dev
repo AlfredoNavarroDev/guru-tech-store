@@ -1,8 +1,6 @@
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-COPY entrypoint.dev.sh /entrypoint.dev.sh
-RUN chmod +x /entrypoint.dev.sh
+RUN npm ci
 EXPOSE 3000
-ENTRYPOINT ["/entrypoint.dev.sh"]
 CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]

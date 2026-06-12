@@ -1135,8 +1135,11 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
             COALESCE(OLD.id_sede::text,'NULL') || ' → ' ||
             COALESCE(NEW.id_sede::text,'NULL') || '; ';
         END IF;
-        IF OLD.sueldo_semanal_soles IS DISTINCT FROM NEW.sueldo_semanal_soles THEN
-          v_detalle := v_detalle || 'sueldo: ' || OLD.sueldo_semanal_soles || ' → ' || NEW.sueldo_semanal_soles || '; ';
+        IF OLD.sueldo_soles IS DISTINCT FROM NEW.sueldo_soles THEN
+          v_detalle := v_detalle || 'sueldo: ' || OLD.sueldo_soles || ' → ' || NEW.sueldo_soles || '; ';
+        END IF;
+        IF OLD.frecuencia_pago IS DISTINCT FROM NEW.frecuencia_pago THEN
+          v_detalle := v_detalle || 'frecuencia_pago: ' || OLD.frecuencia_pago || ' → ' || NEW.frecuencia_pago || '; ';
         END IF;
         IF OLD.nombre_completo IS DISTINCT FROM NEW.nombre_completo THEN
           v_detalle := v_detalle || 'nombre: ' || OLD.nombre_completo || ' → ' || NEW.nombre_completo || '; ';
@@ -1452,7 +1455,8 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
           e.nro_documento,
           e.telefono,
           e.estado,
-          e.sueldo_semanal_soles,
+          e.sueldo_soles,
+          e.frecuencia_pago,
           e.es_extranjero,
           STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
           e.created_by,
@@ -1465,7 +1469,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
       GROUP BY e.id_empleado, s.id_sede, s.nombre,
                e.nombre_completo, e.tipo_documento, e.nro_documento,
-               e.telefono, e.estado, e.sueldo_semanal_soles, e.es_extranjero,
+               e.telefono, e.estado, e.sueldo_soles, e.frecuencia_pago, e.es_extranjero,
                e.created_by, ec.nombre_completo, e.created_at
     `);
 
@@ -1594,7 +1598,8 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
           e.nro_documento,
           e.telefono,
           e.estado,
-          e.sueldo_semanal_soles,
+          e.sueldo_soles,
+          e.frecuencia_pago,
           STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
           e.created_by,
           ec.nombre_completo                                          AS creado_por,
@@ -1606,7 +1611,7 @@ export class AddViewsAndTriggers1780537051249 implements MigrationInterface {
       LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
       GROUP BY e.id_empleado, e.id_sede, s.nombre,
                e.nombre_completo, e.tipo_documento, e.nro_documento,
-               e.telefono, e.estado, e.sueldo_semanal_soles,
+               e.telefono, e.estado, e.sueldo_soles, e.frecuencia_pago,
                e.created_by, ec.nombre_completo, e.created_at
     `);
 

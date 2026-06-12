@@ -17,9 +17,9 @@ export class AuthResponseDto {
   @ApiProperty({ description: 'Rol del empleado' })
   rol: string;
 
-  // ID numérico de sede para filtrado multi-sede.
-  @ApiProperty({ description: 'ID de la sede del empleado' })
-  id_sede: number;
+  // ID numérico de sede para filtrado multi-sede. Null para propietario (sin sede fija).
+  @ApiProperty({ description: 'ID de la sede del empleado', nullable: true })
+  id_sede: number | null;
 
   // Nombre legible de la sede para UI.
   @ApiProperty({ description: 'Nombre de la sede del empleado' })

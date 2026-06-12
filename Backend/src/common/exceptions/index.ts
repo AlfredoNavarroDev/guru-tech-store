@@ -4,3 +4,6 @@ export * from './auth.exceptions';
 export * from './clientes.exceptions';
 export * from './empleados.exceptions';
 export * from './ventas.exceptions';
+export * from './items.exceptions';
+export * from './proveedores.exceptions';
+export * from './compras.exceptions';

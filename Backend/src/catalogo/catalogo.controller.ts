@@ -26,6 +26,6 @@ export class CatalogoController {
     @CurrentUser() user: JwtPayload,
     @Query() query: QueryCatalogoDto,
   ): Promise<object[]> {
-    return this.catalogoService.findAll(user.id_sede, query);
+    return this.catalogoService.findAll(user.id_sede!, query);
   }
 }

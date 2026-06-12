@@ -1,3 +1,5 @@
+import { normalizeSession } from './session'
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'
 
 export class ApiError extends Error {
@@ -49,7 +51,7 @@ async function tryRefresh(): Promise<string | null> {
 
     const raw = localStorage.getItem('guru_auth')
     if (raw) {
-      const session = JSON.parse(raw)
+      const session = normalizeSession(JSON.parse(raw))
       session.access_token = data.access_token
       localStorage.setItem('guru_auth', JSON.stringify(session))
       document.cookie = `guru_token=${data.access_token}; path=/; SameSite=Strict`

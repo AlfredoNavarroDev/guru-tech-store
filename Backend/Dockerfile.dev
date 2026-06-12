@@ -17,8 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 WORKDIR /app
 COPY package*.json ./
-COPY entrypoint.dev.sh /entrypoint.dev.sh
-RUN chmod +x /entrypoint.dev.sh
+RUN npm ci
 EXPOSE 3001
-ENTRYPOINT ["/entrypoint.dev.sh"]
 CMD ["npm", "run", "start:dev"]

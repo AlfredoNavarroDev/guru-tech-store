@@ -34,9 +34,10 @@ export async function seedMaster(qr: QueryRunner): Promise<void> {
     (2, 'Apple'),
     (3, 'Anker'),
     (4, 'Xiaomi'),
-    (5, 'Genérico')
+    (5, 'Genérico'),
+    (6, 'Huawei')
   `);
-  console.log('  OK - 5 marcas');
+  console.log('  OK - 6 marcas');
 
   // Categorías usadas por v_vendedor_catalogo
   console.log('  Insertando Categorias...');
@@ -57,7 +58,7 @@ export async function seedMaster(qr: QueryRunner): Promise<void> {
     `SELECT setval(pg_get_serial_sequence('Roles',      'id_rol'),        5)`,
   );
   await qr.query(
-    `SELECT setval(pg_get_serial_sequence('Marcas',     'id_marca'),      5)`,
+    `SELECT setval(pg_get_serial_sequence('Marcas',     'id_marca'),      6)`,
   );
   await qr.query(
     `SELECT setval(pg_get_serial_sequence('Categorias', 'id_categoria'),  4)`,

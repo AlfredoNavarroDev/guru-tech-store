@@ -5,16 +5,15 @@ import { useRouter, usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
-
-interface AuthSession {
-  nombre: string
-  id_sede: number
-  roles: string[]
-  sede: string
-}
+import { getSession, clearSession, type AuthSession } from "@/lib/api/auth"
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Resumen",
+  "/dashboard/vendedor": "Resumen",
+  "/dashboard/admin": "Admin",
+  "/dashboard/admin/empleados": "Empleados",
+  "/dashboard/abastecedor": "Abastecimiento",
+  "/dashboard/tecnico": "Servicio técnico",
   "/dashboard/catalogo": "Catálogo",
   "/dashboard/catalogo/carrito": "Carrito",
   "/dashboard/ventas": "Ventas",
@@ -33,7 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const raw = localStorage.getItem("guru_auth")
       if (!raw) { router.push("/login"); return }
       try {
-        setSession(JSON.parse(raw) as AuthSession)
+        const currentSession = getSession()
+        if (!currentSession) { router.push("/login"); return }
+        setSession(currentSession)
       } catch {
         router.push("/login")
       }
@@ -53,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }).catch(() => {})
       }
     } finally {
-      localStorage.clear()
+      clearSession()
       router.push("/login")
     }
   }

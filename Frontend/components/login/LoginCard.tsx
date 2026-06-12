@@ -40,8 +40,9 @@ export function LoginCard() {
       const session = await loginApi({ nro_documento: nro_documento.trim(), password })
       saveSession(session, session.refresh_token)
       const roleRoutes: Record<string, string> = {
-        vendedor:    '/dashboard',
+        vendedor:    '/dashboard/vendedor',
         admin:       '/dashboard/admin',
+        administrador: '/dashboard/admin',
         abastecedor: '/dashboard/abastecedor',
         tecnico:     '/dashboard/tecnico',
         propietario: '/dashboard',

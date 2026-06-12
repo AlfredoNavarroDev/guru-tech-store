@@ -5,7 +5,7 @@ import { QueryRunner } from 'typeorm';
 export async function seedCatalogo(qr: QueryRunner): Promise<void> {
   console.log('\n[Seed 04] Catálogo...');
 
-  // Solo productos (tipo='producto')
+  // Productos (tipo='producto')
   console.log('  Insertando Items (productos)...');
   await qr.query(`
     INSERT INTO Items
@@ -26,26 +26,51 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
     '  OK - 9 productos (ids 1-6 con promo, ids 7-9 sin promo activa)',
   );
 
-  console.log('  Insertando item_categorias...');
+  // Repuestos (tipo='repuesto') — calidad solo en repuestos (chk_calidad_solo_repuesto)
+  console.log('  Insertando Items (repuestos)...');
+  await qr.query(`
+    INSERT INTO Items
+      (id_item, tipo, sku, nombre, id_marca, modelo, calidad,
+       precio_compra_actual, precio_venta_actual)
+    VALUES
+      (10, 'repuesto', 'REP-001', 'Pantalla Samsung Galaxy S24',   1, 'Galaxy S24',      'original',    120.00, 220.00),
+      (11, 'repuesto', 'REP-002', 'Pantalla Apple iPhone 15',      2, 'iPhone 15',        'original',    180.00, 320.00),
+      (12, 'repuesto', 'REP-003', 'Pantalla Xiaomi Redmi Note 12', 4, 'Redmi Note 12',   'alternativa',  55.00, 110.00),
+      (13, 'repuesto', 'REP-004', 'Batería Samsung Galaxy S24',    1, 'Galaxy S24',      'original',     35.00,  75.00),
+      (14, 'repuesto', 'REP-005', 'Batería Apple iPhone 15',       2, 'iPhone 15',        'original',     45.00,  95.00),
+      (15, 'repuesto', 'REP-006', 'Batería Huawei P30 Pro',        6, 'P30 Pro',         'alternativa',  25.00,  55.00)
+  `);
+  console.log('  OK - 6 repuestos (ids 10-15)');
+
+  // item_categorias: productos pueden tener N categorías (M:N, mínimo 1 para tipo='producto').
+  // Repuestos no requieren categoría (trigger chk solo aplica a tipo='producto').
+  console.log('  Insertando item_categorias (multi-categoría)...');
   await qr.query(`
     INSERT INTO item_categorias (id_item, id_categoria) VALUES
-    (1, 1),
-    (2, 1),
+    -- Cable USB-C: Cables y Cargadores + Accesorios
+    (1, 1), (1, 4),
+    -- Cargador 20W: Cables y Cargadores + Accesorios
+    (2, 1), (2, 4),
+    -- Fundas: solo Fundas y Protectores
     (3, 2),
     (4, 2),
-    (5, 3),
-    (6, 4),
+    -- Auriculares: Auriculares + Accesorios
+    (5, 3), (5, 4),
+    -- Power Bank: Cables y Cargadores + Accesorios
+    (6, 1), (6, 4),
+    -- Accesorios varios: solo Accesorios
     (7, 4),
     (8, 4),
     (9, 4)
   `);
-  console.log('  OK - item_categorias asignadas');
+  console.log('  OK - 13 filas item_categorias (4 productos con 2 categorías, 5 con 1)');
 
-  // Insert directo (sin trigger compras). 50 uds x item/sede, stock_minimo=5.
+  // Insert directo (sin trigger compras). Productos: 50 uds; repuestos: 30 uds, stock_minimo=3.
   console.log(
     '  Insertando Inventario_Sedes (insert directo, sin trigger compras)...',
   );
   const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const repuestos = [10, 11, 12, 13, 14, 15];
   const sedes = [1, 2];
   for (const idSede of sedes) {
     for (const idItem of items) {
@@ -55,9 +80,18 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
         [idSede, idItem],
       );
     }
+    for (const idItem of repuestos) {
+      await qr.query(
+        `INSERT INTO Inventario_Sedes (id_sede, id_item, cantidad_actual, stock_minimo)
+         VALUES ($1, $2, 30, 3)`,
+        [idSede, idItem],
+      );
+    }
   }
   console.log(
-    `  OK - ${items.length * sedes.length} registros de inventario (${items.length} items × ${sedes.length} sedes, 50 uds c/u)`,
+    `  OK - ${(items.length + repuestos.length) * sedes.length} registros de inventario` +
+    ` (${items.length} productos × ${sedes.length} sedes: 50 uds c/u;` +
+    ` ${repuestos.length} repuestos × ${sedes.length} sedes: 30 uds c/u)`,
   );
 
   // 8 tipos para cubrir todas las ramas de filtrado de v_vendedor_catalogo
@@ -183,7 +217,7 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
 
   // Ajustar secuencias para no colisionar con ids fijos del seed
   await qr.query(
-    `SELECT setval(pg_get_serial_sequence('Items',       'id_item'),       9)`,
+    `SELECT setval(pg_get_serial_sequence('Items',       'id_item'),       15)`,
   );
   await qr.query(
     `SELECT setval(pg_get_serial_sequence('Promociones', 'id_promocion'),  8)`,

@@ -61,7 +61,8 @@ CREATE TABLE Empleados (
   nro_documento varchar(30) NOT NULL,
   nombre_completo varchar(150) NOT NULL,
   telefono varchar(20),
-  sueldo_semanal_soles decimal(10, 2) NOT NULL CHECK (sueldo_semanal_soles >= 0),
+  sueldo_soles decimal(10, 2) NOT NULL CHECK (sueldo_soles >= 0),
+  frecuencia_pago varchar(20) NOT NULL DEFAULT 'semanal' CHECK (frecuencia_pago IN ('semanal', 'quincenal', 'mensual')),
   estado varchar(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo', 'suspendido')),
   es_extranjero boolean DEFAULT false,
   direccion_completa text,
@@ -75,7 +76,7 @@ CREATE TABLE Empleados (
   CONSTRAINT chk_nro_doc_len_empleado CHECK (
     (tipo_documento = 'DNI'       AND char_length(nro_documento) = 8)
     OR (tipo_documento = 'CE'        AND char_length(nro_documento) = 12)
-    OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) = 9)
+    OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) BETWEEN 6 AND 9)
   )
 );
 
@@ -93,7 +94,7 @@ CREATE TABLE Clientes (
   CONSTRAINT chk_nro_doc_len_cliente CHECK (
     (tipo_documento = 'DNI'       AND char_length(nro_documento) = 8)
     OR (tipo_documento = 'CE'        AND char_length(nro_documento) = 12)
-    OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) = 9)
+    OR (tipo_documento = 'pasaporte' AND char_length(nro_documento) BETWEEN 6 AND 9)
   )
 );
 

@@ -38,9 +38,9 @@ export class VentasController {
 
   // ── Ventas ────────────────────────────────────────────────────────────
 
-  // HU-04: Registra una venta con sus detalles.
+  // HU-06: Registra una venta con sus detalles.
   @Post()
-  @ApiOperation({ summary: 'HU-04 — Registrar venta con detalles' })
+  @ApiOperation({ summary: 'HU-06 — Registrar venta con detalles' })
   create(
     @Body() dto: CreateVentaDto,
     @CurrentUser() user: JwtPayload,
@@ -48,27 +48,27 @@ export class VentasController {
     return this.ventasService.create(dto, user);
   }
 
-  // HU-08: Historial paginado de ventas del vendedor autenticado.
+  // HU-10: Historial paginado de ventas del vendedor autenticado.
   @Get()
   @ApiOperation({
-    summary: 'HU-08 — Historial de ventas del vendedor (paginado)',
+    summary: 'HU-10 — Historial de ventas del vendedor (paginado)',
   })
   findAll(@CurrentUser() user: JwtPayload, @Query() query: QueryVentasDto) {
     return this.ventasService.findAll(user, query);
   }
 
-  // HU-08: KPIs del día (ventas, ingresos, clientes) + 5 ventas recientes.
+  // HU-10: KPIs del día (ventas, ingresos, clientes) + 5 ventas recientes.
   @Get('estadisticas')
   @ApiOperation({
-    summary: 'HU-08 — KPIs del día: ventas, ingresos, clientes y recientes',
+    summary: 'HU-10 — KPIs del día: ventas, ingresos, clientes y recientes',
   })
   getEstadisticas(@CurrentUser() user: JwtPayload): Promise<ResumenHoyDto> {
     return this.ventasService.getResumenHoy(user);
   }
 
-  // HU-08: Obtiene el detalle completo de una venta.
+  // HU-10: Obtiene el detalle completo de una venta.
   @Get(':id')
-  @ApiOperation({ summary: 'HU-08 — Detalle de una venta' })
+  @ApiOperation({ summary: 'HU-10 — Detalle de una venta' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
@@ -78,9 +78,9 @@ export class VentasController {
 
   // ── Pagos ──────────────────────────────────────────────────────────────
 
-  // HU-04: Registra un pago para una venta (soporta pago mixto con múltiples abonos).
+  // HU-06: Registra un pago para una venta (soporta pago mixto con múltiples abonos).
   @Post(':id/pagos')
-  @ApiOperation({ summary: 'HU-04 — Registrar pago para una venta' })
+  @ApiOperation({ summary: 'HU-06 — Registrar pago para una venta' })
   createPago(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreatePagoVentaDto,
@@ -89,9 +89,9 @@ export class VentasController {
     return this.pagosService.createForVenta(id, dto, user);
   }
 
-  // HU-04: Lista los pagos asociados a una venta.
+  // HU-06: Lista los pagos asociados a una venta.
   @Get(':id/pagos')
-  @ApiOperation({ summary: 'HU-04 — Ver pagos de una venta' })
+  @ApiOperation({ summary: 'HU-06 — Ver pagos de una venta' })
   findPagos(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
@@ -101,10 +101,10 @@ export class VentasController {
 
   // ── Boletas ────────────────────────────────────────────────────────────
 
-  // HU-06: Emite la boleta en PDF para una venta (paso separado de la venta).
+  // HU-08: Emite la boleta en PDF para una venta (paso separado de la venta).
   @Post(':id/boleta')
   @Post(':id/boletas')
-  @ApiOperation({ summary: 'HU-06 — Emitir boleta PDF para una venta' })
+  @ApiOperation({ summary: 'HU-08 — Emitir boleta PDF para una venta' })
   emitirBoleta(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
@@ -112,10 +112,10 @@ export class VentasController {
     return this.boletasService.emitir(id, user);
   }
 
-  // HU-06: Obtiene la boleta ya emitida de una venta.
+  // HU-08: Obtiene la boleta ya emitida de una venta.
   @Get(':id/boleta')
   @Get(':id/boletas')
-  @ApiOperation({ summary: 'HU-06 — Obtener boleta de una venta' })
+  @ApiOperation({ summary: 'HU-08 — Obtener boleta de una venta' })
   findBoleta(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,

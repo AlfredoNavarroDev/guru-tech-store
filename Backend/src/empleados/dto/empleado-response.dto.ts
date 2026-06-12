@@ -41,7 +41,11 @@ export class EmpleadoResponseDto {
 
   @Expose()
   @ApiPropertyOptional({ example: 1200.0, nullable: true })
-  sueldo_semanal_soles: number | null;
+  sueldo_soles: number | null;
+
+  @Expose()
+  @ApiProperty({ example: 'quincenal' })
+  frecuencia_pago: 'semanal' | 'quincenal' | 'mensual';
 
   @Expose()
   @ApiProperty({ example: false })

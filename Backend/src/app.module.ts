@@ -13,6 +13,10 @@ import { EmpleadosModule } from './empleados/empleados.module';
 import { VentasModule } from './ventas/ventas.module';
 import { BoletasModule } from './boletas/boletas.module';
 import { PagosModule } from './pagos/pagos.module';
+import { ItemsModule } from './items/items.module';
+import { StockModule } from './stock/stock.module';
+import { ProveedoresModule } from './proveedores/proveedores.module';
+import { ComprasModule } from './compras/compras.module';
 
 @Module({
   imports: [
@@ -62,6 +66,12 @@ import { PagosModule } from './pagos/pagos.module';
     VentasModule,
     BoletasModule,
     PagosModule,
+
+    // Módulos del Sprint 2.
+    ItemsModule,
+    StockModule,
+    ProveedoresModule,
+    ComprasModule,
   ],
   controllers: [AppController],
   providers: [

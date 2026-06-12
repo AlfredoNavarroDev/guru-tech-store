@@ -1058,8 +1058,11 @@ BEGIN
       COALESCE(OLD.id_sede::text,'NULL') || ' → ' ||
       COALESCE(NEW.id_sede::text,'NULL') || '; ';
   END IF;
-  IF OLD.sueldo_semanal_soles IS DISTINCT FROM NEW.sueldo_semanal_soles THEN
-    v_detalle := v_detalle || 'sueldo: ' || OLD.sueldo_semanal_soles || ' → ' || NEW.sueldo_semanal_soles || '; ';
+  IF OLD.sueldo_soles IS DISTINCT FROM NEW.sueldo_soles THEN
+    v_detalle := v_detalle || 'sueldo: ' || OLD.sueldo_soles || ' → ' || NEW.sueldo_soles || '; ';
+  END IF;
+  IF OLD.frecuencia_pago IS DISTINCT FROM NEW.frecuencia_pago THEN
+    v_detalle := v_detalle || 'frecuencia_pago: ' || OLD.frecuencia_pago || ' → ' || NEW.frecuencia_pago || '; ';
   END IF;
   IF OLD.nombre_completo IS DISTINCT FROM NEW.nombre_completo THEN
     v_detalle := v_detalle || 'nombre: ' || OLD.nombre_completo || ' → ' || NEW.nombre_completo || '; ';

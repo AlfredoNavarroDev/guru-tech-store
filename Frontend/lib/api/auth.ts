@@ -1,12 +1,6 @@
 import { request } from './client'
-
-export interface AuthSession {
-  access_token: string
-  nombre: string
-  rol: string
-  id_sede: number
-  sede: string
-}
+import { normalizeSession, type AuthSession, type StoredSession } from './session'
+export { normalizeSession, type AuthSession } from './session'
 
 export interface LoginPayload {
   nro_documento: string
@@ -25,8 +19,9 @@ export async function loginApi(payload: LoginPayload): Promise<LoginResponse> {
 }
 
 export function saveSession(session: AuthSession, refreshToken?: string): void {
-  localStorage.setItem('guru_auth', JSON.stringify(session))
-  document.cookie = `guru_token=${session.access_token}; path=/; SameSite=Strict`
+  const normalized = normalizeSession(session)
+  localStorage.setItem('guru_auth', JSON.stringify(normalized))
+  document.cookie = `guru_token=${normalized.access_token}; path=/; SameSite=Strict`
   if (refreshToken) localStorage.setItem('guru_refresh_token', refreshToken)
 }
 
@@ -41,7 +36,7 @@ export function getSession(): AuthSession | null {
   const raw = localStorage.getItem('guru_auth')
   if (!raw) return null
   try {
-    return JSON.parse(raw) as AuthSession
+    return normalizeSession(JSON.parse(raw) as StoredSession)
   } catch {
     return null
   }

@@ -107,7 +107,12 @@ LEFT JOIN Clientes c      ON c.id_cliente   = v.id_cliente
 JOIN  Detalle_Venta dv    ON dv.id_venta    = v.id_venta
 JOIN  Items i             ON i.id_item      = dv.id_item
 LEFT JOIN Marcas m        ON m.id_marca     = i.id_marca
-LEFT JOIN Categorias cat  ON cat.id_categoria = i.id_categoria
+LEFT JOIN LATERAL (
+    SELECT string_agg(ca.nombre_categoria, ', ' ORDER BY ca.nombre_categoria) AS nombre_categoria
+    FROM Item_Categorias ic
+    JOIN Categorias ca ON ca.id_categoria = ic.id_categoria
+    WHERE ic.id_item = i.id_item
+) cat ON true
 LEFT JOIN Boletas b       ON b.id_venta     = v.id_venta;
 
 
@@ -179,7 +184,12 @@ FROM Inventario_Sedes inv
 JOIN  Sedes s           ON s.id_sede      = inv.id_sede
 JOIN  Items i           ON i.id_item      = inv.id_item
 LEFT JOIN Marcas m      ON m.id_marca     = i.id_marca
-LEFT JOIN Categorias cat ON cat.id_categoria = i.id_categoria;
+LEFT JOIN LATERAL (
+    SELECT string_agg(ca.nombre_categoria, ', ' ORDER BY ca.nombre_categoria) AS nombre_categoria
+    FROM Item_Categorias ic
+    JOIN Categorias ca ON ca.id_categoria = ic.id_categoria
+    WHERE ic.id_item = i.id_item
+) cat ON true;
 
 
 -- 5. Todos los empleados con sus roles (todas las sedes)
@@ -193,7 +203,8 @@ SELECT
     e.nro_documento,
     e.telefono,
     e.estado,
-    e.sueldo_semanal_soles,
+    e.sueldo_soles,
+    e.frecuencia_pago,
     e.es_extranjero,
     r.nombre_rol              AS rol,
     e.created_by,
@@ -321,7 +332,12 @@ FROM Inventario_Sedes inv
 JOIN  Sedes s           ON s.id_sede      = inv.id_sede
 JOIN  Items i           ON i.id_item      = inv.id_item
 LEFT JOIN Marcas m      ON m.id_marca     = i.id_marca
-LEFT JOIN Categorias cat ON cat.id_categoria = i.id_categoria;
+LEFT JOIN LATERAL (
+    SELECT string_agg(ca.nombre_categoria, ', ' ORDER BY ca.nombre_categoria) AS nombre_categoria
+    FROM Item_Categorias ic
+    JOIN Categorias ca ON ca.id_categoria = ic.id_categoria
+    WHERE ic.id_item = i.id_item
+) cat ON true;
 
 
 -- 9. Empleados por sede con roles
@@ -335,7 +351,8 @@ SELECT
     e.nro_documento,
     e.telefono,
     e.estado,
-    e.sueldo_semanal_soles,
+    e.sueldo_soles,
+    e.frecuencia_pago,
     r.nombre_rol              AS rol,
     e.created_by,
     ec.nombre_completo        AS creado_por,
@@ -378,17 +395,29 @@ JOIN Items i                  ON i.id_item      = dc.id_item;
 
 -- 11. Catálogo de productos con stock y promoción vigente (sin precio de compra)
 CREATE OR REPLACE VIEW v_vendedor_catalogo AS
-WITH promo_vigente AS (
+WITH promociones_candidatas AS (
     SELECT
         COALESCE(pr.id_item_afectado, ic.id_item) AS id_item,
         pr.nombre          AS promo_nombre,
         pr.tipo_descuento  AS promo_tipo,
-        pr.valor_descuento AS promo_valor
+        pr.valor_descuento AS promo_valor,
+        ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(pr.id_item_afectado, ic.id_item)
+            ORDER BY
+                CASE WHEN pr.id_item_afectado IS NOT NULL THEN 0 ELSE 1 END,
+                pr.valor_descuento DESC,
+                pr.id_promocion
+        ) AS prioridad
     FROM Promociones pr
     LEFT JOIN Item_Categorias ic ON ic.id_categoria = pr.id_categoria_afectada
     WHERE pr.estado = 'activa'
       AND (pr.fecha_inicio IS NULL OR pr.fecha_inicio <= CURRENT_DATE)
       AND (pr.fecha_fin    IS NULL OR pr.fecha_fin    >= CURRENT_DATE)
+),
+promo_vigente AS (
+    SELECT id_item, promo_nombre, promo_tipo, promo_valor
+    FROM promociones_candidatas
+    WHERE prioridad = 1
 ),
 categorias_por_item AS (
     SELECT ic.id_item,
@@ -556,7 +585,12 @@ JOIN  Empleados e         ON e.id_empleado  = v.id_empleado
 JOIN  Detalle_Venta dv    ON dv.id_venta    = v.id_venta
 JOIN  Items i             ON i.id_item      = dv.id_item
 LEFT JOIN Marcas m        ON m.id_marca     = i.id_marca
-LEFT JOIN Categorias cat  ON cat.id_categoria = i.id_categoria
+LEFT JOIN LATERAL (
+    SELECT string_agg(ca.nombre_categoria, ', ' ORDER BY ca.nombre_categoria) AS nombre_categoria
+    FROM Item_Categorias ic
+    JOIN Categorias ca ON ca.id_categoria = ic.id_categoria
+    WHERE ic.id_item = i.id_item
+) cat ON true
 LEFT JOIN Boletas b       ON b.id_venta     = v.id_venta
 LEFT JOIN Garantias g     ON g.id_venta     = v.id_venta;
 

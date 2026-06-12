@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -67,18 +68,25 @@ describe('EmpleadosService', () => {
     it('valida', async () => {
       rolesRepo.findOne.mockResolvedValue({ id_rol: 3 });
       empleadosRepo.findOne.mockResolvedValue(null);
+      const dtoConPago = {
+        ...dto,
+        sueldo_soles: 1800,
+        frecuencia_pago: 'quincenal',
+      };
       const saved = {
         id_empleado: 5,
-        ...dto,
+        ...dtoConPago,
         password_hash: 'hashed',
         id_sede: 2,
       };
       empleadosRepo.create.mockReturnValue(saved);
       empleadosRepo.save.mockResolvedValue(saved);
 
-      const result = await service.create(dto, mockUser);
+      const result = await service.create(dtoConPago, mockUser);
 
       expect(result.id_empleado).toBe(5);
+      expect(result.sueldo_soles).toBe(1800);
+      expect(result.frecuencia_pago).toBe('quincenal');
       expect(result).not.toHaveProperty('password_hash');
       expect(empleadosRepo.save).toHaveBeenCalledTimes(1);
       // password field debe no aparecer en create() (se reemplaza por password_hash)
@@ -88,6 +96,46 @@ describe('EmpleadosService', () => {
       >;
       expect(createCall).not.toHaveProperty('password');
       expect(createCall).toHaveProperty('password_hash');
+      expect(createCall).toMatchObject({
+        sueldo_soles: 1800,
+        frecuencia_pago: 'quincenal',
+      });
+    });
+
+    it('acepta pasaporte de 6 caracteres', async () => {
+      rolesRepo.findOne.mockResolvedValue({ id_rol: 3 });
+      empleadosRepo.findOne.mockResolvedValue(null);
+      const passportDto = {
+        ...dto,
+        tipo_documento: 'pasaporte',
+        nro_documento: 'A12345',
+        password: 'A12345',
+      };
+      const saved = {
+        id_empleado: 6,
+        ...passportDto,
+        password_hash: 'hashed',
+        id_sede: 2,
+      };
+      empleadosRepo.create.mockReturnValue(saved);
+      empleadosRepo.save.mockResolvedValue(saved);
+
+      await service.create(passportDto, mockUser);
+
+      expect(empleadosRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('rechaza documento con formato invalido', async () => {
+      let caught: Error | undefined;
+      try {
+        await service.create({ ...dto, nro_documento: '123' }, mockUser);
+      } catch (e) {
+        caught = e as Error;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect(rolesRepo.findOne).not.toHaveBeenCalled();
+      expect(empleadosRepo.save).not.toHaveBeenCalled();
     });
 
     it('valida', async () => {

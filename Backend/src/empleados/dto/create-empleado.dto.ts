@@ -41,11 +41,11 @@ export class CreateEmpleadoDto {
   id_rol: number;
 
   @ApiProperty({
-    example: 'Contraseña123',
-    description: 'Contraseña inicial (mínimo 8 caracteres)',
+    example: '12345678',
+    description: 'Contraseña inicial. Por defecto usa el número de documento.',
   })
   @IsString()
-  @MinLength(8)
+  @MinLength(6)
   @MaxLength(100)
   password: string;
 
@@ -60,11 +60,20 @@ export class CreateEmpleadoDto {
 
   @ApiPropertyOptional({
     example: 1200.0,
-    description: 'Sueldo semanal en soles',
+    description: 'Sueldo en soles',
   })
   @IsOptional()
   @IsPositive()
-  sueldo_semanal_soles?: number;
+  sueldo_soles?: number;
+
+  @ApiPropertyOptional({
+    example: 'quincenal',
+    description: "Frecuencia de pago: 'semanal', 'quincenal' o 'mensual'",
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['semanal', 'quincenal', 'mensual'])
+  frecuencia_pago?: 'semanal' | 'quincenal' | 'mensual';
 
   @ApiPropertyOptional({
     example: false,

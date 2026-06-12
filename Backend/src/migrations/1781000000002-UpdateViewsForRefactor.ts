@@ -16,7 +16,8 @@ export class UpdateViewsForRefactor1781000000002 implements MigrationInterface {
           e.nro_documento,
           e.telefono,
           e.estado,
-          e.sueldo_semanal_soles,
+          e.sueldo_soles,
+          e.frecuencia_pago,
           e.es_extranjero,
           r.nombre_rol              AS rol,
           e.created_by,
@@ -40,7 +41,8 @@ export class UpdateViewsForRefactor1781000000002 implements MigrationInterface {
           e.nro_documento,
           e.telefono,
           e.estado,
-          e.sueldo_semanal_soles,
+          e.sueldo_soles,
+          e.frecuencia_pago,
           r.nombre_rol              AS rol,
           e.created_by,
           ec.nombre_completo        AS creado_por,
@@ -151,7 +153,8 @@ export class UpdateViewsForRefactor1781000000002 implements MigrationInterface {
           e.nro_documento,
           e.telefono,
           e.estado,
-          e.sueldo_semanal_soles,
+          e.sueldo_soles,
+          e.frecuencia_pago,
           e.es_extranjero,
           STRING_AGG(r.nombre_rol, ', ' ORDER BY r.nombre_rol)        AS roles,
           e.created_by,
@@ -164,7 +167,7 @@ export class UpdateViewsForRefactor1781000000002 implements MigrationInterface {
       LEFT JOIN Empleados ec      ON ec.id_empleado = e.created_by
       GROUP BY e.id_empleado, s.id_sede, s.nombre,
                e.nombre_completo, e.tipo_documento, e.nro_documento,
-               e.telefono, e.estado, e.sueldo_semanal_soles, e.es_extranjero,
+               e.telefono, e.estado, e.sueldo_soles, e.frecuencia_pago, e.es_extranjero,
                e.created_by, ec.nombre_completo, e.created_at
     `);
     // (other view rollbacks omitted — run down() of migration 1781000000001 first)

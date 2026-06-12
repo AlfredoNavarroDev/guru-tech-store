@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -33,6 +33,7 @@ export class EmpleadosService {
     dto: CreateEmpleadoDto,
     currentUser: JwtPayload,
   ): Promise<EmpleadoResponseDto> {
+    this.validateDocumentoFormato(dto.tipo_documento, dto.nro_documento);
     await this.validateRolExists(dto.id_rol);
     await this.validateDocumentoUnico(dto.tipo_documento, dto.nro_documento);
 
@@ -43,9 +44,10 @@ export class EmpleadosService {
       nombre_completo: dto.nombre_completo,
       id_rol: dto.id_rol,
       password_hash,
-      id_sede: currentUser.id_sede,
+      id_sede: currentUser.id_sede!,
       telefono: dto.telefono ?? null,
-      sueldo_semanal_soles: dto.sueldo_semanal_soles ?? null,
+      sueldo_soles: dto.sueldo_soles ?? null,
+      frecuencia_pago: dto.frecuencia_pago ?? 'semanal',
       es_extranjero: dto.es_extranjero ?? false,
       direccion_completa: dto.direccion_completa ?? null,
       created_by: currentUser.sub,
@@ -59,7 +61,7 @@ export class EmpleadosService {
   ): Promise<PaginatedResult<EmpleadoResponseDto>> {
     const qb = this.empleadosRepo
       .createQueryBuilder('e')
-      .where('e.id_sede = :id_sede', { id_sede: currentUser.id_sede })
+      .where('e.id_sede = :id_sede', { id_sede: currentUser.id_sede! })
       .orderBy('e.nombre_completo', 'ASC')
       .skip((query.page - 1) * query.limit)
       .take(query.limit);
@@ -88,7 +90,7 @@ export class EmpleadosService {
     currentUser: JwtPayload,
   ): Promise<EmpleadoResponseDto> {
     const empleado = await this.empleadosRepo.findOne({
-      where: { id_empleado: id, id_sede: currentUser.id_sede },
+      where: { id_empleado: id, id_sede: currentUser.id_sede! },
     });
     if (!empleado) throw new EmpleadoNotFoundException(id);
     return this.toResponse(empleado);
@@ -141,7 +143,7 @@ export class EmpleadosService {
     currentUser: JwtPayload,
   ): Promise<Empleado> {
     const empleado = await this.empleadosRepo.findOne({
-      where: { id_empleado: id, id_sede: currentUser.id_sede },
+      where: { id_empleado: id, id_sede: currentUser.id_sede! },
     });
     if (!empleado) throw new EmpleadoNotFoundException(id);
     return empleado;
@@ -166,5 +168,21 @@ export class EmpleadosService {
       where: { tipo_documento, nro_documento },
     });
     if (exists) throw new EmpleadoDocumentoDuplicadoException();
+  }
+
+  private validateDocumentoFormato(
+    tipo_documento: string,
+    nro_documento: string,
+  ): void {
+    const validators: Record<string, RegExp> = {
+      DNI: /^\d{8}$/,
+      CE: /^\d{12}$/,
+      pasaporte: /^[a-zA-Z0-9]{6,9}$/,
+    };
+    if (!validators[tipo_documento]?.test(nro_documento)) {
+      throw new BadRequestException(
+        'Documento inválido: DNI 8 dígitos, CE 12 dígitos, pasaporte 6 a 9 caracteres alfanuméricos.',
+      );
+    }
   }
 }

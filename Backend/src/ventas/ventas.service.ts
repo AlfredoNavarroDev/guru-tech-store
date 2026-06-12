@@ -88,7 +88,7 @@ export class VentasService {
           id_cliente: dto.id_cliente ?? null,
           // id_empleado e id_sede desde JWT → vendedor no puede falsear sede.
           id_empleado: user.sub,
-          id_sede: user.id_sede,
+          id_sede: user.id_sede!,
           monto_descuento: dto.monto_descuento ?? 0,
           tipo_descuento: dto.tipo_descuento ?? null,
           justificacion_descuento: dto.justificacion_descuento ?? null,
