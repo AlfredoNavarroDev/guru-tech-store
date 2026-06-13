@@ -8,6 +8,7 @@ export interface StockActual {
   sku: string
   item: string
   tipo: string
+  id_marca: number | null
   marca: string | null
   categoria: string | null
   modelo: string | null
@@ -34,8 +35,30 @@ export interface StockCritico {
   precio_compra_actual: number
 }
 
-export function getStock() {
-  return authRequest<StockActual[]>('stock')
+export interface StockResponse {
+  items: StockActual[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export function getStock(params?: {
+  tipo?: 'producto' | 'repuesto'
+  id_marca?: number
+  requiere_reposicion?: boolean
+  page?: number
+  limit?: number
+}) {
+  const qs = new URLSearchParams()
+  if (params?.tipo)     qs.set('tipo',     params.tipo)
+  if (params?.id_marca) qs.set('id_marca', String(params.id_marca))
+  if (params?.requiere_reposicion !== undefined)
+    qs.set('requiere_reposicion', String(params.requiere_reposicion))
+  if (params?.page)  qs.set('page',  String(params.page))
+  if (params?.limit) qs.set('limit', String(params.limit))
+  const query = qs.toString()
+  return authRequest<StockResponse>(`stock${query ? `?${query}` : ''}`)
 }
 
 export function getStockCritico() {

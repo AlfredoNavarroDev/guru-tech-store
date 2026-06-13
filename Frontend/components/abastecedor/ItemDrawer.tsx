@@ -30,6 +30,8 @@ const EMPTY: CreateItemPayload = {
   precio_compra_actual: 0,
   precio_venta_actual: 0,
   categoria_ids: [],
+  stock_minimo: 0,
+  cantidad_inicial: 0,
 }
 
 export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
@@ -181,6 +183,30 @@ export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
                 onChange={(e) => set('precio_venta_actual', parseFloat(e.target.value) || 0)}
               />
             </div>
+            <div>
+              <label className={labelCls}>Stock mínimo</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                className={inputCls}
+                value={form.stock_minimo ?? 0}
+                onChange={(e) => set('stock_minimo', parseInt(e.target.value) || 0)}
+              />
+            </div>
+            {!item && (
+              <div>
+                <label className={labelCls}>Stock inicial</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className={inputCls}
+                  value={form.cantidad_inicial ?? 0}
+                  onChange={(e) => set('cantidad_inicial', parseInt(e.target.value) || 0)}
+                />
+              </div>
+            )}
           </div>
 
           {categorias.length > 0 && (

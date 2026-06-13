@@ -47,7 +47,8 @@ export interface CreateItemPayload {
   modelo?: string
   calidad?: string
   especificaciones?: Record<string, unknown>
-  stock_inicial?: number
+  stock_minimo?: number
+  cantidad_inicial?: number
 }
 
 export interface UpdateItemPayload extends Partial<CreateItemPayload> {}
@@ -59,14 +60,16 @@ export function getItems(params?: {
   nombre?: string
   sku?: string
   categoria_id?: number
+  id_marca?: number
 }) {
   const qs = new URLSearchParams()
-  if (params?.page)        qs.set('page',        String(params.page))
-  if (params?.limit)       qs.set('limit',       String(params.limit))
-  if (params?.tipo)        qs.set('tipo',        params.tipo)
-  if (params?.nombre)      qs.set('nombre',      params.nombre)
-  if (params?.sku)         qs.set('sku',         params.sku)
+  if (params?.page)         qs.set('page',         String(params.page))
+  if (params?.limit)        qs.set('limit',        String(params.limit))
+  if (params?.tipo)         qs.set('tipo',         params.tipo)
+  if (params?.nombre)       qs.set('nombre',       params.nombre)
+  if (params?.sku)          qs.set('sku',          params.sku)
   if (params?.categoria_id) qs.set('categoria_id', String(params.categoria_id))
+  if (params?.id_marca)     qs.set('id_marca',     String(params.id_marca))
   return authRequest<ItemsResponse>(`items?${qs}`)
 }
 

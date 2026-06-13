@@ -16,10 +16,10 @@ export function StockOverview() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getStockCritico(), getStock()])
-      .then(([c, s]) => {
+    Promise.all([getStockCritico(), getStock({ limit: 200 })])
+      .then(([c, res]) => {
         setCriticos(c)
-        setStock(s)
+        setStock(res.items)
       })
       .catch((e: ApiError) => toast.error(e.message ?? "Error cargando inventario"))
       .finally(() => setLoading(false))
