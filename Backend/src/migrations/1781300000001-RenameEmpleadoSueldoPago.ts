@@ -1,13 +1,13 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RenameEmpleadoSueldoPago1781300000001
-  implements MigrationInterface
-{
+export class RenameEmpleadoSueldoPago1781300000001 implements MigrationInterface {
   name = 'RenameEmpleadoSueldoPago1781300000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Drop views that reference the old column name before renaming
-    await queryRunner.query(`DROP VIEW IF EXISTS v_propietario_empleados_global`);
+    await queryRunner.query(
+      `DROP VIEW IF EXISTS v_propietario_empleados_global`,
+    );
     await queryRunner.query(`DROP VIEW IF EXISTS v_gerente_empleados`);
 
     // Idempotent: only rename if old column still exists (skip on fresh installs)
@@ -80,7 +80,9 @@ export class RenameEmpleadoSueldoPago1781300000001
     queryRunner: QueryRunner,
     includeFrecuencia: boolean,
   ): Promise<void> {
-    const frecuencia = includeFrecuencia ? '          e.frecuencia_pago,\n' : '';
+    const frecuencia = includeFrecuencia
+      ? '          e.frecuencia_pago,\n'
+      : '';
 
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_propietario_empleados_global AS

@@ -3,7 +3,10 @@ import { Type } from 'class-transformer';
 import { IsInt, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class UpdateItemCompraDto {
-  @ApiProperty({ example: 3, description: 'Nueva cantidad. Trigger ajusta delta en stock.' })
+  @ApiProperty({
+    example: 3,
+    description: 'Nueva cantidad. Trigger ajusta delta en stock.',
+  })
   @IsInt()
   @Min(1)
   cantidad_comprada: number;

@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
-  Boxes, ClipboardList, ShieldCheck, Wrench,
+  Boxes, ClipboardList, ShieldCheck, Wrench, Truck,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
@@ -32,8 +32,11 @@ const roleNavLinks = {
     { href: "/dashboard/admin/empleados", label: "Empleados", icon: UserRound },
   ],
   abastecedor: [
-    { href: "/dashboard/abastecedor", label: "Abastecimiento", icon: Boxes },
-    { href: "/dashboard/abastecedor", label: "Compras", icon: ClipboardList },
+    { href: "/dashboard/abastecedor",            label: "Overview",    icon: LayoutDashboard },
+    { href: "/dashboard/abastecedor/items",       label: "Catálogo",    icon: Grid3X3 },
+    { href: "/dashboard/abastecedor/stock",       label: "Stock",       icon: Boxes },
+    { href: "/dashboard/abastecedor/compras",     label: "Compras",     icon: ClipboardList },
+    { href: "/dashboard/abastecedor/proveedores", label: "Proveedores", icon: Truck },
   ],
   tecnico: [
     { href: "/dashboard/tecnico", label: "Servicio técnico", icon: Wrench },

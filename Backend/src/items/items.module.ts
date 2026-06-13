@@ -10,7 +10,13 @@ import { InventarioSede } from './entities/inventario-sede.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Item, Marca, Categoria, ItemCategoria, InventarioSede]),
+    TypeOrmModule.forFeature([
+      Item,
+      Marca,
+      Categoria,
+      ItemCategoria,
+      InventarioSede,
+    ]),
   ],
   controllers: [ItemsController],
   providers: [ItemsService],

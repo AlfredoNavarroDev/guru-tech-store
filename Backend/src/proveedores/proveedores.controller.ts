@@ -52,7 +52,9 @@ export class ProveedoresController {
   @ApiOperation({ summary: 'Obtener proveedor por ID' })
   @ApiOkResponse({ type: ProveedorResponseDto })
   @ApiNotFoundResponse()
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<ProveedorResponseDto> {
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ProveedorResponseDto> {
     return this.proveedoresService.findOne(id);
   }
 

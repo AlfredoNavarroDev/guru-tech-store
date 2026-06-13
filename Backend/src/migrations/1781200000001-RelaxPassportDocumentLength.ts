@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RelaxPassportDocumentLength1781200000001
-  implements MigrationInterface
-{
+export class RelaxPassportDocumentLength1781200000001 implements MigrationInterface {
   name = 'RelaxPassportDocumentLength1781200000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

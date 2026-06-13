@@ -43,7 +43,10 @@ export class CreateItemDto {
   @MaxLength(100)
   modelo?: string;
 
-  @ApiPropertyOptional({ example: 'original', description: 'Solo para tipo=repuesto' })
+  @ApiPropertyOptional({
+    example: 'original',
+    description: 'Solo para tipo=repuesto',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(30)

@@ -45,7 +45,9 @@ describe('StockService', () => {
   });
 
   it('findCritico: retorna solo ítems bajo mínimo desde v_abastecedor_stock_critico', async () => {
-    ds.query.mockResolvedValueOnce([{ ...mockStockRow, requiere_reposicion: true }]);
+    ds.query.mockResolvedValueOnce([
+      { ...mockStockRow, requiere_reposicion: true },
+    ]);
 
     const result = await service.findCritico(1);
 

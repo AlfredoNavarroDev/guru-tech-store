@@ -19,5 +19,6 @@ export class CompraResponseDto {
   @ApiPropertyOptional() proveedor: string | null;
   @ApiProperty() fecha_compra: Date;
   @ApiProperty() costo_total: number;
-  @ApiPropertyOptional({ type: [DetalleCompraResponseDto] }) detalles?: DetalleCompraResponseDto[];
+  @ApiPropertyOptional({ type: [DetalleCompraResponseDto] })
+  detalles?: DetalleCompraResponseDto[];
 }

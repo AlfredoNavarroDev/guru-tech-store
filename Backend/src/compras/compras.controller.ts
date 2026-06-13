@@ -54,10 +54,7 @@ export class ComprasController {
   @Get()
   @ApiOperation({ summary: 'Historial de compras de la sede' })
   @ApiOkResponse({ type: CompraResponseDto, isArray: true })
-  findAll(
-    @Query() query: PaginationDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  findAll(@Query() query: PaginationDto, @CurrentUser() user: JwtPayload) {
     return this.comprasService.findAll(user, query);
   }
 
@@ -73,8 +70,12 @@ export class ComprasController {
   }
 
   @Post(':id/items')
-  @ApiOperation({ summary: 'HU-11/HU-12 — Agregar ítem a compra (trigger incrementa stock)' })
-  @ApiCreatedResponse({ description: '201 sin body — stock actualizado por trigger' })
+  @ApiOperation({
+    summary: 'HU-11/HU-12 — Agregar ítem a compra (trigger incrementa stock)',
+  })
+  @ApiCreatedResponse({
+    description: '201 sin body — stock actualizado por trigger',
+  })
   @HttpCode(HttpStatus.CREATED)
   addItem(
     @Param('id', ParseIntPipe) id: number,
@@ -85,7 +86,9 @@ export class ComprasController {
   }
 
   @Patch(':id/items/:itemId')
-  @ApiOperation({ summary: 'Modificar cantidad de ítem (trigger ajusta delta en stock)' })
+  @ApiOperation({
+    summary: 'Modificar cantidad de ítem (trigger ajusta delta en stock)',
+  })
   @ApiNoContentResponse()
   @HttpCode(HttpStatus.NO_CONTENT)
   updateItem(

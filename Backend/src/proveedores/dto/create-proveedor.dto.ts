@@ -9,7 +9,10 @@ import {
 } from 'class-validator';
 
 export class CreateProveedorDto {
-  @ApiProperty({ example: '20100070970', description: 'RUC peruano (11 dígitos) o extranjero (max 15)' })
+  @ApiProperty({
+    example: '20100070970',
+    description: 'RUC peruano (11 dígitos) o extranjero (max 15)',
+  })
   @IsString()
   @IsNotEmpty()
   @Length(8, 15)

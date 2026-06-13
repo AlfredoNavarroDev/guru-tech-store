@@ -1,5 +1,10 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -23,7 +28,9 @@ export class StockController {
   }
 
   @Get('critico')
-  @ApiOperation({ summary: 'HU-12 — Ítems bajo stock mínimo ordenados por urgencia' })
+  @ApiOperation({
+    summary: 'HU-12 — Ítems bajo stock mínimo ordenados por urgencia',
+  })
   @ApiOkResponse({ description: 'Datos de v_abastecedor_stock_critico' })
   findCritico(@CurrentUser() user: JwtPayload): Promise<object[]> {
     return this.stockService.findCritico(user.id_sede!);

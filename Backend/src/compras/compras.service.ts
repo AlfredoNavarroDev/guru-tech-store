@@ -6,7 +6,10 @@ import { DetalleCompraRefill } from './entities/detalle-compra-refill.entity';
 import { CreateCompraDto } from './dto/create-compra.dto';
 import { AddItemCompraDto } from './dto/add-item-compra.dto';
 import { UpdateItemCompraDto } from './dto/update-item-compra.dto';
-import { CompraResponseDto, DetalleCompraResponseDto } from './dto/compra-response.dto';
+import {
+  CompraResponseDto,
+  DetalleCompraResponseDto,
+} from './dto/compra-response.dto';
 import { PaginatedResult, PaginationDto } from '../common/dto/pagination.dto';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import {
@@ -47,7 +50,10 @@ export class ComprasService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateCompraDto, user: JwtPayload): Promise<CompraResponseDto> {
+  async create(
+    dto: CreateCompraDto,
+    user: JwtPayload,
+  ): Promise<CompraResponseDto> {
     const compra = this.compraRepo.create({
       id_empleado_refiller: user.sub,
       id_sede_destino: user.id_sede!,
@@ -65,7 +71,10 @@ export class ComprasService {
     }
   }
 
-  async findAll(user: JwtPayload, query: PaginationDto): Promise<PaginatedResult<CompraResponseDto>> {
+  async findAll(
+    user: JwtPayload,
+    query: PaginationDto,
+  ): Promise<PaginatedResult<CompraResponseDto>> {
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
         `SELECT COUNT(*) AS total FROM compras_refill WHERE id_sede_destino = $1`,
@@ -123,10 +132,17 @@ export class ComprasService {
     ]);
 
     if (!compra) throw new CompraNotFoundException(id);
-    return { ...this.toCompraResponse(compra), detalles: detalles.map(this.toDetalleResponse) };
+    return {
+      ...this.toCompraResponse(compra),
+      detalles: detalles.map(this.toDetalleResponse),
+    };
   }
 
-  async addItem(compraId: number, dto: AddItemCompraDto, user: JwtPayload): Promise<void> {
+  async addItem(
+    compraId: number,
+    dto: AddItemCompraDto,
+    user: JwtPayload,
+  ): Promise<void> {
     await this.ensureAccess(compraId, user.id_sede!);
     const detalle = this.detalleRepo.create({ id_compra: compraId, ...dto });
     await this.detalleRepo.save(detalle);
@@ -147,7 +163,9 @@ export class ComprasService {
     Object.assign(detalle, {
       cantidad_comprada: dto.cantidad_comprada,
       ...(dto.costo_unidad !== undefined && { costo_unidad: dto.costo_unidad }),
-      ...(dto.precio_venta_sugerido !== undefined && { precio_venta_sugerido: dto.precio_venta_sugerido }),
+      ...(dto.precio_venta_sugerido !== undefined && {
+        precio_venta_sugerido: dto.precio_venta_sugerido,
+      }),
     });
 
     try {
@@ -161,7 +179,11 @@ export class ComprasService {
     }
   }
 
-  async removeItem(compraId: number, itemId: number, user: JwtPayload): Promise<void> {
+  async removeItem(
+    compraId: number,
+    itemId: number,
+    user: JwtPayload,
+  ): Promise<void> {
     await this.ensureAccess(compraId, user.id_sede!);
     const detalle = await this.detalleRepo.findOne({
       where: { id_compra: compraId, id_item: itemId },

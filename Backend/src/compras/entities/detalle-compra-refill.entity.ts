@@ -1,4 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { CompraRefill } from './compra-refill.entity';
 
 @Entity('detalle_compra_refill')
@@ -18,7 +24,12 @@ export class DetalleCompraRefill {
   @Column({ name: 'costo_unidad', type: 'decimal', precision: 12, scale: 2 })
   costo_unidad: number;
 
-  @Column({ name: 'precio_venta_sugerido', type: 'decimal', precision: 12, scale: 2 })
+  @Column({
+    name: 'precio_venta_sugerido',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+  })
   precio_venta_sugerido: number;
 
   @ManyToOne(() => CompraRefill, (c) => c.detalles)
