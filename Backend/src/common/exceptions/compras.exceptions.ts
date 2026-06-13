@@ -32,3 +32,13 @@ export class SedeDeshabilitadaException extends AppException {
     super('SEDE_DESHABILITADA', message, HttpStatus.CONFLICT);
   }
 }
+
+export class DeadlockException extends AppException {
+  constructor() {
+    super(
+      'DEADLOCK_DETECTADO',
+      'Operación en conflicto, intente de nuevo en unos segundos',
+      HttpStatus.CONFLICT,
+    );
+  }
+}

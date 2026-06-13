@@ -13,6 +13,7 @@ export interface CatalogoItem {
   promo_tipo: string | null
   promo_valor: number | null
   precio_con_descuento: number | null
+  imagen_url: string | null
 }
 
 export interface QueryCatalogo {

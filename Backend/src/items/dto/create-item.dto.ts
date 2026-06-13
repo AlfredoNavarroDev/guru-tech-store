@@ -81,4 +81,24 @@ export class CreateItemDto {
   @IsInt({ each: true })
   @Min(1, { each: true })
   categoria_ids?: number[];
+
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Stock mínimo para alertas de reposición. Default 0.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  stock_minimo?: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'Stock inicial al crear el ítem en la sede. Default 0.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  cantidad_inicial?: number;
 }

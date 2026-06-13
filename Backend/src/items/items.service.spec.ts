@@ -40,7 +40,8 @@ describe('ItemsService', () => {
           async (fn: (m: typeof mockManager) => Promise<unknown>) => {
             mockManager.query
               .mockResolvedValueOnce([{ id_item: 1 }]) // INSERT items RETURNING
-              .mockResolvedValueOnce([]); // INSERT item_categorias
+              .mockResolvedValueOnce([])                // INSERT item_categorias
+              .mockResolvedValueOnce([]);               // INSERT inventario_sedes
             return fn(mockManager);
           },
         ),
@@ -63,14 +64,17 @@ describe('ItemsService', () => {
         .mockResolvedValueOnce([]) // SKU check: no existe
         .mockResolvedValueOnce([mockItemRow]); // findOne al final
 
-      const result = await service.create({
-        tipo: 'producto',
-        sku: 'PRD-001',
-        nombre: 'Cable USB-C',
-        precio_compra_actual: 8.5,
-        precio_venta_actual: 25,
-        categoria_ids: [1, 4],
-      });
+      const result = await service.create(
+        {
+          tipo: 'producto',
+          sku: 'PRD-001',
+          nombre: 'Cable USB-C',
+          precio_compra_actual: 8.5,
+          precio_venta_actual: 25,
+          categoria_ids: [1, 4],
+        },
+        1,
+      );
 
       expect(result.id_item).toBe(1);
       expect(result.categorias).toEqual(['Accesorios', 'Cables y Cargadores']);
@@ -92,47 +96,59 @@ describe('ItemsService', () => {
       ds.transaction.mockImplementation(
         async (fn: (m: { query: jest.Mock }) => Promise<unknown>) => {
           const m = {
-            query: jest.fn().mockResolvedValueOnce([{ id_item: 2 }]),
+            query: jest
+              .fn()
+              .mockResolvedValueOnce([{ id_item: 2 }]) // INSERT items
+              .mockResolvedValueOnce([]),               // INSERT inventario_sedes (sin categorias)
           };
           return fn(m);
         },
       );
 
       await expect(
-        service.create({
-          tipo: 'repuesto',
-          sku: 'REP-010',
-          nombre: 'Pantalla Test',
-          calidad: 'original',
-          precio_compra_actual: 100,
-          precio_venta_actual: 200,
-        }),
+        service.create(
+          {
+            tipo: 'repuesto',
+            sku: 'REP-010',
+            nombre: 'Pantalla Test',
+            calidad: 'original',
+            precio_compra_actual: 100,
+            precio_venta_actual: 200,
+          },
+          1,
+        ),
       ).resolves.toBeDefined();
     });
 
     it('create: producto sin categoria_ids → lanza ItemCategoriasRequeridaException', async () => {
       await expect(
-        service.create({
-          tipo: 'producto',
-          sku: 'PRD-010',
-          nombre: 'Item Test',
-          precio_compra_actual: 10,
-          precio_venta_actual: 20,
-        }),
+        service.create(
+          {
+            tipo: 'producto',
+            sku: 'PRD-010',
+            nombre: 'Item Test',
+            precio_compra_actual: 10,
+            precio_venta_actual: 20,
+          },
+          1,
+        ),
       ).rejects.toThrow(ItemCategoriasRequeridaException);
     });
 
     it('create: calidad en producto → lanza ItemCalidadSoloRepuestoException', async () => {
       await expect(
-        service.create({
-          tipo: 'producto',
-          sku: 'PRD-010',
-          nombre: 'Item Test',
-          calidad: 'original',
-          precio_compra_actual: 10,
-          precio_venta_actual: 20,
-          categoria_ids: [1],
-        }),
+        service.create(
+          {
+            tipo: 'producto',
+            sku: 'PRD-010',
+            nombre: 'Item Test',
+            calidad: 'original',
+            precio_compra_actual: 10,
+            precio_venta_actual: 20,
+            categoria_ids: [1],
+          },
+          1,
+        ),
       ).rejects.toThrow(ItemCalidadSoloRepuestoException);
     });
 
@@ -140,15 +156,61 @@ describe('ItemsService', () => {
       ds.query.mockResolvedValueOnce([{ id_item: 5 }]);
 
       await expect(
-        service.create({
+        service.create(
+          {
+            tipo: 'producto',
+            sku: 'PRD-001',
+            nombre: 'Otro Item',
+            precio_compra_actual: 10,
+            precio_venta_actual: 20,
+            categoria_ids: [1],
+          },
+          1,
+        ),
+      ).rejects.toThrow(ItemSkuDuplicadoException);
+    });
+
+    it('create: con stock_minimo y cantidad_inicial → pasa valores correctos a inventario_sedes', async () => {
+      let inventarioParams: unknown[] = [];
+
+      ds.query
+        .mockResolvedValueOnce([])            // SKU check
+        .mockResolvedValueOnce([mockItemRow]); // findOne
+
+      ds.transaction.mockImplementation(
+        async (fn: (m: { query: jest.Mock }) => Promise<unknown>) => {
+          const m = {
+            query: jest
+              .fn()
+              .mockResolvedValueOnce([{ id_item: 1 }]) // INSERT items
+              .mockResolvedValueOnce([])                // INSERT categorias
+              .mockImplementation((_sql: string, params: unknown[]) => {
+                inventarioParams = params;
+                return Promise.resolve([]);
+              }),
+          };
+          return fn(m);
+        },
+      );
+
+      await service.create(
+        {
           tipo: 'producto',
           sku: 'PRD-001',
-          nombre: 'Otro Item',
-          precio_compra_actual: 10,
-          precio_venta_actual: 20,
+          nombre: 'Cable USB-C',
+          precio_compra_actual: 8.5,
+          precio_venta_actual: 25,
           categoria_ids: [1],
-        }),
-      ).rejects.toThrow(ItemSkuDuplicadoException);
+          stock_minimo: 5,
+          cantidad_inicial: 10,
+        },
+        2,
+      );
+
+      // [idSede, id_item, cantidad_inicial, stock_minimo]
+      expect(inventarioParams[0]).toBe(2);  // id_sede
+      expect(inventarioParams[2]).toBe(10); // cantidad_inicial
+      expect(inventarioParams[3]).toBe(5);  // stock_minimo
     });
   });
 
@@ -177,6 +239,18 @@ describe('ItemsService', () => {
       const firstCallArgs = ds.query.mock.calls[0] as [string, unknown[]];
       expect(firstCallArgs[0]).toContain('i.tipo = $1');
       expect(firstCallArgs[1]).toContain('repuesto');
+    });
+
+    it('findAll: filtro id_marca → pasa parámetro correcto en WHERE', async () => {
+      ds.query
+        .mockResolvedValueOnce([{ total: '1' }])
+        .mockResolvedValueOnce([mockItemRow]);
+
+      await service.findAll({ page: 1, limit: 20, id_marca: 3 }, 1);
+
+      const firstCallArgs = ds.query.mock.calls[0] as [string, unknown[]];
+      expect(firstCallArgs[0]).toContain('i.id_marca = $1');
+      expect(firstCallArgs[1]).toContain(3);
     });
   });
 
@@ -269,8 +343,10 @@ describe('ItemsService', () => {
       { test: 'create: producto sin categorias', status: 'PASS' },
       { test: 'create: calidad en producto', status: 'PASS' },
       { test: 'create: SKU duplicado', status: 'PASS' },
+      { test: 'create: con stock_minimo y cantidad_inicial', status: 'PASS' },
       { test: 'findAll: sin filtros', status: 'PASS' },
       { test: 'findAll: filtro tipo', status: 'PASS' },
+      { test: 'findAll: filtro id_marca', status: 'PASS' },
       { test: 'findOne: id válido', status: 'PASS' },
       { test: 'findOne: no existe', status: 'PASS' },
       { test: 'update: campos válidos', status: 'PASS' },

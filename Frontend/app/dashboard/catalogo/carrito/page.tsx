@@ -6,12 +6,12 @@ import { AnimatePresence, motion } from "motion/react"
 import {
   ArrowLeft,
   Minus,
-  Package,
   Plus,
   ShoppingCart,
   Trash2,
   Zap,
 } from "lucide-react"
+import { ItemImage } from '@/components/ui/item-image'
 import { BlurFade } from "@/components/ui/blur-fade"
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 import { cn, formatNum } from "@/lib/utils"
@@ -26,6 +26,7 @@ interface CartItem {
   cantidad: number
   importe: number
   stock_disponible: number
+  imagen_url?: string | null
 }
 
 const fmt = (n: number) => formatNum(n)
@@ -90,8 +91,9 @@ function CartProductCard({ item, selected, onToggle, onUpdateQty, onRemove, dela
     <BlurFade delay={delay} duration={0.3}>
       <div
         className={cn(
-          "rounded-2xl border bg-white p-4 flex items-center gap-3 transition-all duration-200 cursor-pointer select-none",
-          selected ? "border-gray-200 shadow-sm" : "border-gray-100 opacity-50"
+          "rounded-2xl border bg-white p-4 flex items-center gap-4 transition-all duration-200 cursor-pointer select-none",
+          hasPromo ? "border-blue-200" : "border-gray-200",
+          selected ? "shadow-sm" : "opacity-50"
         )}
         onClick={() => onToggle(item.id_item)}
       >
@@ -125,54 +127,78 @@ function CartProductCard({ item, selected, onToggle, onUpdateQty, onRemove, dela
           )}
         </div>
 
-        {/* Product icon */}
-        <div className="h-12 w-12 shrink-0 rounded-xl bg-gray-50 flex items-center justify-center">
-          <Package className="h-6 w-6 text-gray-300" />
-        </div>
+        {/* Product image */}
+        <ItemImage
+          src={item.imagen_url}
+          alt={item.producto}
+          size="xl"
+          className={hasPromo ? "bg-blue-50" : undefined}
+        />
 
         {/* Product info */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
           <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{item.producto}</p>
-          {hasPromo && (
-            <span className="inline-block mt-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-              Con descuento
-            </span>
+
+          {hasPromo ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 line-through tabular-nums">
+                S/{fmt(item.precio_normal_momento!)}
+              </span>
+              <span className="text-xs font-semibold text-blue-600 tabular-nums">
+                S/ {fmt(item.precio_unitario_momento)} c/u
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500 tabular-nums">S/ {fmt(item.precio_unitario_momento)} c/u</p>
           )}
-          <div className="flex items-center gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
+
+          {hasPromo && (
+            <div className="w-fit rounded-lg bg-blue-100 px-2 py-0.5">
+              <span className="text-xs font-semibold text-blue-600">{discount}</span>
+            </div>
+          )}
+
+          <div
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-1.5 mt-0.5 w-28"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => onUpdateQty(item.id_item, -1)}
-              className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50"
+              className="text-gray-400 hover:text-gray-700 transition-colors"
               aria-label="Reducir cantidad"
             >
-              <Minus className="h-3 w-3" />
+              <Minus className="h-3.5 w-3.5" />
             </button>
-            <span className="w-7 text-center text-sm tabular-nums font-medium text-gray-900">{item.cantidad}</span>
+            <motion.span
+              key={item.cantidad}
+              initial={{ scale: 1.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.14, type: "spring", stiffness: 600, damping: 28 }}
+              className="text-sm font-bold tabular-nums text-gray-900 select-none inline-block"
+            >
+              {item.cantidad}
+            </motion.span>
             <button
               type="button"
               onClick={() => onUpdateQty(item.id_item, 1)}
               disabled={item.cantidad >= item.stock_disponible}
-              className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+              className="text-blue-500 hover:text-blue-700 transition-colors disabled:opacity-30"
               aria-label="Incrementar cantidad"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Prices + remove */}
-        <div className="shrink-0 flex flex-col items-end gap-0.5">
+        {/* Price + remove */}
+        <div className="shrink-0 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
           {hasPromo && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-400 line-through tabular-nums">
-                S/ {fmt(item.precio_normal_momento! * item.cantidad)}
-              </span>
-              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                {discount}
-              </span>
-            </div>
+            <span className="text-xs text-gray-400 line-through tabular-nums">
+              S/{fmt(item.precio_normal_momento! * item.cantidad)}
+            </span>
           )}
-          <span className="text-base font-bold text-gray-900 tabular-nums">
+          <span className={cn("text-xl font-bold tabular-nums", hasPromo ? "text-blue-600" : "text-gray-900")}>
             S/ {fmt(item.importe)}
           </span>
           {item.cantidad > 1 && (
@@ -272,9 +298,15 @@ export default function CarritoPage() {
   }
 
   function vaciarCarrito() {
-    setCartItems([])
-    setDeselected(new Set())
-    localStorage.setItem("guru_cart_v1", JSON.stringify([]))
+    const ids = cartItems.map((i) => i.id_item)
+    ids.forEach((id, index) => {
+      setTimeout(() => {
+        setCartItems((prev) => prev.filter((i) => i.id_item !== id))
+      }, index * 60)
+    })
+    setTimeout(() => {
+      setDeselected(new Set())
+    }, ids.length * 60 + 50)
   }
 
   function realizarVenta() {
@@ -403,7 +435,7 @@ export default function CarritoPage() {
                     onClick={vaciarCarrito}
                     text="Vaciar"
                     icon={<Trash2 className="h-3.5 w-3.5" />}
-                    fillClassName="bg-red-700"
+                    fillClassName="bg-red-500"
                     className="h-9 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm px-4"
                   />
                 </div>
@@ -413,15 +445,23 @@ export default function CarritoPage() {
               <div className="flex flex-col gap-2">
                 <AnimatePresence initial={false}>
                   {cartItems.map((item, i) => (
-                    <CartProductCard
+                    <motion.div
                       key={item.id_item}
-                      item={item}
-                      selected={!deselected.has(item.id_item)}
-                      onToggle={toggleSelect}
-                      onUpdateQty={updateQty}
-                      onRemove={removeItem}
-                      delay={0.07 + i * 0.03}
-                    />
+                      layout
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: 60, scale: 0.95, transition: { duration: 0.22, ease: "easeIn" } }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
+                      <CartProductCard
+                        item={item}
+                        selected={!deselected.has(item.id_item)}
+                        onToggle={toggleSelect}
+                        onUpdateQty={updateQty}
+                        onRemove={removeItem}
+                        delay={0.07 + i * 0.03}
+                      />
+                    </motion.div>
                   ))}
                 </AnimatePresence>
               </div>

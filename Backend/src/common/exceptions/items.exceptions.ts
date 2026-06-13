@@ -36,3 +36,23 @@ export class ItemCalidadSoloRepuestoException extends AppException {
     );
   }
 }
+
+export class ItemStockInsuficienteException extends AppException {
+  constructor() {
+    super(
+      'ITEM_STOCK_INSUFICIENTE',
+      'Stock insuficiente: el ajuste dejaría el inventario en negativo',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ItemInventarioNotFoundException extends AppException {
+  constructor(id: number, idSede: number) {
+    super(
+      'ITEM_INVENTARIO_NOT_FOUND',
+      `Ítem ${id} no tiene inventario registrado en la sede ${idSede}`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}

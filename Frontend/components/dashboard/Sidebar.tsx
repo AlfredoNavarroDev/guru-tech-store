@@ -24,23 +24,22 @@ const vendedorNavLinks = [
 
 const roleNavLinks = {
   admin: [
-    { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
-    { href: "/dashboard/admin/empleados", label: "Empleados", icon: UserRound },
+    { href: "/dashboard", label: "Admin", icon: ShieldCheck },
+    { href: "/dashboard/empleados", label: "Empleados", icon: UserRound },
   ],
   administrador: [
-    { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
-    { href: "/dashboard/admin/empleados", label: "Empleados", icon: UserRound },
+    { href: "/dashboard", label: "Admin", icon: ShieldCheck },
+    { href: "/dashboard/empleados", label: "Empleados", icon: UserRound },
   ],
   abastecedor: [
-    { href: "/dashboard/abastecedor",            label: "Overview",    icon: LayoutDashboard },
-    { href: "/dashboard/abastecedor/items",       label: "Catálogo",    icon: Grid3X3 },
-    { href: "/dashboard/abastecedor/stock",       label: "Stock",       icon: Boxes },
-    { href: "/dashboard/abastecedor/compras",     label: "Compras",     icon: ClipboardList },
-    { href: "/dashboard/abastecedor/proveedores", label: "Proveedores", icon: Truck },
+    { href: "/dashboard",             label: "Overview",    icon: LayoutDashboard },
+    { href: "/dashboard/items",       label: "Catálogo",    icon: Grid3X3 },
+    { href: "/dashboard/stock",       label: "Stock",       icon: Boxes },
+    { href: "/dashboard/compras",     label: "Compras",     icon: ClipboardList },
+    { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
   ],
   tecnico: [
-    { href: "/dashboard/tecnico", label: "Servicio técnico", icon: Wrench },
-    { href: "/dashboard/tecnico", label: "Repuestos", icon: Grid3X3 },
+    { href: "/dashboard", label: "Servicio técnico", icon: Wrench },
   ],
   vendedor: vendedorNavLinks,
   propietario: vendedorNavLinks,

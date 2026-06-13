@@ -1,16 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import {
   Package,
   Search,
-  Tag,
   Filter,
   AlertCircle,
   ShoppingCart,
-  Trash2,
   Plus,
   Minus,
   UserPlus,
@@ -25,9 +23,7 @@ import {
 } from "lucide-react"
 import { RippleButton } from "@/components/ui/ripple-button"
 import { BlurFade } from "@/components/ui/blur-fade"
-import { MagicCard } from "@/components/ui/magic-card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getCatalogo, type CatalogoItem } from "@/lib/api/catalogo"
@@ -37,6 +33,7 @@ import { cn, formatNum } from "@/lib/utils"
 import { toast } from "sonner"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
+import { ItemImage } from "@/components/ui/item-image"
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +47,7 @@ interface CartItem {
   cantidad: number
   importe: number
   stock_disponible: number
+  imagen_url?: string | null
 }
 
 type MetodoPago = CreatePagoInput["metodo_pago"]
@@ -69,29 +67,20 @@ const TIPOS_DOC = ["DNI", "CE", "pasaporte"] as const
 
 const fmt = (n: number) => formatNum(n)
 
-// ─── StockBadge ───────────────────────────────────────────────────────────────
-
-function StockBadge({ stock }: { stock: number }) {
-  if (stock > 10)
-    return <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">En stock ({stock})</Badge>
-  if (stock >= 1)
-    return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">Bajo stock ({stock})</Badge>
-  return <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">Sin stock</Badge>
-}
-
 // ─── ProductCard ──────────────────────────────────────────────────────────────
 
 interface ProductCardProps {
   item: CatalogoItem
   delay: number
   onAdd: (item: CatalogoItem) => void
+  onDecrement: (id: number) => void
   inCart: boolean
   cartQty: number
 }
 
 function discountLabel(item: CatalogoItem): string {
   if (item.promo_tipo === "porcentaje" && item.promo_valor !== null)
-    return `-${item.promo_valor}%`
+    return `-${fmt(Number(item.promo_valor))}%`
   if (item.promo_tipo === "monto_fijo" && item.promo_valor !== null)
     return `-S/ ${fmt(item.promo_valor)}`
   if (item.precio_con_descuento !== null) {
@@ -101,173 +90,431 @@ function discountLabel(item: CatalogoItem): string {
   return ""
 }
 
-function ProductCard({ item, delay, onAdd, inCart, cartQty }: ProductCardProps) {
+function ProductCard({ item, delay, onAdd, onDecrement, inCart, cartQty }: ProductCardProps) {
   const hasPromo = item.precio_con_descuento != null &&
     item.precio_con_descuento !== 0 &&
     Number(item.precio_con_descuento) < Number(item.precio_venta_actual)
+
+  const label = hasPromo ? discountLabel(item) : ""
+
   return (
     <BlurFade delay={delay} duration={0.4} className="h-full">
-      <div className="relative overflow-hidden rounded-2xl h-full">
-        <MagicCard
-          className="rounded-2xl h-full hover:shadow-md hover:border-blue-200 transition-all duration-200"
-          gradientFrom="#3b82f6"
-          gradientTo="#8b5cf6"
-          gradientSize={180}
-          gradientOpacity={0.06}
-          cardBg="#ffffff"
-        >
-          <div className="relative z-40 flex h-full flex-col p-5">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-snug text-gray-900">{item.producto}</p>
-              </div>
-              <div className="mt-0.5 shrink-0 flex flex-col items-end gap-1">
-                <StockBadge stock={item.stock_disponible} />
-                {hasPromo && (
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    {discountLabel(item)}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs text-gray-600">
-                {item.marca}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden h-full flex flex-col transition-all duration-200 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-300">
+        <ItemImage
+          src={item.imagen_url}
+          alt={item.producto}
+          size="lg"
+        />
+        <div className="flex flex-col flex-1 p-4 gap-3">
+          <p className="text-sm font-bold text-gray-900 leading-snug">{item.producto}</p>
+
+          <div className="flex flex-col gap-0.5">
+            {hasPromo && (
+              <span className="text-sm text-gray-400 line-through tabular-nums">
+                S/{fmt(Number(item.precio_venta_actual))}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs text-gray-600">
-                <Tag className="h-2.5 w-2.5" />
-                {item.categoria}
-              </span>
-              {item.modelo && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs text-gray-500">
-                  {item.modelo}
-                </span>
-              )}
-            </div>
-            <div className="mt-auto">
-              {/* fixed-height price row — isolated, nothing else moves it */}
-              <div className="flex h-9 items-center gap-2 mb-3">
-                <span className="text-2xl font-bold text-gray-900">
-                  S/ {fmt(Number(hasPromo ? item.precio_con_descuento : item.precio_venta_actual))}
-                </span>
-                {hasPromo && (
-                  <span className="text-sm text-gray-400 line-through tabular-nums">
-                    S/ {fmt(Number(item.precio_venta_actual))}
-                  </span>
-                )}
-              </div>
-              <RippleButton
-                type="button"
-                onClick={() => onAdd(item)}
-                disabled={cartQty >= item.stock_disponible}
-                rippleColor={inCart ? "rgba(2,6,23,0.15)" : "rgba(172,248,71,0.45)"}
-                duration="550ms"
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40",
-                  inCart
-                    ? "bg-[#020617]/10 text-[#020617] hover:bg-[#020617]/20"
-                    : "bg-[#020617] text-lime hover:bg-[#0d1b38]"
-                )}
-              >
-                <ShoppingCart className="h-4 w-4" />
-                {inCart ? (cartQty >= item.stock_disponible ? "Stock agotado" : "Agregar más") : "Agregar"}
-              </RippleButton>
-            </div>
+            )}
+            <span className="text-2xl font-bold tabular-nums text-blue-600">
+              S/ {fmt(Number(hasPromo ? item.precio_con_descuento : item.precio_venta_actual))}
+            </span>
           </div>
-        </MagicCard>
+
+          {hasPromo && label && (
+            <div className="w-full rounded-xl bg-blue-50 py-1.5 text-center text-sm font-medium text-blue-600">
+              {label}
+            </div>
+          )}
+
+          <AnimatePresence mode="wait" initial={false}>
+            {inCart ? (
+              <motion.div
+                key="stepper"
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.88 }}
+                transition={{ duration: 0.14, ease: "easeOut" }}
+                className="mt-auto flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5"
+              >
+                <button
+                  type="button"
+                  onClick={() => onDecrement(item.id_item)}
+                  className="text-gray-400 hover:text-gray-700 transition-colors"
+                  aria-label="Reducir cantidad"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <motion.span
+                  key={cartQty}
+                  initial={{ scale: 1.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.14, type: "spring", stiffness: 600, damping: 28 }}
+                  className="text-base font-bold tabular-nums text-gray-900 select-none inline-block"
+                >
+                  {cartQty}
+                </motion.span>
+                <button
+                  type="button"
+                  onClick={() => onAdd(item)}
+                  disabled={cartQty >= item.stock_disponible}
+                  className="text-blue-500 hover:text-blue-700 transition-colors disabled:opacity-30"
+                  aria-label="Incrementar cantidad"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="add-btn"
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.88 }}
+                transition={{ duration: 0.14, ease: "easeOut" }}
+                className="mt-auto w-full"
+              >
+                <RippleButton
+                  type="button"
+                  onClick={() => onAdd(item)}
+                  disabled={item.stock_disponible === 0}
+                  rippleColor="rgba(172,248,71,0.45)"
+                  duration="550ms"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 bg-[#020617] text-lime hover:bg-[#0d1b38]"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Agregar
+                </RippleButton>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </BlurFade>
   )
 }
 
-// ─── CartItemsList ────────────────────────────────────────────────────────────
+// ─── FilterCheckbox ───────────────────────────────────────────────────────────
 
-interface CartItemsListProps {
-  items: CartItem[]
-  onUpdateQty: (id: number, delta: number) => void
-  onRemove: (id: number) => void
-  deselected?: Set<number>
-  onToggleSelect?: (id: number) => void
+interface FilterCheckboxProps {
+  label: string
+  checked: boolean
+  onChange: () => void
 }
 
-function CartItemsList({ items, onUpdateQty, onRemove, deselected, onToggleSelect }: CartItemsListProps) {
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-10 px-5">
-        <ShoppingCart className="h-8 w-8 text-gray-300" />
-        <p className="text-sm text-gray-400 text-center">Agrega productos desde el catálogo</p>
-      </div>
-    )
-  }
+function FilterCheckbox({ label, checked, onChange }: FilterCheckboxProps) {
   return (
-    <ul className="divide-y divide-gray-100 px-4 py-2">
-      {items.map((c) => {
-        const isSelected = !deselected?.has(c.id_item)
-        return (
-        <li key={c.id_item} className={cn("flex items-start gap-2 py-3 transition-opacity", !isSelected && onToggleSelect && "opacity-50")}>
-          {onToggleSelect && (
-            <div
-              role="checkbox"
-              aria-checked={isSelected}
-              tabIndex={0}
-              onClick={() => onToggleSelect(c.id_item)}
-              onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); onToggleSelect(c.id_item) } }}
-              className={cn(
-                "mt-0.5 h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
-                isSelected ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300"
-              )}
-            >
-              {isSelected && (
-                <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
-                  <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </div>
+    <label className="flex items-center gap-2 cursor-pointer group">
+      <div
+        role="checkbox"
+        aria-checked={checked}
+        tabIndex={0}
+        onClick={onChange}
+        onKeyDown={(e) => {
+          if (e.key === " " || e.key === "Enter") {
+            e.preventDefault()
+            onChange()
+          }
+        }}
+        className={cn(
+          "h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
+          checked ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300 group-hover:border-gray-400"
+        )}
+      >
+        {checked && (
+          <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
+            <path
+              d="M1.5 5L4 7.5L8.5 2.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </div>
+      <span className={cn("text-xs leading-tight truncate", checked ? "text-gray-900 font-medium" : "text-gray-600")}>
+        {label}
+      </span>
+    </label>
+  )
+}
+
+// ─── FilterSection ─────────────────────────────────────────────────────────────
+
+interface FilterSectionProps {
+  title: string
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}
+
+function FilterSection({ title, open, onToggle, children }: FilterSectionProps) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-gray-50"
+      >
+        <span className="text-xs font-semibold text-gray-700">{title}</span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-gray-400 transition-transform duration-200",
+            open && "rotate-180"
           )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900">{c.producto}</p>
-            <p className="text-xs text-gray-500">S/ {fmt(c.precio_unitario_momento)} c/u</p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <RippleButton
-              type="button"
-              onClick={() => onUpdateQty(c.id_item, -1)}
-              disabled={c.cantidad <= 1}
-              rippleColor="rgba(0,0,0,0.1)"
-              duration="400ms"
-              className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
-              aria-label="Reducir cantidad"
-            >
-              <Minus className="h-3 w-3" />
-            </RippleButton>
-            <span className="w-6 text-center text-sm tabular-nums font-medium text-gray-900">{c.cantidad}</span>
-            <RippleButton
-              type="button"
-              onClick={() => onUpdateQty(c.id_item, 1)}
-              disabled={c.cantidad >= c.stock_disponible}
-              rippleColor="rgba(0,0,0,0.1)"
-              duration="400ms"
-              className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
-              aria-label="Incrementar cantidad"
-            >
-              <Plus className="h-3 w-3" />
-            </RippleButton>
-          </div>
-          <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900">S/ {fmt(c.importe)}</span>
-          <RippleButton
-            type="button"
-            onClick={() => onRemove(c.id_item)}
-            rippleColor="rgba(239,68,68,0.2)"
-            duration="400ms"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-            aria-label="Eliminar producto"
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+            style={{ overflow: "hidden" }}
           >
-            <X className="h-3.5 w-3.5" />
-          </RippleButton>
-        </li>
-        )
-      })}
-    </ul>
+            <div className="flex flex-col gap-1.5 px-4 pb-3">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ─── FilterSidebarSkeleton ────────────────────────────────────────────────────
+
+function FilterSidebarSkeleton() {
+  return (
+    <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 p-3 overflow-y-auto">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
+          <Filter className="h-3.5 w-3.5 text-gray-300" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+        <div className="flex flex-col divide-y divide-gray-100">
+          {[
+            [72, 56, 80, 64],
+            [60, 88, 52],
+          ].map((widths, si) => (
+            <div key={si}>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-3 rounded" />
+              </div>
+              <div className="flex flex-col gap-2 px-4 pb-3">
+                {widths.map((w, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-4 rounded shrink-0" />
+                    <Skeleton className="h-3" style={{ width: w }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="px-4 py-3 flex flex-col gap-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center justify-between">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-5 w-9 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── FilterSidebar ─────────────────────────────────────────────────────────────
+
+interface FilterSidebarProps {
+  categorias: string[]
+  marcas: string[]
+  modelos: string[]
+  selectedCategorias: Set<string>
+  selectedMarcas: Set<string>
+  selectedModelos: Set<string>
+  soloConStock: boolean
+  soloConPromo: boolean
+  onToggleCategoria: (cat: string) => void
+  onToggleMarca: (marca: string) => void
+  onToggleModelo: (modelo: string) => void
+  onToggleStock: (checked: boolean) => void
+  onTogglePromo: () => void
+  onClearAll: () => void
+}
+
+function FilterPanelContent({
+  categorias,
+  marcas,
+  modelos,
+  selectedCategorias,
+  selectedMarcas,
+  selectedModelos,
+  soloConStock,
+  soloConPromo,
+  onToggleCategoria,
+  onToggleMarca,
+  onToggleModelo,
+  onToggleStock,
+  onTogglePromo,
+  onClearAll,
+}: FilterSidebarProps) {
+  const [openSections, setOpenSections] = useState({
+    categorias: true,
+    marcas: true,
+    modelos: true,
+  })
+
+  function toggleSection(key: keyof typeof openSections) {
+    setOpenSections((s) => ({ ...s, [key]: !s[key] }))
+  }
+
+  const activeCount =
+    selectedCategorias.size +
+    selectedMarcas.size +
+    selectedModelos.size +
+    (soloConPromo ? 1 : 0)
+
+  return (
+    <div className="flex flex-col divide-y divide-gray-100 overflow-y-auto">
+      {categorias.length > 0 && (
+        <FilterSection
+          title="Categoría"
+          open={openSections.categorias}
+          onToggle={() => toggleSection("categorias")}
+        >
+          {categorias.map((cat) => (
+            <FilterCheckbox
+              key={cat}
+              label={cat}
+              checked={selectedCategorias.has(cat)}
+              onChange={() => onToggleCategoria(cat)}
+            />
+          ))}
+        </FilterSection>
+      )}
+
+      {marcas.length > 0 && (
+        <FilterSection
+          title="Marca"
+          open={openSections.marcas}
+          onToggle={() => toggleSection("marcas")}
+        >
+          {marcas.map((m) => (
+            <FilterCheckbox
+              key={m}
+              label={m}
+              checked={selectedMarcas.has(m)}
+              onChange={() => onToggleMarca(m)}
+            />
+          ))}
+        </FilterSection>
+      )}
+
+      {modelos.length > 0 && (
+        <FilterSection
+          title="Modelo"
+          open={openSections.modelos}
+          onToggle={() => toggleSection("modelos")}
+        >
+          {modelos.map((mod) => (
+            <FilterCheckbox
+              key={mod}
+              label={mod}
+              checked={selectedModelos.has(mod)}
+              onChange={() => onToggleModelo(mod)}
+            />
+          ))}
+        </FilterSection>
+      )}
+
+      <div className="px-4 py-3 flex flex-col gap-3">
+        <label className="flex items-center justify-between cursor-pointer select-none">
+          <span className="text-xs text-gray-600">Solo con stock</span>
+          <div
+            role="switch"
+            aria-checked={soloConStock}
+            tabIndex={0}
+            onClick={() => onToggleStock(!soloConStock)}
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault()
+                onToggleStock(!soloConStock)
+              }
+            }}
+            className={cn(
+              "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
+              soloConStock ? "bg-[#020617]" : "bg-gray-200"
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                soloConStock ? "translate-x-4" : "translate-x-0.5"
+              )}
+            />
+          </div>
+        </label>
+        <label className="flex items-center justify-between cursor-pointer select-none">
+          <span className="text-xs text-gray-600">En promoción</span>
+          <div
+            role="switch"
+            aria-checked={soloConPromo}
+            tabIndex={0}
+            onClick={() => onTogglePromo()}
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault()
+                onTogglePromo()
+              }
+            }}
+            className={cn(
+              "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1",
+              soloConPromo ? "bg-blue-500" : "bg-gray-200"
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                soloConPromo ? "translate-x-4" : "translate-x-0.5"
+              )}
+            />
+          </div>
+        </label>
+      </div>
+
+      {activeCount > 0 && (
+        <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between shrink-0">
+          <span className="text-xs text-gray-500">
+            {activeCount} activo{activeCount !== 1 ? "s" : ""}
+          </span>
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterSidebar(props: FilterSidebarProps) {
+  return (
+    <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 p-3 overflow-y-auto">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
+          <Filter className="h-3.5 w-3.5 text-gray-400" />
+          <span className="text-sm font-semibold text-gray-900">Filtros</span>
+        </div>
+        <FilterPanelContent {...props} />
+      </div>
+    </div>
   )
 }
 
@@ -282,10 +529,10 @@ export default function CatalogoPage() {
   const [catalogoError, setCatalogoError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [soloConStock, setSoloConStock] = useState(true)
-  const [selectedCategoria, setSelectedCategoria] = useState<string>("")
-  const [selectedModelo, setSelectedModelo] = useState<string>("")
+  const [selectedCategorias, setSelectedCategorias] = useState<Set<string>>(new Set())
+  const [selectedMarcas, setSelectedMarcas] = useState<Set<string>>(new Set())
+  const [selectedModelos, setSelectedModelos] = useState<Set<string>>(new Set())
   const [soloConPromo, setSoloConPromo] = useState(false)
-  const [selectedMarca, setSelectedMarca] = useState<string>("")
   const [catalogoPage, setCatalogoPage] = useState(1)
   const CATALOGO_LIMIT = 12
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -293,8 +540,7 @@ export default function CatalogoPage() {
   // cart
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [cartLoaded, setCartLoaded] = useState(false)
-  const [mobileCartOpen, setMobileCartOpen] = useState(false)
-  const [sidebarDeselected, setSidebarDeselected] = useState<Set<number>>(new Set())
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const cartSaveEnabled = useRef(false)
   const hasAutoOpenedRef = useRef(false)
 
@@ -387,12 +633,12 @@ export default function CatalogoPage() {
       Array.from(
         new Set(
           catalogoItems
-            .filter((i) => !selectedCategoria || i.categoria === selectedCategoria)
+            .filter((i) => selectedCategorias.size === 0 || selectedCategorias.has(i.categoria))
             .map((i) => i.marca)
             .filter((m): m is string => m !== null && m !== "")
         )
       ).sort(),
-    [catalogoItems, selectedCategoria]
+    [catalogoItems, selectedCategorias]
   )
 
   const modelos = useMemo(
@@ -400,71 +646,42 @@ export default function CatalogoPage() {
       Array.from(
         new Set(
           catalogoItems
-            .filter((i) => !selectedCategoria || i.categoria === selectedCategoria)
-            .filter((i) => !selectedMarca || i.marca === selectedMarca)
+            .filter((i) => selectedCategorias.size === 0 || selectedCategorias.has(i.categoria))
+            .filter((i) => selectedMarcas.size === 0 || selectedMarcas.has(i.marca ?? ""))
             .map((i) => i.modelo)
             .filter((m): m is string => m !== null && m !== "")
         )
       ).sort(),
-    [catalogoItems, selectedCategoria, selectedMarca]
+    [catalogoItems, selectedCategorias, selectedMarcas]
   )
 
   const filteredItems = useMemo(() => {
     return catalogoItems.filter((item) => {
-      if (selectedCategoria && item.categoria !== selectedCategoria) return false
-      if (selectedMarca && item.marca !== selectedMarca) return false
-      if (selectedModelo && item.modelo !== selectedModelo) return false
+      if (selectedCategorias.size > 0 && !selectedCategorias.has(item.categoria)) return false
+      if (selectedMarcas.size > 0 && !selectedMarcas.has(item.marca ?? "")) return false
+      if (selectedModelos.size > 0 && !selectedModelos.has(item.modelo ?? "")) return false
       if (soloConPromo) {
-        const hasPromo =
+        const hp =
           item.precio_con_descuento != null &&
           item.precio_con_descuento !== 0 &&
           Number(item.precio_con_descuento) < Number(item.precio_venta_actual)
-        if (!hasPromo) return false
+        if (!hp) return false
       }
       return true
     })
-  }, [catalogoItems, selectedCategoria, selectedMarca, selectedModelo, soloConPromo])
+  }, [catalogoItems, selectedCategorias, selectedMarcas, selectedModelos, soloConPromo])
 
   const subtotal = useMemo(() => cartItems.reduce((s, c) => s + c.importe, 0), [cartItems])
   const totalItems = useMemo(() => cartItems.reduce((s, c) => s + c.cantidad, 0), [cartItems])
 
-  // sidebar selection helpers
-  const sidebarSelectedItems = useMemo(
-    () => cartItems.filter((i) => !sidebarDeselected.has(i.id_item)),
-    [cartItems, sidebarDeselected],
-  )
-  const sidebarSubtotal = useMemo(
-    () => sidebarSelectedItems.reduce((s, c) => s + c.importe, 0),
-    [sidebarSelectedItems],
-  )
-  const sidebarSubtotalOriginal = useMemo(
+  const mobileFilterActiveCount = useMemo(
     () =>
-      sidebarSelectedItems.reduce((s, c) => {
-        const base = c.precio_normal_momento ?? c.precio_unitario_momento
-        return s + base * c.cantidad
-      }, 0),
-    [sidebarSelectedItems],
+      selectedCategorias.size +
+      selectedMarcas.size +
+      selectedModelos.size +
+      (soloConPromo ? 1 : 0),
+    [selectedCategorias, selectedMarcas, selectedModelos, soloConPromo]
   )
-  const sidebarHasPromo = sidebarSubtotalOriginal > sidebarSubtotal
-  const sidebarTotalItems = useMemo(
-    () => sidebarSelectedItems.reduce((s, c) => s + c.cantidad, 0),
-    [sidebarSelectedItems],
-  )
-  const sidebarAllSelected = cartItems.length > 0 && sidebarDeselected.size === 0
-
-  function toggleSidebarSelect(id: number) {
-    setSidebarDeselected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function toggleAllSidebar() {
-    if (sidebarAllSelected) setSidebarDeselected(new Set(cartItems.map((i) => i.id_item)))
-    else setSidebarDeselected(new Set())
-  }
   const montoDescuento = (() => {
     const v = parseFloat(valorDescuento) || 0
     if (tipoDescuento === "porcentaje") return Math.min(subtotal, (subtotal * v) / 100)
@@ -549,10 +766,56 @@ export default function CatalogoPage() {
     [fetchItems, search]
   )
 
-  const handleCategoriaChange = useCallback((value: string) => {
-    setSelectedCategoria(value)
-    setSelectedMarca("")
-    setSelectedModelo("")
+  const toggleCategoria = useCallback((cat: string) => {
+    setSelectedCategorias((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) {
+        next.delete(cat)
+        const validMarcas = new Set(
+          catalogoItems
+            .filter((i) => next.size === 0 || next.has(i.categoria))
+            .map((i) => i.marca)
+            .filter((m): m is string => m !== null && m !== "")
+        )
+        setSelectedMarcas((pm) => new Set([...pm].filter((m) => validMarcas.has(m))))
+        setSelectedModelos(new Set())
+      } else {
+        next.add(cat)
+      }
+      return next
+    })
+    setCatalogoPage(1)
+  }, [catalogoItems])
+
+  const toggleMarca = useCallback((marca: string) => {
+    setSelectedMarcas((prev) => {
+      const next = new Set(prev)
+      if (next.has(marca)) {
+        next.delete(marca)
+        setSelectedModelos(new Set())
+      } else {
+        next.add(marca)
+      }
+      return next
+    })
+    setCatalogoPage(1)
+  }, [])
+
+  const toggleModelo = useCallback((modelo: string) => {
+    setSelectedModelos((prev) => {
+      const next = new Set(prev)
+      if (next.has(modelo)) next.delete(modelo)
+      else next.add(modelo)
+      return next
+    })
+    setCatalogoPage(1)
+  }, [])
+
+  const clearAllFilters = useCallback(() => {
+    setSelectedCategorias(new Set())
+    setSelectedMarcas(new Set())
+    setSelectedModelos(new Set())
+    setSoloConPromo(false)
     setCatalogoPage(1)
   }, [])
 
@@ -582,6 +845,7 @@ export default function CatalogoPage() {
           cantidad: 1,
           importe: precio,
           stock_disponible: item.stock_disponible,
+          imagen_url: item.imagen_url ?? null,
         },
       ]
     })
@@ -599,6 +863,18 @@ export default function CatalogoPage() {
 
   const removeItem = useCallback((id_item: number) => {
     setCartItems((prev) => prev.filter((c) => c.id_item !== id_item))
+  }, [])
+
+  const decrementFromCard = useCallback((id_item: number) => {
+    setCartItems((prev) => {
+      const item = prev.find((c) => c.id_item === id_item)
+      if (!item) return prev
+      if (item.cantidad <= 1) return prev.filter((c) => c.id_item !== id_item)
+      const newQty = item.cantidad - 1
+      return prev.map((c) =>
+        c.id_item === id_item ? { ...c, cantidad: newQty, importe: newQty * c.precio_unitario_momento } : c
+      )
+    })
   }, [])
 
   function clearSaleState() {
@@ -1181,7 +1457,7 @@ export default function CatalogoPage() {
       </BottomSheet>
 
       <div className="flex">
-        {/* ══════════ LEFT: product grid ══════════ */}
+        {/* ══════════ CENTER: product grid ══════════ */}
         <div className="flex-1 min-w-0 p-4 sm:p-6">
           <BlurFade delay={0} duration={0.5}>
             <div className="mb-8">
@@ -1196,141 +1472,116 @@ export default function CatalogoPage() {
           </BlurFade>
 
           <BlurFade delay={0.08} duration={0.5}>
-            <div className="mb-6 flex flex-col gap-3">
-              {/* Row 1: search + toggles */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative max-w-sm flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    type="text"
-                    value={search}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    placeholder="Buscar producto…"
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex items-center gap-4 flex-wrap">
-                  <label className="flex cursor-pointer items-center gap-2.5 select-none">
-                    <div
-                      role="switch"
-                      aria-checked={soloConStock}
-                      tabIndex={0}
-                      onClick={() => handleToggleStock(!soloConStock)}
-                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); handleToggleStock(!soloConStock) } }}
-                      className={cn(
-                        "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
-                        soloConStock ? "bg-[#020617]" : "bg-gray-200"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-                          soloConStock ? "translate-x-4" : "translate-x-0.5"
-                        )}
-                      />
-                    </div>
-                    <span className="text-sm text-gray-600">Solo con stock</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2.5 select-none">
-                    <div
-                      role="switch"
-                      aria-checked={soloConPromo}
-                      tabIndex={0}
-                      onClick={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
-                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setSoloConPromo((v) => !v); setCatalogoPage(1) } }}
-                      className={cn(
-                        "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1",
-                        soloConPromo ? "bg-blue-500" : "bg-gray-200"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-                          soloConPromo ? "translate-x-4" : "translate-x-0.5"
-                        )}
-                      />
-                    </div>
-                    <span className="text-sm text-gray-600">En promoción</span>
-                  </label>
-                </div>
+            <div className="mb-6 flex items-center gap-3">
+              {/* Search */}
+              <div className="relative flex-1 max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  type="text"
+                  value={search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Buscar producto…"
+                  className="pl-9 bg-white"
+                />
               </div>
 
-              {/* Row 2: category + brand + model selects */}
-              {(categorias.length > 0 || marcas.length > 0 || modelos.length > 0) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Filter className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-
-                  {categorias.length > 0 && (
-                    <div className="relative">
-                      <select
-                        value={selectedCategoria}
-                        onChange={(e) => handleCategoriaChange(e.target.value)}
-                        aria-label="Filtrar por categoría"
-                        className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Todas las categorías</option>
-                        {categorias.map((cat) => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
-                    </div>
-                  )}
-
-                  {marcas.length > 0 && (
-                    <div className="relative">
-                      <select
-                        value={selectedMarca}
-                        onChange={(e) => { setSelectedMarca(e.target.value); setSelectedModelo(""); setCatalogoPage(1) }}
-                        aria-label="Filtrar por marca"
-                        className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Todas las marcas</option>
-                        {marcas.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
-                    </div>
-                  )}
-
-                  {modelos.length > 0 && (
-                    <div className="relative">
-                      <select
-                        value={selectedModelo}
-                        onChange={(e) => { setSelectedModelo(e.target.value); setCatalogoPage(1) }}
-                        aria-label="Filtrar por modelo"
-                        className="h-8 appearance-none rounded-xl border border-gray-300 bg-white pl-3 pr-7 text-xs text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Todos los modelos</option>
-                        {modelos.map((mod) => (
-                          <option key={mod} value={mod}>{mod}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
-                    </div>
-                  )}
-
-                  {(selectedCategoria || selectedMarca || selectedModelo || soloConPromo) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategoria("")
-                        setSelectedMarca("")
-                        setSelectedModelo("")
-                        setSoloConPromo(false)
-                        setCatalogoPage(1)
-                      }}
-                      className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
-                    >
-                      <X className="h-3 w-3" />
-                      Limpiar filtros
-                    </button>
-                  )}
-                </div>
-              )}
+              {/* Cart redirect button (desktop) */}
+              <div className="relative hidden lg:block shrink-0">
+                <InteractiveHoverButton
+                  onClick={() => router.push("/dashboard/catalogo/carrito")}
+                  disabled={cartItems.length === 0}
+                  text="Ver carrito"
+                  icon={<ShoppingCart className="h-4 w-4" />}
+                  className="h-10 rounded-xl bg-lime text-[#020617] px-4 shadow-[0_0_16px_rgba(172,248,71,0.4)]"
+                />
+                {cartItems.length > 0 && (
+                  <span className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#020617] text-[10px] font-bold text-lime">
+                    {cartItems.length}
+                  </span>
+                )}
+              </div>
             </div>
           </BlurFade>
+
+          {/* Mobile filter — only on < lg */}
+          {loading ? (
+            <div className="lg:hidden mb-4">
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+          ) : (
+            <div className="lg:hidden mb-4">
+              <div
+                className={cn(
+                  "rounded-xl border overflow-hidden transition-colors duration-200",
+                  mobileFilterOpen || mobileFilterActiveCount > 0
+                    ? "border-[#020617]"
+                    : "border-gray-200"
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setMobileFilterOpen((v) => !v)}
+                  aria-expanded={mobileFilterOpen}
+                  className={cn(
+                    "w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors duration-200",
+                    mobileFilterOpen || mobileFilterActiveCount > 0
+                      ? "bg-[#020617] text-lime"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    Filtros
+                    {mobileFilterActiveCount > 0 && (
+                      <span className="rounded-full bg-lime text-[#020617] px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                        {mobileFilterActiveCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      mobileFilterOpen && "rotate-180",
+                      mobileFilterOpen || mobileFilterActiveCount > 0
+                        ? "text-lime"
+                        : "text-gray-400"
+                    )}
+                  />
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {mobileFilterOpen && (
+                    <motion.div
+                      key="mobile-filter-panel"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                      style={{ overflow: "hidden" }}
+                      className="bg-white border-t border-gray-100"
+                    >
+                      <FilterPanelContent
+                        categorias={categorias}
+                        marcas={marcas}
+                        modelos={modelos}
+                        selectedCategorias={selectedCategorias}
+                        selectedMarcas={selectedMarcas}
+                        selectedModelos={selectedModelos}
+                        soloConStock={soloConStock}
+                        soloConPromo={soloConPromo}
+                        onToggleCategoria={toggleCategoria}
+                        onToggleMarca={toggleMarca}
+                        onToggleModelo={toggleModelo}
+                        onToggleStock={handleToggleStock}
+                        onTogglePromo={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
+                        onClearAll={clearAllFilters}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
 
           {!loading && !catalogoError && (
             <BlurFade delay={0.12} duration={0.4}>
@@ -1343,23 +1594,21 @@ export default function CatalogoPage() {
           )}
 
           {loading && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="rounded-2xl border border-gray-100 bg-white p-5 animate-pulse">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/3" />
+                <div key={i} className="rounded-2xl border border-gray-100 bg-white overflow-hidden animate-pulse">
+                  <div className="w-full aspect-square bg-gray-100 rounded-t-2xl" />
+                  <div className="p-5">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
                     </div>
-                    <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
-                  </div>
-                  <div className="mb-4 flex gap-1.5">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-20 rounded-full" />
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    <Skeleton className="h-7 w-24" />
-                    <Skeleton className="h-9 w-full rounded-xl" />
+                    <div className="mt-4 space-y-3">
+                      <Skeleton className="h-7 w-24" />
+                      <Skeleton className="h-9 w-full rounded-xl" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1398,13 +1647,14 @@ export default function CatalogoPage() {
           )}
 
           {!loading && !catalogoError && catalogoItems.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {paginatedCatalogoItems.map((item, i) => (
                 <ProductCard
                   key={item.id_item}
                   item={item}
                   delay={Math.min(i * 0.05, 0.3)}
                   onAdd={addToCart}
+                  onDecrement={decrementFromCard}
                   inCart={cartMap.has(item.id_item)}
                   cartQty={cartMap.get(item.id_item)?.cantidad ?? 0}
                 />
@@ -1439,110 +1689,34 @@ export default function CatalogoPage() {
           )}
         </div>
 
-        {/* ══════════ RIGHT: cart sidebar ══════════ */}
-        <div className="hidden lg:flex lg:w-[320px] xl:w-[380px] shrink-0 flex-col bg-gray-100 sticky top-0 h-[calc(100vh-5rem)] overflow-hidden p-3 gap-3">
-
-          {/* ── TOP: Subtotal + CTA ── */}
-          <div className="shrink-0 rounded-2xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col gap-3">
-            {cartItems.length === 0 ? (
-              <p className="text-center text-xs text-gray-400 py-1">Agrega productos al carrito</p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">
-                    {sidebarTotalItems} producto{sidebarTotalItems !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-xs text-gray-500">Subtotal</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold tabular-nums text-[#020617]">S/ {fmt(sidebarSubtotal)}</span>
-                    {sidebarHasPromo && (
-                      <span className="text-sm tabular-nums text-gray-400 line-through">S/ {fmt(sidebarSubtotalOriginal)}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            <InteractiveHoverButton
-              onClick={() => router.push("/dashboard/catalogo/carrito")}
-              disabled={cartItems.length === 0}
-              text="Ir al carrito"
-              icon={<ShoppingCart className="h-4 w-4" />}
-              className="h-11 w-full rounded-xl bg-lime text-[#020617] text-sm shadow-[0_0_20px_rgba(172,248,71,0.3)]"
-            />
-          </div>
-
-          {/* ── BOTTOM: Cart items ── */}
-          <div className="flex flex-col flex-1 min-h-0 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4 text-gray-400" />
-                <h2 className="text-sm font-semibold text-gray-900">Carrito</h2>
-                {cartItems.length > 0 && (
-                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-500">
-                    {cartItems.length}
-                  </span>
-                )}
-              </div>
-              {cartItems.length > 0 && (
-                <InteractiveHoverButton
-                  onClick={() => setCartItems([])}
-                  text="Vaciar"
-                  icon={<Trash2 className="h-3 w-3" />}
-                  fillClassName="bg-red-700"
-                  className="h-7 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs px-2.5"
-                />
-              )}
-            </div>
-            {cartItems.length > 0 && (
-              <div className="shrink-0 flex items-center gap-2 border-b border-gray-50 px-4 py-2">
-                <div
-                  role="checkbox"
-                  aria-checked={sidebarAllSelected}
-                  tabIndex={0}
-                  onClick={toggleAllSidebar}
-                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleAllSidebar() } }}
-                  className={cn(
-                    "h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
-                    sidebarAllSelected ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300"
-                  )}
-                >
-                  {sidebarAllSelected && (
-                    <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
-                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-                <span className="text-xs text-gray-500 select-none">Seleccionar todo</span>
-              </div>
-            )}
-            <div className="flex-1 min-h-0">
-              <div
-                className="overflow-y-auto h-full"
-                style={{
-                  maskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
-                }}
-              >
-                <CartItemsList
-                  items={cartItems}
-                  onUpdateQty={updateQty}
-                  onRemove={removeItem}
-                  deselected={sidebarDeselected}
-                  onToggleSelect={toggleSidebarSelect}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* ══════════ RIGHT: filter sidebar (desktop) ══════════ */}
+        {loading ? (
+          <FilterSidebarSkeleton />
+        ) : (
+          <FilterSidebar
+            categorias={categorias}
+            marcas={marcas}
+            modelos={modelos}
+            selectedCategorias={selectedCategorias}
+            selectedMarcas={selectedMarcas}
+            selectedModelos={selectedModelos}
+            soloConStock={soloConStock}
+            soloConPromo={soloConPromo}
+            onToggleCategoria={toggleCategoria}
+            onToggleMarca={toggleMarca}
+            onToggleModelo={toggleModelo}
+            onToggleStock={handleToggleStock}
+            onTogglePromo={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
+            onClearAll={clearAllFilters}
+          />
+        )}
       </div>
 
       {/* Mobile floating cart button */}
       <div className="fixed bottom-6 right-6 lg:hidden z-30">
         <button
           type="button"
-          onClick={() => setMobileCartOpen(true)}
+          onClick={() => router.push("/dashboard/catalogo/carrito")}
           className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#020617] text-lime shadow-lg shadow-black/30 transition-transform active:scale-95"
           aria-label="Ver carrito"
         >
@@ -1554,116 +1728,6 @@ export default function CatalogoPage() {
           )}
         </button>
       </div>
-
-      {/* Mobile cart drawer */}
-      <BottomSheet
-        open={mobileCartOpen}
-        onClose={() => setMobileCartOpen(false)}
-        wrapperClassName="lg:hidden"
-      >
-        <div
-          className="flex flex-col rounded-t-3xl sm:rounded-2xl bg-white"
-          style={{ maxHeight: "85dvh" }}
-        >
-          <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="h-1 w-10 rounded-full bg-gray-200" />
-          </div>
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5 text-gray-400" />
-              <h2 className="text-base font-semibold text-gray-900">Carrito</h2>
-              {cartItems.length > 0 && (
-                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-500">
-                  {cartItems.length}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {cartItems.length > 0 && (
-                <InteractiveHoverButton
-                  onClick={() => setCartItems([])}
-                  text="Vaciar"
-                  icon={<Trash2 className="h-3.5 w-3.5" />}
-                  fillClassName="bg-red-700"
-                  className="h-8 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs px-3"
-                />
-              )}
-              <button
-                type="button"
-                onClick={() => setMobileCartOpen(false)}
-                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
-                aria-label="Cerrar carrito"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {cartItems.length > 0 && (
-            <div className="shrink-0 flex items-center gap-2 border-b border-gray-100 px-5 py-2">
-              <div
-                role="checkbox"
-                aria-checked={sidebarAllSelected}
-                tabIndex={0}
-                onClick={toggleAllSidebar}
-                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleAllSidebar() } }}
-                className={cn(
-                  "h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1",
-                  sidebarAllSelected ? "bg-[#020617] border-[#020617]" : "bg-white border-gray-300"
-                )}
-              >
-                {sidebarAllSelected && (
-                  <svg className="h-2.5 w-2.5 text-lime" viewBox="0 0 10 10" fill="none">
-                    <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </div>
-              <span className="text-xs text-gray-500 select-none">Seleccionar todo</span>
-            </div>
-          )}
-
-          <div className="flex-1 min-h-0">
-            <div
-              className="overflow-y-auto h-full"
-              style={{
-                maskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%)",
-              }}
-            >
-              <CartItemsList
-                items={cartItems}
-                onUpdateQty={updateQty}
-                onRemove={removeItem}
-                deselected={sidebarDeselected}
-                onToggleSelect={toggleSidebarSelect}
-              />
-            </div>
-          </div>
-
-          <div className="shrink-0 border-t border-gray-100 px-5 py-4 flex flex-col gap-3">
-            {cartItems.length > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">
-                  Subtotal ({sidebarTotalItems} producto{sidebarTotalItems !== 1 ? "s" : ""})
-                </span>
-                <div className="flex items-center gap-2">
-                  {sidebarHasPromo && (
-                    <span className="text-xs tabular-nums text-gray-400 line-through">S/ {fmt(sidebarSubtotalOriginal)}</span>
-                  )}
-                  <span className="text-base font-bold tabular-nums text-gray-900">S/ {fmt(sidebarSubtotal)}</span>
-                </div>
-              </div>
-            )}
-            <InteractiveHoverButton
-              onClick={() => { setMobileCartOpen(false); router.push("/dashboard/catalogo/carrito") }}
-              disabled={cartItems.length === 0}
-              text="Ir al carrito"
-              icon={<ShoppingCart className="h-4 w-4" />}
-              className="h-12 w-full rounded-xl bg-lime text-[#020617] text-base shadow-[0_0_20px_rgba(172,248,71,0.3)]"
-            />
-          </div>
-        </div>
-      </BottomSheet>
     </div>
   )
 }

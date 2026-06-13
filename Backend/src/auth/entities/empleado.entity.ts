@@ -43,7 +43,7 @@ export class Empleado {
   })
   sueldo_soles: number | null;
 
-  @Column({ name: 'frecuencia_pago', default: 'semanal' })
+  @Column('varchar', { name: 'frecuencia_pago', default: 'semanal' })
   frecuencia_pago: 'semanal' | 'quincenal' | 'mensual';
 
   @Column({ name: 'es_extranjero', type: 'boolean', default: false })

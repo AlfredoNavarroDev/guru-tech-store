@@ -14,6 +14,7 @@ import { PaginatedResult, PaginationDto } from '../common/dto/pagination.dto';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import {
   CompraNotFoundException,
+  DeadlockException,
   DetalleCompraNotFoundException,
   SedeDeshabilitadaException,
   StockInsuficienteCompraException,
@@ -145,7 +146,11 @@ export class ComprasService {
   ): Promise<void> {
     await this.ensureAccess(compraId, user.id_sede!);
     const detalle = this.detalleRepo.create({ id_compra: compraId, ...dto });
-    await this.detalleRepo.save(detalle);
+    try {
+      await this.detalleRepo.save(detalle);
+    } catch (err: unknown) {
+      this.handleDetalleError(err);
+    }
   }
 
   async updateItem(
@@ -171,11 +176,7 @@ export class ComprasService {
     try {
       await this.detalleRepo.save(detalle);
     } catch (err: unknown) {
-      const e = err as { message?: string };
-      if (e.message?.includes('insuficiente')) {
-        throw new StockInsuficienteCompraException(e.message);
-      }
-      throw err;
+      this.handleDetalleError(err);
     }
   }
 
@@ -193,14 +194,19 @@ export class ComprasService {
     try {
       await this.detalleRepo.remove(detalle);
     } catch (err: unknown) {
-      const e = err as { code?: string; message?: string };
-      if (e.code === '23514' || e.message?.includes('insuficiente')) {
-        throw new StockInsuficienteCompraException(
-          'No se puede revertir: el stock actual no cubre la cantidad a descontar',
-        );
-      }
-      throw err;
+      this.handleDetalleError(err);
     }
+  }
+
+  private handleDetalleError(err: unknown): never {
+    const e = err as { code?: string; message?: string };
+    if (e.code === '40P01') throw new DeadlockException();
+    if (e.message?.includes('insuficiente') || e.code === '23514') {
+      throw new StockInsuficienteCompraException(
+        e.message ?? 'Stock insuficiente para esta operación',
+      );
+    }
+    throw err;
   }
 
   private async ensureAccess(compraId: number, idSede: number): Promise<void> {

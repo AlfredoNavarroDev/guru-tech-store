@@ -20,6 +20,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn, formatNum } from "@/lib/utils"
 import { getEstadisticas, type EstadisticasHoy } from "@/lib/api/ventas"
 import { getSession } from "@/lib/api/auth"
+import { AdminDashboard } from "./_components/AdminDashboard"
+import { TecnicoDashboard } from "./_components/TecnicoDashboard"
+import { StockOverview } from "@/components/abastecedor/StockOverview"
+
+const SALES_ROLES = ["vendedor", "propietario", "gerente"]
 
 const MotionLink = motion(Link)
 const WHILETAP = { scale: 0.97 }
@@ -58,20 +63,23 @@ function moneyChange(hoy: number, ayer: number): { label: string; positive: bool
 export default function DashboardPage() {
   const [stats, setStats] = useState<EstadisticasHoy | null>(null)
   const [error, setError] = useState(false)
-  const [session, setSession] = useState<ReturnType<typeof getSession>>(null)
-  const [today] = useState(() =>
-    new Date().toLocaleDateString("es-PE", {
+  const [session, setSession] = useState<ReturnType<typeof getSession> | undefined>(undefined)
+  const [today, setToday] = useState("")
+
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString("es-PE", {
       weekday: "long", year: "numeric", month: "long", day: "numeric",
-    })
-  )
+    }))
+  }, [])
 
   useEffect(() => {
     const dashboardHydrationTimeout = window.setTimeout(() => {
-      setSession(getSession())
+      const s = getSession()
+      setSession(s ?? null)
+      if (s && SALES_ROLES.includes(s.rol)) {
+        getEstadisticas().then(setStats).catch(() => setError(true))
+      }
     }, 0)
-    getEstadisticas()
-      .then(setStats)
-      .catch(() => setError(true))
     return () => window.clearTimeout(dashboardHydrationTimeout)
   }, [])
 
@@ -117,6 +125,19 @@ export default function DashboardPage() {
       },
     ]
   }, [stats])
+
+  const rol = session?.rol
+  if (rol === "admin" || rol === "administrador") return <AdminDashboard />
+  if (rol === "abastecedor") return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-white">Resumen de Inventario</h1>
+        <p className="text-sm text-white/40 mt-0.5">Vista general del stock por sede</p>
+      </div>
+      <StockOverview />
+    </div>
+  )
+  if (rol === "tecnico") return <TecnicoDashboard />
 
   return (
     <div className="p-6 lg:p-8 bg-gray-50 min-h-full">

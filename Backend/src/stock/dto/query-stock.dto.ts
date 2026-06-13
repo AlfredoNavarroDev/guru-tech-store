@@ -1,30 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, Min } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
-export class QueryItemsDto extends PaginationDto {
+export class QueryStockDto extends PaginationDto {
   @ApiPropertyOptional({ enum: ['producto', 'repuesto'] })
   @IsOptional()
   @IsIn(['producto', 'repuesto'])
   tipo?: 'producto' | 'repuesto';
-
-  @ApiPropertyOptional({ example: 'cable' })
-  @IsOptional()
-  @IsString()
-  nombre?: string;
-
-  @ApiPropertyOptional({ example: 'PRD-001' })
-  @IsOptional()
-  @IsString()
-  sku?: string;
 
   @ApiPropertyOptional({ example: 3, description: 'FK → Marcas.id_marca' })
   @IsOptional()
@@ -33,14 +16,10 @@ export class QueryItemsDto extends PaginationDto {
   @Min(1)
   id_marca?: number;
 
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  categoria_id?: number;
-
-  @ApiPropertyOptional({ example: true })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'true → solo ítems con cantidad_actual <= stock_minimo',
+  })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => {
     if (value === 'true' || value === true) return true;
@@ -48,5 +27,5 @@ export class QueryItemsDto extends PaginationDto {
     return value;
   })
   @IsBoolean()
-  con_stock?: boolean;
+  requiere_reposicion?: boolean;
 }

@@ -27,6 +27,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ItemsService } from './items.service';
+import { AjusteStockDto } from './dto/ajuste-stock.dto';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
@@ -43,8 +44,11 @@ export class ItemsController {
   @Post()
   @ApiOperation({ summary: 'HU-11 — Registrar nuevo ítem en el catálogo' })
   @ApiCreatedResponse({ type: ItemResponseDto })
-  create(@Body() dto: CreateItemDto): Promise<ItemResponseDto> {
-    return this.itemsService.create(dto);
+  create(
+    @Body() dto: CreateItemDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ItemResponseDto> {
+    return this.itemsService.create(dto, user.id_sede!);
   }
 
   @Get()
@@ -112,6 +116,19 @@ export class ItemsController {
     @Body() dto: UpdateItemDto,
   ): Promise<ItemResponseDto> {
     return this.itemsService.update(id, dto);
+  }
+
+  @Patch(':id/stock')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'HU-12 — Ajuste directo de stock (entrada o salida)' })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse()
+  ajusteStock(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AjusteStockDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.itemsService.ajusteStock(id, dto, user.id_sede!);
   }
 
   @Delete(':id')

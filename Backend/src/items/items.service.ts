@@ -8,9 +8,12 @@ import { PaginatedResult } from '../common/dto/pagination.dto';
 import {
   ItemCalidadSoloRepuestoException,
   ItemCategoriasRequeridaException,
+  ItemInventarioNotFoundException,
   ItemNotFoundException,
   ItemSkuDuplicadoException,
+  ItemStockInsuficienteException,
 } from '../common/exceptions';
+import { AjusteStockDto } from './dto/ajuste-stock.dto';
 
 interface ItemRow {
   id_item: number;
@@ -27,11 +30,12 @@ interface ItemRow {
   created_at: Date;
   updated_at: Date | null;
   categorias_str: string;
+  imagen_url: string | null;
 }
 
 const ITEM_SELECT = `
   SELECT i.id_item, i.tipo, i.sku, i.nombre, i.id_marca, m.nombre AS marca,
-         i.modelo, i.calidad, i.especificaciones,
+         i.modelo, i.calidad, i.especificaciones, i.imagen_url,
          i.precio_compra_actual, i.precio_venta_actual, i.created_at, i.updated_at,
          COALESCE(STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria), '') AS categorias_str
   FROM items i
@@ -44,7 +48,7 @@ const ITEM_SELECT = `
 export class ItemsService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async create(dto: CreateItemDto): Promise<ItemResponseDto> {
+  async create(dto: CreateItemDto, idSede: number): Promise<ItemResponseDto> {
     if (dto.tipo === 'producto' && !dto.categoria_ids?.length) {
       throw new ItemCategoriasRequeridaException();
     }
@@ -85,6 +89,13 @@ export class ItemsService {
             [row.id_item, ...dto.categoria_ids],
           );
         }
+        await manager.query(
+          `INSERT INTO inventario_sedes (id_sede, id_item, cantidad_actual, stock_minimo)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (id_sede, id_item)
+           DO UPDATE SET stock_minimo = EXCLUDED.stock_minimo`,
+          [idSede, row.id_item, dto.cantidad_inicial ?? 0, dto.stock_minimo ?? 0],
+        );
         return row.id_item;
       },
     );
@@ -111,6 +122,10 @@ export class ItemsService {
     if (query.sku) {
       conditions.push(`i.sku ILIKE $${idx++}`);
       params.push(`%${query.sku}%`);
+    }
+    if (query.id_marca) {
+      conditions.push(`i.id_marca = $${idx++}`);
+      params.push(query.id_marca);
     }
     if (query.categoria_id) {
       conditions.push(
@@ -253,6 +268,27 @@ export class ItemsService {
     }
   }
 
+  async ajusteStock(
+    id: number,
+    dto: AjusteStockDto,
+    idSede: number,
+  ): Promise<void> {
+    const [inv] = await this.dataSource.query<
+      [{ id_inventario: number; cantidad_actual: number }]
+    >(
+      `SELECT id_inventario, cantidad_actual FROM inventario_sedes WHERE id_item = $1 AND id_sede = $2`,
+      [id, idSede],
+    );
+    if (!inv) throw new ItemInventarioNotFoundException(id, idSede);
+    if (inv.cantidad_actual + dto.cantidad < 0)
+      throw new ItemStockInsuficienteException();
+
+    await this.dataSource.query(
+      `UPDATE inventario_sedes SET cantidad_actual = cantidad_actual + $1 WHERE id_inventario = $2`,
+      [dto.cantidad, inv.id_inventario],
+    );
+  }
+
   async findCategorias(): Promise<
     { id_categoria: number; nombre_categoria: string }[]
   > {
@@ -281,6 +317,7 @@ export class ItemsService {
       precio_compra_actual: parseFloat(String(row.precio_compra_actual)),
       precio_venta_actual: parseFloat(String(row.precio_venta_actual)),
       categorias: row.categorias_str ? row.categorias_str.split(', ') : [],
+      imagen_url: row.imagen_url ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at ?? null,
     };

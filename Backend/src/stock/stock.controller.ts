@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -11,6 +11,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { StockService } from './stock.service';
+import { QueryStockDto } from './dto/query-stock.dto';
 
 @ApiTags('stock')
 @ApiBearerAuth()
@@ -21,10 +22,15 @@ export class StockController {
   constructor(private readonly stockService: StockService) {}
 
   @Get()
-  @ApiOperation({ summary: 'HU-12 — Stock actual de la sede del abastecedor' })
-  @ApiOkResponse({ description: 'Datos de v_abastecedor_stock_actual' })
-  findAll(@CurrentUser() user: JwtPayload): Promise<object[]> {
-    return this.stockService.findAll(user.id_sede!);
+  @ApiOperation({
+    summary: 'HU-12 — Stock actual de la sede con filtros y paginación',
+  })
+  @ApiOkResponse({ description: 'PaginatedResult desde v_abastecedor_stock_actual' })
+  findAll(
+    @Query() query: QueryStockDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.stockService.findAll(user.id_sede!, query);
   }
 
   @Get('critico')

@@ -13,15 +13,17 @@ export interface Item {
   precio_compra_actual: number
   precio_venta_actual: number
   categorias: string[]
+  imagen_url: string | null
   created_at: string
   updated_at: string | null
 }
 
 export interface ItemsResponse {
-  data: Item[]
+  items: Item[]
   total: number
   page: number
   limit: number
+  totalPages: number
 }
 
 export interface Categoria {
@@ -84,6 +86,19 @@ export function updateItem(id: number, payload: UpdateItemPayload) {
 
 export function deleteItem(id: number) {
   return authRequest<void>(`items/${id}`, { method: 'DELETE' })
+}
+
+export interface AjusteStockPayload {
+  cantidad: number
+  motivo: 'ajuste_inventario' | 'merma' | 'devolucion' | 'otro'
+  observacion?: string
+}
+
+export function ajusteStock(id: number, payload: AjusteStockPayload) {
+  return authRequest<void>(`items/${id}/stock`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function getCategorias() {

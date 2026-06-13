@@ -17,10 +17,10 @@ export class Proveedor {
   @Column({ name: 'razon_social', length: 255 })
   razon_social: string;
 
-  @Column({ name: 'contacto_nombre', length: 150, nullable: true })
+  @Column('varchar', { name: 'contacto_nombre', length: 150, nullable: true })
   contacto_nombre: string | null;
 
-  @Column({ name: 'telefono', length: 20, nullable: true })
+  @Column('varchar', { name: 'telefono', length: 20, nullable: true })
   telefono: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

@@ -13,7 +13,7 @@ export class Item {
   @PrimaryGeneratedColumn({ name: 'id_item' })
   id_item: number;
 
-  @Column({ name: 'tipo', length: 15 })
+  @Column('varchar', { name: 'tipo', length: 15 })
   tipo: 'producto' | 'repuesto';
 
   @Column({ name: 'sku', length: 50, unique: true })
@@ -25,10 +25,10 @@ export class Item {
   @Column({ name: 'id_marca', type: 'int', nullable: true })
   id_marca: number | null;
 
-  @Column({ name: 'modelo', length: 100, nullable: true })
+  @Column('varchar', { name: 'modelo', length: 100, nullable: true })
   modelo: string | null;
 
-  @Column({ name: 'calidad', length: 30, nullable: true })
+  @Column('varchar', { name: 'calidad', length: 30, nullable: true })
   calidad: string | null;
 
   @Column({ name: 'especificaciones', type: 'jsonb', nullable: true })

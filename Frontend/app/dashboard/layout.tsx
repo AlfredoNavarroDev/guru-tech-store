@@ -7,17 +7,23 @@ import { motion, AnimatePresence } from "motion/react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { getSession, clearSession, type AuthSession } from "@/lib/api/auth"
 
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Resumen",
-  "/dashboard/vendedor": "Resumen",
-  "/dashboard/admin": "Admin",
-  "/dashboard/admin/empleados": "Empleados",
-  "/dashboard/abastecedor": "Abastecimiento",
-  "/dashboard/tecnico": "Servicio técnico",
-  "/dashboard/catalogo": "Catálogo",
-  "/dashboard/catalogo/carrito": "Carrito",
-  "/dashboard/ventas": "Ventas",
-  "/dashboard/clientes": "Clientes",
+const SEGMENT_TITLES: Record<string, string> = {
+  dashboard: "Resumen",
+  catalogo: "Catálogo",
+  carrito: "Carrito",
+  ventas: "Ventas",
+  clientes: "Clientes",
+  empleados: "Empleados",
+  compras: "Compras",
+  proveedores: "Proveedores",
+  stock: "Stock",
+  items: "Ítems",
+  nueva: "Nueva compra",
+}
+
+function getPageTitle(pathname: string): string {
+  const segment = pathname.split("/").filter(Boolean).pop() ?? "dashboard"
+  return SEGMENT_TITLES[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1)
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -59,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }
 
-  const pageTitle = PAGE_TITLES[pathname] ?? "Dashboard"
+  const pageTitle = getPageTitle(pathname)
 
   return (
     <div className="flex h-screen bg-bg-main">
