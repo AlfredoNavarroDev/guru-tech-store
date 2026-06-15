@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertCircle,
@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit3,
+  Eye,
+  EyeOff,
   KeyRound,
   Loader2,
   Plus,
@@ -49,6 +51,10 @@ import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
 const rowTransition = { duration: 0.22, ease: "easeOut" as const }
+
+function noopSubscribe() {
+  return () => undefined
+}
 
 const EMPTY_CREATE: CreateEmpleadoInput = {
   tipo_documento: "DNI",
@@ -426,6 +432,7 @@ interface PasswordPanelProps {
 
 function PasswordPanel({ empleado, onCancel, onSaved, bare }: PasswordPanelProps) {
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -463,13 +470,24 @@ function PasswordPanel({ empleado, onCancel, onSaved, bare }: PasswordPanelProps
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block max-w-sm space-y-1.5 text-sm font-medium text-gray-700">
           Nueva contraseña
-          <Input
-            type="password"
-            value={password}
-            disabled={submitting}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Minimo 8 caracteres"
-          />
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              disabled={submitting}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimo 8 caracteres"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </label>
         <AnimatePresence>
           {error && (
@@ -534,8 +552,9 @@ export default function AdminEmpleadosPage() {
   const [panelMode, setPanelMode] = useState<PanelMode>(null)
   const [selected, setSelected] = useState<Empleado | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [refetchKey, setRefetchKey] = useState(0)
 
-  const session = getSession()
+  const session = useSyncExternalStore(noopSubscribe, getSession, () => null)
   const currentUserId = useMemo(() => decodeUserId(session?.access_token), [session?.access_token])
 
   useEffect(() => {
@@ -563,7 +582,7 @@ export default function AdminEmpleadosPage() {
     return () => {
       cancelled = true
     }
-  }, [page, roleFilter, estadoFilter])
+  }, [page, roleFilter, estadoFilter, refetchKey])
 
   const filteredItems = useMemo(() => {
     const items = data?.items ?? []
@@ -595,23 +614,9 @@ export default function AdminEmpleadosPage() {
     setSelected(null)
   }
 
-  async function reload() {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await getEmpleados({
-        page,
-        limit: PAGE_SIZE,
-        ...(roleFilter !== "todos" ? { id_rol: roleFilter } : {}),
-        ...(estadoFilter !== "todos" ? { activo: estadoFilter === "activo" } : {}),
-      })
-      setData(result)
-      closePanel()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar empleados.")
-    } finally {
-      setLoading(false)
-    }
+  function reload() {
+    closePanel()
+    setRefetchKey(k => k + 1)
   }
 
   async function toggleEstado(empleado: Empleado) {
@@ -625,7 +630,7 @@ export default function AdminEmpleadosPage() {
     try {
       await updateEmpleadoEstado(empleado.id_empleado, nextActive)
       toast.success(nextActive ? "Empleado activado" : "Empleado desactivado")
-      await reload()
+      reload()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo actualizar estado")
     } finally {

@@ -17,8 +17,17 @@ export interface CreateProveedorPayload {
   telefono?: string
 }
 
-export function getProveedores() {
-  return authRequest<Proveedor[]>('proveedores')
+interface ProveedoresResponse {
+  items: Proveedor[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export async function getProveedores(): Promise<Proveedor[]> {
+  const res = await authRequest<ProveedoresResponse>('proveedores?limit=500')
+  return res.items
 }
 
 export function createProveedor(payload: CreateProveedorPayload) {

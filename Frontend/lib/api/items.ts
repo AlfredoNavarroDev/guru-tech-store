@@ -51,7 +51,7 @@ export interface CreateItemPayload {
   cantidad_inicial?: number
 }
 
-export interface UpdateItemPayload extends Partial<CreateItemPayload> {}
+export type UpdateItemPayload = Partial<CreateItemPayload>
 
 export function getItems(params?: {
   page?: number

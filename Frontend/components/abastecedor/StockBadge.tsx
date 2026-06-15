@@ -6,21 +6,21 @@ interface StockBadgeProps {
 export function StockBadge({ cantidad_actual, stock_minimo }: StockBadgeProps) {
   if (cantidad_actual <= stock_minimo) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">
-        🔴 Crítico
+      <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+        Crítico
       </span>
     )
   }
   if (cantidad_actual <= stock_minimo * 1.2) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-400">
-        🟡 Bajo
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+        Bajo
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
-      🟢 OK
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+      OK
     </span>
   )
 }

@@ -1,18 +1,20 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { motion } from "motion/react"
-import { Plus, Layers, Package, Users } from "lucide-react"
+import { useEffect, useState, useMemo, useSyncExternalStore } from "react"
+import {
+  Package,
+  TrendingDown,
+  ArrowUpRight,
+  AlertTriangle,
+} from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
-import { StockOverview } from "@/components/abastecedor/StockOverview"
+import { NumberTicker } from "@/components/ui/number-ticker"
+import { StockBadge } from "@/components/abastecedor/StockBadge"
 import { getCompras, type Compra } from "@/lib/api/compras"
+import { getStock, type StockActual } from "@/lib/api/stock"
 import { getSession } from "@/lib/api/auth"
 import { formatNum, cn } from "@/lib/utils"
-
-const MotionLink = motion(Link)
-const WHILETAP = { scale: 0.97 }
 
 function fmtFecha(iso: string) {
   try {
@@ -26,38 +28,72 @@ function fmtFecha(iso: string) {
   }
 }
 
+function noopSubscribe() {
+  return () => undefined
+}
+
+function formatToday() {
+  return new Date().toLocaleDateString("es-PE", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
+
 export function AbastecedorDashboard() {
   const [compras, setCompras] = useState<Compra[]>([])
   const [loadingCompras, setLoadingCompras] = useState(true)
   const [comprasError, setComprasError] = useState(false)
-  const [today, setToday] = useState("")
-  const [firstName, setFirstName] = useState("")
+  const [stock, setStock] = useState<StockActual[]>([])
+  const [loadingStock, setLoadingStock] = useState(true)
+  const session = useSyncExternalStore(noopSubscribe, getSession, () => null)
+  const today = useSyncExternalStore(noopSubscribe, formatToday, () => "")
+  const firstName = session?.nombre?.split(" ")[0] ?? ""
 
   useEffect(() => {
-    const s = getSession()
-    setFirstName(s?.nombre?.split(" ")[0] ?? "")
-  }, [])
-
-  useEffect(() => {
-    setToday(
-      new Date().toLocaleDateString("es-PE", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-    )
-  }, [])
-
-  useEffect(() => {
-    getCompras({ limit: 5, page: 1 })
+    getCompras({ limit: 3, page: 1 })
       .then((res) => setCompras(res.items))
       .catch(() => setComprasError(true))
       .finally(() => setLoadingCompras(false))
   }, [])
 
+  useEffect(() => {
+    getStock({ limit: 200 })
+      .then((res) => setStock(res.items))
+      .catch(() => {})
+      .finally(() => setLoadingStock(false))
+  }, [])
+
+  const totalItems = stock.length
+  const criticos = useMemo(
+    () => stock.filter((s) => s.requiere_reposicion).sort((a, b) => a.diferencia_stock - b.diferencia_stock),
+    [stock],
+  )
+  const bajosStock = criticos.length
+  const STAT_CARDS = [
+    {
+      label: "Total Ítems",
+      value: totalItems,
+      prefix: "",
+      icon: Package,
+      sub: "en inventario",
+      positive: true,
+      dark: true,
+    },
+    {
+      label: "Bajo Stock",
+      value: bajosStock,
+      prefix: "",
+      icon: TrendingDown,
+      sub: bajosStock === 0 ? "inventario saludable" : "requieren reposición",
+      positive: bajosStock === 0,
+      dark: false,
+    },
+  ]
+
   return (
-    <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-gray-50 p-6 lg:p-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
 
         {/* Saludo */}
@@ -70,140 +106,196 @@ export function AbastecedorDashboard() {
           </div>
         </BlurFade>
 
-        {/* Columnas: stock (izq) + acciones rápidas (der) */}
-        <BlurFade delay={0.1} duration={0.35}>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="flex-1 min-w-0">
-              <StockOverview compact />
-            </div>
-
-            <div className="lg:w-60 xl:w-64 shrink-0">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <h3 className="mb-4 text-base font-bold text-text-heading">Acciones rápidas</h3>
-                <div className="flex flex-col gap-2">
-                  <MotionLink
-                    href="/dashboard/compras/nueva"
-                    whileTap={WHILETAP}
-                    className="flex items-center gap-3 rounded-xl bg-lime px-4 py-3 text-sm font-bold text-[#020617] shadow-[0_0_16px_rgba(172,248,71,0.25)] transition-all hover:bg-[#d4f96a]"
-                  >
-                    <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    Nueva compra
-                  </MotionLink>
-                  <MotionLink
-                    href="/dashboard/stock"
-                    whileTap={WHILETAP}
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                  >
-                    <Layers className="h-4 w-4 shrink-0 text-gray-900" aria-hidden="true" />
-                    Ver stock
-                  </MotionLink>
-                  <MotionLink
-                    href="/dashboard/items"
-                    whileTap={WHILETAP}
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                  >
-                    <Package className="h-4 w-4 shrink-0 text-gray-900" aria-hidden="true" />
-                    Gestionar ítems
-                  </MotionLink>
-                  <MotionLink
-                    href="/dashboard/proveedores"
-                    whileTap={WHILETAP}
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                  >
-                    <Users className="h-4 w-4 shrink-0 text-gray-900" aria-hidden="true" />
-                    Proveedores
-                  </MotionLink>
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {loadingStock
+            ? Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "rounded-2xl p-5 animate-pulse",
+                    i === 0
+                      ? "border border-white/5 bg-linear-to-br from-black to-[#131B2E]"
+                      : "border border-gray-200 bg-white",
+                  )}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={cn("h-3 w-24 rounded-md", i === 0 ? "bg-white/15" : "bg-muted")} />
+                    <div className={cn("h-8 w-8 rounded-xl", i === 0 ? "bg-white/15" : "bg-muted")} />
+                  </div>
+                  <div className={cn("h-10 w-20 rounded-md mb-2", i === 0 ? "bg-white/15" : "bg-muted")} />
+                  <div className={cn("h-3 w-28 rounded-md", i === 0 ? "bg-white/15" : "bg-muted")} />
                 </div>
-              </div>
-            </div>
+              ))
+            : STAT_CARDS.map((s, i) => (
+                <BlurFade key={s.label} delay={0.07 + i * 0.07} duration={0.35}>
+                  <div
+                    className={cn(
+                      "rounded-2xl p-5 shadow-sm",
+                      s.dark
+                        ? "border border-white/5 bg-linear-to-br from-black to-[#131B2E]"
+                        : "border border-gray-200 bg-white",
+                    )}
+                  >
+                    <div className="flex items-start justify-between">
+                      <p className={cn("text-xs font-semibold uppercase tracking-wider", s.dark ? "text-text-on-dark" : "text-text-muted")}>
+                        {s.label}
+                      </p>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100">
+                        <s.icon className="h-4 w-4 text-gray-900" />
+                      </div>
+                    </div>
+
+                    <p className={cn("mt-3 text-4xl font-extrabold tabular-nums", s.dark ? "text-white" : "text-text-heading")}>
+                      {s.prefix}
+                      <NumberTicker value={s.value} decimalPlaces={0} />
+                    </p>
+
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className={cn("flex items-center gap-0.5 text-xs font-semibold", s.positive ? "text-green-500" : "text-red-400")}>
+                        {s.positive ? <ArrowUpRight className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      </span>
+                      <span className={cn("text-xs", s.dark ? "text-text-on-dark" : "text-text-muted")}>
+                        {s.sub}
+                      </span>
+                    </div>
+                  </div>
+                </BlurFade>
+              ))}
+        </div>
+
+        {/* Critical items alert */}
+        {!loadingStock && criticos.length > 0 && (
+          <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-500" />
+            <span>{criticos.length} ítem(s) en estado crítico requieren reposición.</span>
           </div>
-        </BlurFade>
+        )}
+
+        {/* Critical items table */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-6 py-4">
+            <h3 className="text-base font-bold text-text-heading">Ítems críticos</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                {["Ítem", "Stock", "Mínimo", "Faltan", "Estado"].map((h, i) => (
+                  <th
+                    key={h}
+                    className={cn(
+                      "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-muted",
+                      i === 0 || i === 4 ? "text-left" : "text-right",
+                    )}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loadingStock ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
+                    <td className="px-4 py-2.5"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                  </tr>
+                ))
+              ) : criticos.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-text-muted">
+                    Sin ítems críticos
+                  </td>
+                </tr>
+              ) : (
+                criticos.slice(0, 5).map((c) => (
+                  <tr key={c.id_item} className="hover:bg-gray-50/70">
+                    <td className="px-4 py-3 text-text-heading">{c.item}</td>
+                    <td className="px-4 py-3 text-right text-text-muted">{c.cantidad_actual}</td>
+                    <td className="px-4 py-3 text-right text-text-muted">{c.stock_minimo}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-rose-600">{-c.diferencia_stock}</td>
+                    <td className="px-4 py-2.5">
+                      <StockBadge cantidad_actual={c.cantidad_actual} stock_minimo={c.stock_minimo} />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Compras recientes */}
-        <BlurFade delay={0.25} duration={0.35}>
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <div>
-                <h3 className="text-lg font-bold text-text-heading">Compras recientes</h3>
-                <p className="mt-0.5 text-xs text-text-muted">Últimas 5 órdenes de compra</p>
-              </div>
-              <Link
-                href="/dashboard/compras"
-                className="text-xs font-medium text-blue-600 hover:underline"
-              >
-                Ver todas
-              </Link>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60">
-                    {(["Proveedor", "Total", "Fecha"] as const).map((h) => (
-                      <th
-                        key={h}
-                        className={cn(
-                          "px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-muted",
-                          h === "Proveedor" ? "text-left" : "text-right",
-                        )}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {loadingCompras ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <tr key={i}>
-                        <td className="px-6 py-4">
-                          <Skeleton className="h-4 w-32" />
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Skeleton className="ml-auto h-4 w-20" />
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Skeleton className="ml-auto h-4 w-24" />
-                        </td>
-                      </tr>
-                    ))
-                  ) : comprasError ? (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-10 text-center text-sm text-rose-500">
-                        Error al cargar compras
-                      </td>
-                    </tr>
-                  ) : compras.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-6 py-10 text-center text-sm text-text-muted"
-                      >
-                        Sin compras registradas
-                      </td>
-                    </tr>
-                  ) : (
-                    compras.map((c) => (
-                      <tr
-                        key={c.id_compra}
-                        className="transition-colors hover:bg-gray-50/50"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-text-heading">
-                          {c.proveedor ?? "—"}
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm font-semibold tabular-nums text-text-heading">
-                          S/{formatNum(c.costo_total)}
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm text-text-muted">
-                          {fmtFecha(c.fecha_compra)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-6 py-4">
+            <h3 className="text-lg font-bold text-text-heading">Compras recientes</h3>
+            <p className="mt-0.5 text-xs text-text-muted">Últimas 3 órdenes de compra</p>
           </div>
-        </BlurFade>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/60">
+                  {(["Proveedor", "Total", "Fecha"] as const).map((h) => (
+                    <th
+                      key={h}
+                      className={cn(
+                        "px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-muted",
+                        h === "Proveedor" ? "text-left" : "text-right",
+                      )}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {loadingCompras ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4">
+                        <Skeleton className="h-4 w-32" />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Skeleton className="ml-auto h-4 w-20" />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Skeleton className="ml-auto h-4 w-24" />
+                      </td>
+                    </tr>
+                  ))
+                ) : comprasError ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-10 text-center text-sm text-rose-500">
+                      Error al cargar compras
+                    </td>
+                  </tr>
+                ) : compras.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-10 text-center text-sm text-text-muted">
+                      Sin compras registradas
+                    </td>
+                  </tr>
+                ) : (
+                  compras.map((c) => (
+                    <tr key={c.id_compra} className="transition-colors hover:bg-gray-50/50">
+                      <td className="px-6 py-4 text-sm font-medium text-text-heading">
+                        {c.proveedor ?? "—"}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-semibold tabular-nums text-text-heading">
+                        S/{formatNum(c.costo_total)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-text-muted">
+                        {fmtFecha(c.fecha_compra)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
       </div>
     </div>

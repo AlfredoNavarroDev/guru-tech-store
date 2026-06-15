@@ -29,15 +29,45 @@ function newLine(): LineItem {
   }
 }
 
+const DRAFT_KEY = "nueva_compra_draft"
+
+function loadDraft(): { idProveedor: number | ""; lines: LineItem[] } | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function saveDraft(idProveedor: number | "", lines: LineItem[]) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ idProveedor, lines }))
+  } catch {}
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY)
+}
+
 export default function NuevaCompraPage() {
   const router = useRouter()
+  const [initialDraft] = useState(loadDraft)
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [items, setItems] = useState<Item[]>([])
-  const [idProveedor, setIdProveedor] = useState<number | "">("")
-  const [lines, setLines] = useState<LineItem[]>(() => [newLine()])
+  const [idProveedor, setIdProveedor] = useState<number | "">(initialDraft?.idProveedor ?? "")
+  const [lines, setLines] = useState<LineItem[]>(
+    initialDraft?.lines.length ? initialDraft.lines : [newLine()],
+  )
   const [submitting, setSubmitting] = useState(false)
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false)
   const [drawerForLineId, setDrawerForLineId] = useState<string | null>(null)
+
+  useEffect(() => {
+    saveDraft(idProveedor, lines)
+  }, [idProveedor, lines])
 
   useEffect(() => {
     getProveedores().then(setProveedores).catch(() => {})
@@ -94,6 +124,7 @@ export default function NuevaCompraPage() {
           precio_venta_sugerido: line.precio_venta_sugerido || line.item!.precio_venta_actual,
         })
       }
+      clearDraft()
       toast.success("Compra registrada exitosamente")
       router.push("/dashboard/compras")
     } catch (e) {
@@ -112,8 +143,6 @@ export default function NuevaCompraPage() {
   }
 
   const selectCls =
-    "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
-  const inputCls =
     "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
 
   return (
@@ -283,7 +312,7 @@ export default function NuevaCompraPage() {
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => router.back()}
+                onClick={() => { clearDraft(); router.back() }}
                 className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
               >
                 Cancelar

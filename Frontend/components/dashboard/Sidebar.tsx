@@ -66,6 +66,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
   const sessionLabel = session ? `${session.nombre} · ${session.sede}` : "Sesión no cargada"
   const navLinks = session ? (roleNavLinks[session.rol as keyof typeof roleNavLinks] ?? vendedorNavLinks) : []
   const showSalesCta = session ? ["vendedor", "propietario", "gerente"].includes(session.rol) : false
+  const showComprasCta = session ? session.rol === "abastecedor" : false
   const activeNavIndex = navLinks.reduce((bestIndex, link, index) => {
     if (!matchesRoute(pathname, link.href)) return bestIndex
     if (bestIndex === -1) return index
@@ -234,6 +235,51 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                   <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
                     <Zap className="h-4 w-4" />
                     Nueva venta
+                  </Button>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {showComprasCta && (
+        <div className={cn("px-3 pt-4 overflow-hidden", isCollapsed && "lg:flex lg:justify-center lg:px-0")}>
+          <AnimatePresence initial={false}>
+            {isCollapsed ? (
+              <motion.div
+                key="compras-cta-icon"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                className="hidden lg:flex lg:justify-center"
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Link href="/dashboard/compras/nueva" className="inline-flex">
+                        <Button size="icon" className="h-10 w-10 bg-lime hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    }
+                  />
+                  <TooltipContent side="right">Nueva compra</TooltipContent>
+                </Tooltip>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="compras-cta-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Link href="/dashboard/compras/nueva">
+                  <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
+                    <Zap className="h-4 w-4" />
+                    Nueva compra
                   </Button>
                 </Link>
               </motion.div>

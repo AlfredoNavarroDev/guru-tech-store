@@ -624,8 +624,22 @@ export default function CatalogoPage() {
   )
 
   const categorias = useMemo(
-    () => Array.from(new Set(catalogoItems.map((i) => i.categoria))).sort(),
+    () =>
+      Array.from(
+        new Set(
+          catalogoItems.flatMap((i) =>
+            i.categoria ? i.categoria.split(', ') : []
+          )
+        )
+      ).sort(),
     [catalogoItems]
+  )
+
+  const itemMatchesCategoria = useCallback(
+    (item: CatalogoItem) =>
+      selectedCategorias.size === 0 ||
+      (item.categoria ?? "").split(', ').some((c) => selectedCategorias.has(c)),
+    [selectedCategorias]
   )
 
   const marcas = useMemo(
@@ -633,12 +647,12 @@ export default function CatalogoPage() {
       Array.from(
         new Set(
           catalogoItems
-            .filter((i) => selectedCategorias.size === 0 || selectedCategorias.has(i.categoria))
+            .filter(itemMatchesCategoria)
             .map((i) => i.marca)
             .filter((m): m is string => m !== null && m !== "")
         )
       ).sort(),
-    [catalogoItems, selectedCategorias]
+    [catalogoItems, itemMatchesCategoria]
   )
 
   const modelos = useMemo(
@@ -646,18 +660,21 @@ export default function CatalogoPage() {
       Array.from(
         new Set(
           catalogoItems
-            .filter((i) => selectedCategorias.size === 0 || selectedCategorias.has(i.categoria))
+            .filter(itemMatchesCategoria)
             .filter((i) => selectedMarcas.size === 0 || selectedMarcas.has(i.marca ?? ""))
             .map((i) => i.modelo)
             .filter((m): m is string => m !== null && m !== "")
         )
       ).sort(),
-    [catalogoItems, selectedCategorias, selectedMarcas]
+    [catalogoItems, itemMatchesCategoria, selectedMarcas]
   )
 
   const filteredItems = useMemo(() => {
     return catalogoItems.filter((item) => {
-      if (selectedCategorias.size > 0 && !selectedCategorias.has(item.categoria)) return false
+      if (
+        selectedCategorias.size > 0 &&
+        !(item.categoria ?? "").split(', ').some((c) => selectedCategorias.has(c))
+      ) return false
       if (selectedMarcas.size > 0 && !selectedMarcas.has(item.marca ?? "")) return false
       if (selectedModelos.size > 0 && !selectedModelos.has(item.modelo ?? "")) return false
       if (soloConPromo) {
@@ -773,7 +790,7 @@ export default function CatalogoPage() {
         next.delete(cat)
         const validMarcas = new Set(
           catalogoItems
-            .filter((i) => next.size === 0 || next.has(i.categoria))
+            .filter((i) => next.size === 0 || (i.categoria ?? "").split(', ').some((c) => next.has(c)))
             .map((i) => i.marca)
             .filter((m): m is string => m !== null && m !== "")
         )
@@ -849,20 +866,6 @@ export default function CatalogoPage() {
         },
       ]
     })
-  }, [])
-
-  const updateQty = useCallback((id_item: number, delta: number) => {
-    setCartItems((prev) =>
-      prev.map((c) => {
-        if (c.id_item !== id_item) return c
-        const newQty = Math.min(c.stock_disponible, Math.max(1, c.cantidad + delta))
-        return { ...c, cantidad: newQty, importe: newQty * c.precio_unitario_momento }
-      })
-    )
-  }, [])
-
-  const removeItem = useCallback((id_item: number) => {
-    setCartItems((prev) => prev.filter((c) => c.id_item !== id_item))
   }, [])
 
   const decrementFromCard = useCallback((id_item: number) => {

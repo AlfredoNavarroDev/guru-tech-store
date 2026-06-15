@@ -86,7 +86,8 @@ export async function authRequest<T>(path: string, init?: RequestInit): Promise<
     const newToken = await tryRefresh()
     if (!newToken) {
       if (typeof window !== 'undefined') {
-        localStorage.clear()
+        localStorage.removeItem('guru_auth')
+        localStorage.removeItem('guru_refresh_token')
         window.location.href = '/login'
       }
       throw new ApiError(401, 'UNAUTHORIZED', 'Sesión expirada')

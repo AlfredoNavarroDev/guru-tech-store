@@ -181,8 +181,10 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
       const result = await emitirBoleta(ventaId)
       setBoleta(result)
       toast.success(`Boleta ${result.numero} emitida correctamente`)
-    } catch {
-      toast.error("No se pudo emitir la boleta. Intenta de nuevo.")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido"
+      toast.error(`No se pudo emitir la boleta: ${msg}`)
+      console.error("emitirBoleta error:", err)
     } finally {
       setEmitting(false)
     }

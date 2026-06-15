@@ -34,37 +34,54 @@ const EMPTY: CreateItemPayload = {
   cantidad_inicial: 0,
 }
 
+function buildForm(item: Item | null | undefined, categorias: Categoria[]): CreateItemPayload {
+  if (!item) return EMPTY
+  const catIds = categorias
+    .filter((c) => item.categorias.includes(c.nombre_categoria))
+    .map((c) => c.id_categoria)
+  return {
+    tipo: item.tipo,
+    sku: item.sku,
+    nombre: item.nombre,
+    id_marca: item.id_marca ?? undefined,
+    precio_compra_actual: item.precio_compra_actual,
+    precio_venta_actual: item.precio_venta_actual,
+    categoria_ids: catIds,
+    modelo: item.modelo ?? undefined,
+    calidad: item.calidad ?? undefined,
+  }
+}
+
 export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
-  const [form, setForm] = useState<CreateItemPayload>(EMPTY)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [marcas, setMarcas] = useState<Marca[]>([])
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     getCategorias().then(setCategorias).catch(() => {})
     getMarcas().then(setMarcas).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (item) {
-      const catIds = categorias
-        .filter((c) => item.categorias.includes(c.nombre_categoria))
-        .map((c) => c.id_categoria)
-      setForm({
-        tipo: item.tipo,
-        sku: item.sku,
-        nombre: item.nombre,
-        id_marca: item.id_marca ?? undefined,
-        precio_compra_actual: item.precio_compra_actual,
-        precio_venta_actual: item.precio_venta_actual,
-        categoria_ids: catIds,
-        modelo: item.modelo ?? undefined,
-        calidad: item.calidad ?? undefined,
-      })
-    } else {
-      setForm(EMPTY)
-    }
-  }, [item, categorias, open])
+  return (
+    <ItemDrawerForm
+      key={`${open ? "open" : "closed"}-${item?.id_item ?? "new"}-${categorias.length}`}
+      open={open}
+      onClose={onClose}
+      item={item}
+      onSaved={onSaved}
+      categorias={categorias}
+      marcas={marcas}
+    />
+  )
+}
+
+interface ItemDrawerFormProps extends ItemDrawerProps {
+  categorias: Categoria[]
+  marcas: Marca[]
+}
+
+function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: ItemDrawerFormProps) {
+  const [form, setForm] = useState<CreateItemPayload>(() => buildForm(item, categorias))
+  const [saving, setSaving] = useState(false)
 
   function set<K extends keyof CreateItemPayload>(key: K, value: CreateItemPayload[K]) {
     setForm((f) => ({ ...f, [key]: value }))

@@ -23,10 +23,11 @@ export interface Compra {
 }
 
 export interface ComprasResponse {
-  data: Compra[]
+  items: Compra[]
   total: number
   page: number
   limit: number
+  totalPages: number
 }
 
 export interface AddItemCompraPayload {
@@ -36,10 +37,11 @@ export interface AddItemCompraPayload {
   precio_venta_sugerido: number
 }
 
-export function getCompras(params?: { page?: number; limit?: number }) {
+export function getCompras(params?: { page?: number; limit?: number; proveedor?: string }) {
   const qs = new URLSearchParams()
-  if (params?.page)  qs.set('page',  String(params.page))
-  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.page)      qs.set('page',      String(params.page))
+  if (params?.limit)     qs.set('limit',     String(params.limit))
+  if (params?.proveedor) qs.set('proveedor', params.proveedor)
   return authRequest<ComprasResponse>(`compras?${qs}`)
 }
 

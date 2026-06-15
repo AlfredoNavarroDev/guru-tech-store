@@ -1,6 +1,7 @@
 'use client'
 
 import { Package } from 'lucide-react'
+import Image from 'next/image'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -16,12 +17,12 @@ export function ItemImage({ src, alt, size, className }: ItemImageProps) {
 
   const containerClass =
     size === 'lg'
-      ? 'w-full aspect-square bg-gray-50 rounded-t-2xl flex items-center justify-center overflow-hidden'
+      ? 'relative w-full aspect-square bg-gray-50 rounded-t-2xl flex items-center justify-center overflow-hidden'
       : size === 'xl'
-      ? 'w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0'
+      ? 'relative w-24 h-24 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0'
       : size === 'md'
-      ? 'w-20 h-20 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0'
-      : 'w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0'
+      ? 'relative w-20 h-20 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0'
+      : 'relative w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden shrink-0'
 
   const iconClass =
     size === 'lg'
@@ -46,9 +47,11 @@ export function ItemImage({ src, alt, size, className }: ItemImageProps) {
   return (
     <div className={cn(containerClass, className)}>
       {showImage ? (
-        <img
+        <Image
           src={src}
           alt={alt}
+          fill
+          sizes={size === 'lg' ? '(min-width: 1024px) 25vw, 100vw' : '96px'}
           onError={() => setError(true)}
           className={cn('object-contain', imgClass)}
         />

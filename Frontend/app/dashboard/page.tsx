@@ -1,19 +1,14 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
-import Link from "next/link"
-import { motion } from "motion/react"
+import { useEffect, useState, useMemo, useSyncExternalStore } from "react"
 import {
   TrendingUp,
   Users,
   ShoppingCart,
   ArrowUpRight,
   TrendingDown,
-  Zap,
-  Grid3X3,
-  UserRound,
-  Receipt,
 } from "lucide-react"
+import { motion } from "motion/react"
 import { NumberTicker } from "@/components/ui/number-ticker"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -25,9 +20,6 @@ import { TecnicoDashboard } from "./_components/TecnicoDashboard"
 import { AbastecedorDashboard } from "./_components/AbastecedorDashboard"
 
 const SALES_ROLES = ["vendedor", "propietario", "gerente"]
-
-const MotionLink = motion(Link)
-const WHILETAP = { scale: 0.97 }
 
 const AVATAR_PALETTES = [
   "bg-gray-100 text-gray-900",
@@ -42,6 +34,16 @@ function initials(name: string) {
 
 function fmtHora(iso: string) {
   return new Date(iso).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
+}
+
+function noopSubscribe() {
+  return () => undefined
+}
+
+function formatToday() {
+  return new Date().toLocaleDateString("es-PE", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  })
 }
 
 function countChange(hoy: number, ayer: number): { label: string; positive: boolean } {
@@ -63,22 +65,14 @@ function moneyChange(hoy: number, ayer: number): { label: string; positive: bool
 export default function DashboardPage() {
   const [stats, setStats] = useState<EstadisticasHoy | null>(null)
   const [error, setError] = useState(false)
-  const [session, setSession] = useState<ReturnType<typeof getSession> | undefined>(undefined)
-  const [today, setToday] = useState("")
+  const session = useSyncExternalStore(noopSubscribe, getSession, () => null)
+  const today = useSyncExternalStore(noopSubscribe, formatToday, () => "")
 
   useEffect(() => {
-    setToday(new Date().toLocaleDateString("es-PE", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    }))
-  }, [])
-
-  useEffect(() => {
-    const s = getSession()
-    setSession(s ?? null)
-    if (s && SALES_ROLES.includes(s.rol)) {
+    if (session && SALES_ROLES.includes(session.rol)) {
       getEstadisticas().then(setStats).catch(() => setError(true))
     }
-  }, [])
+  }, [session])
 
   const loading = !stats && !error
 
@@ -200,8 +194,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Bottom section ── */}
-      <BlurFade delay={0.32} duration={0.4}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           {/* Ventas recientes */}
           <div className="flex-1 min-w-0 rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
@@ -279,48 +272,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick actions */}
-          <div className="lg:w-60 xl:w-64 shrink-0 flex flex-col gap-3">
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
-              <h3 className="text-base font-bold text-text-heading mb-4">Acciones rápidas</h3>
-              <div className="flex flex-col gap-2">
-                <MotionLink
-                  href="/dashboard/catalogo"
-                  whileTap={WHILETAP}
-                  className="flex items-center gap-3 rounded-xl bg-lime px-4 py-3 font-bold text-[#020617] text-sm transition-all hover:bg-[#d4f96a] shadow-[0_0_16px_rgba(172,248,71,0.25)]"
-                >
-                  <Zap className="h-4 w-4 shrink-0" />
-                  Nueva venta
-                </MotionLink>
-                <MotionLink
-                  href="/dashboard/catalogo"
-                  whileTap={WHILETAP}
-                  className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  <Grid3X3 className="h-4 w-4 shrink-0 text-gray-900" />
-                  Ver catálogo
-                </MotionLink>
-                <MotionLink
-                  href="/dashboard/clientes"
-                  whileTap={WHILETAP}
-                  className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  <UserRound className="h-4 w-4 shrink-0 text-gray-900" />
-                  Clientes
-                </MotionLink>
-                <MotionLink
-                  href="/dashboard/ventas"
-                  whileTap={WHILETAP}
-                  className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  <Receipt className="h-4 w-4 shrink-0 text-gray-900" />
-                  Historial ventas
-                </MotionLink>
-              </div>
-            </div>
-          </div>
         </div>
-      </BlurFade>
     </div>
   )
 }
