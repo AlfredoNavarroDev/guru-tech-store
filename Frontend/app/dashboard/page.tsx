@@ -22,7 +22,7 @@ import { getEstadisticas, type EstadisticasHoy } from "@/lib/api/ventas"
 import { getSession } from "@/lib/api/auth"
 import { AdminDashboard } from "./_components/AdminDashboard"
 import { TecnicoDashboard } from "./_components/TecnicoDashboard"
-import { StockOverview } from "@/components/abastecedor/StockOverview"
+import { AbastecedorDashboard } from "./_components/AbastecedorDashboard"
 
 const SALES_ROLES = ["vendedor", "propietario", "gerente"]
 
@@ -73,14 +73,11 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    const dashboardHydrationTimeout = window.setTimeout(() => {
-      const s = getSession()
-      setSession(s ?? null)
-      if (s && SALES_ROLES.includes(s.rol)) {
-        getEstadisticas().then(setStats).catch(() => setError(true))
-      }
-    }, 0)
-    return () => window.clearTimeout(dashboardHydrationTimeout)
+    const s = getSession()
+    setSession(s ?? null)
+    if (s && SALES_ROLES.includes(s.rol)) {
+      getEstadisticas().then(setStats).catch(() => setError(true))
+    }
   }, [])
 
   const loading = !stats && !error
@@ -128,15 +125,7 @@ export default function DashboardPage() {
 
   const rol = session?.rol
   if (rol === "admin" || rol === "administrador") return <AdminDashboard />
-  if (rol === "abastecedor") return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-white">Resumen de Inventario</h1>
-        <p className="text-sm text-white/40 mt-0.5">Vista general del stock por sede</p>
-      </div>
-      <StockOverview />
-    </div>
-  )
+  if (rol === "abastecedor") return <AbastecedorDashboard />
   if (rol === "tecnico") return <TecnicoDashboard />
 
   return (
