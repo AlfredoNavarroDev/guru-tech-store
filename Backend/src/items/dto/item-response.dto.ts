@@ -13,7 +13,9 @@ export class ItemResponseDto {
   @ApiProperty() precio_compra_actual: number;
   @ApiProperty() precio_venta_actual: number;
   @ApiProperty({ type: [String] }) categorias: string[];
-  @ApiPropertyOptional({ type: String, nullable: true }) imagen_url: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) imagen_url:
+    | string
+    | null;
   @ApiProperty() created_at: Date;
   @ApiPropertyOptional() updated_at: Date | null;
 }

@@ -102,8 +102,7 @@ export class VentasController {
   // ── Boletas ────────────────────────────────────────────────────────────
 
   // HU-08: Emite la boleta en PDF para una venta (paso separado de la venta).
-  @Post(':id/boleta')
-  @Post(':id/boletas')
+  @Post([':id/boleta', ':id/boletas'])
   @ApiOperation({ summary: 'HU-08 — Emitir boleta PDF para una venta' })
   emitirBoleta(
     @Param('id', ParseIntPipe) id: number,
@@ -113,8 +112,7 @@ export class VentasController {
   }
 
   // HU-08: Obtiene la boleta ya emitida de una venta.
-  @Get(':id/boleta')
-  @Get(':id/boletas')
+  @Get([':id/boleta', ':id/boletas'])
   @ApiOperation({ summary: 'HU-08 — Obtener boleta de una venta' })
   findBoleta(
     @Param('id', ParseIntPipe) id: number,

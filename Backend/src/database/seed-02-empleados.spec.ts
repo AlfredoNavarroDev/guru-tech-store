@@ -7,7 +7,7 @@ jest.mock('bcrypt', () => ({
 }));
 
 describe('seedEmpleados', () => {
-  it('inserta un administrador activo de sede para probar Sprint 1', async () => {
+  it('inserta empleados de los 4 roles (admin, vendedor, técnico, abastecedor) en 2 sedes', async () => {
     jest.mocked(bcrypt.hash).mockResolvedValue('hash-admin-vendedor' as never);
 
     const query = jest.fn().mockResolvedValue(undefined);
@@ -21,9 +21,20 @@ describe('seedEmpleados', () => {
 
     expect(insertCall).toBeDefined();
     const insertSql = String(insertCall?.[0]);
+
+    // Admin sede 1
     expect(insertSql).toContain("'10002001'");
-    expect(insertSql).toContain("'Admin Sprint 1'");
+    expect(insertSql).toContain("'Admin Lima Centro'");
+    // Vendedor sede 1
+    expect(insertSql).toContain("'10003001'");
+    // Técnico sede 1
+    expect(insertSql).toContain("'10004001'");
+    // Abastecedor sede 1
+    expect(insertSql).toContain("'10005001'");
+    // Abastecedor sede 2
+    expect(insertSql).toContain("'10005002'");
+    // Todos activos salvo el suspendido
     expect(insertSql).toContain("'activo'");
-    expect(insertSql).toContain(', 2)');
+    expect(insertSql).toContain("'suspendido'");
   });
 });

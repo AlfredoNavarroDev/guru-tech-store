@@ -120,7 +120,9 @@ export class ItemsController {
 
   @Patch(':id/stock')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'HU-12 — Ajuste directo de stock (entrada o salida)' })
+  @ApiOperation({
+    summary: 'HU-12 — Ajuste directo de stock (entrada o salida)',
+  })
   @ApiNoContentResponse()
   @ApiNotFoundResponse()
   ajusteStock(

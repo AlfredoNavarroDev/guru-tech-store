@@ -1,28 +1,28 @@
-/** Orquestador principal de seeds. Ejecuta seeds 01-05 en orden dentro de una transacción. Rollback si alguno falla. */
+/** Orquestador principal de seeds. Ejecuta seeds 01-06 en orden dentro de una transacción. Rollback si alguno falla. */
 
 import 'reflect-metadata';
 import { AppDataSource } from '../data-source';
 import { seedMaster } from './seed-01-master';
 import { seedEmpleados } from './seed-02-empleados';
+import { seedClientes } from './seed-03-clientes';
 import { seedCatalogo } from './seed-04-catalogo';
+import { seedProveedores } from './seed-05-proveedores';
+import { seedCompras } from './seed-06-compras';
 
 async function main(): Promise<void> {
   console.log('============================================================');
-  console.log(' SEED — Sprint 1 / Flujo Vendedor');
+  console.log(' SEED — Sprint 2 / Todos los roles');
   console.log('============================================================');
 
-  // Conectar al DataSource (lee .env via data-source.ts)
   console.log('\nConectando a la base de datos...');
   await AppDataSource.initialize();
   console.log('OK - Conexión establecida');
 
-  // QueryRunner para agrupar todos los INSERTs en una transacción
   const qr = AppDataSource.createQueryRunner();
   await qr.connect();
   await qr.startTransaction();
 
   try {
-    // Limpiar tablas en orden inverso de FK. CASCADE propaga a dependientes.
     console.log('\nLimpiando tablas...');
     await qr.query(`
       TRUNCATE TABLE
@@ -32,6 +32,9 @@ async function main(): Promise<void> {
         Detalle_Venta,
         Ventas,
         Movimientos_Inventario,
+        RefreshTokens,
+        Detalle_Compra_Refill,
+        Compras_Refill,
         Inventario_Sedes,
         Promociones,
         Item_Categorias,
@@ -41,59 +44,64 @@ async function main(): Promise<void> {
         Categorias,
         Marcas,
         Roles,
+        Proveedores,
         Sedes
       RESTART IDENTITY CASCADE
     `);
     console.log('OK - Tablas limpias\n');
 
-    // Seeders en orden estricto (cada uno depende de los anteriores)
     await seedMaster(qr);
     await seedEmpleados(qr);
+    await seedClientes(qr);
     await seedCatalogo(qr);
+    await seedProveedores(qr);
+    await seedCompras(qr);
 
-    // COMMIT solo si TODOS los seeders completaron sin error
     await qr.commitTransaction();
 
     console.log('============================================================');
-    console.log(' SEED COMPLETADO');
+    console.log(
+      ' SEED COMPLETADO — credenciales de prueba (password: Vendedor123!)',
+    );
     console.log('============================================================');
-    console.log('\nDatos listos para probar Sprint 1:');
-    console.log('\n  LOGIN');
-    console.log('    POST /auth/login');
+    console.log('\n  ROL ADMIN');
+    console.log('    DNI 10002001  → admin    sede 1 (Lima Centro)');
+    console.log('    DNI 10002002  → admin    sede 2 (Miraflores)');
+    console.log('\n  ROL VENDEDOR');
+    console.log('    DNI 10003001  → vendedor sede 1');
+    console.log('    DNI 10003002  → vendedor sede 2');
+    console.log('\n  ROL TÉCNICO');
+    console.log('    DNI 10004001  → técnico  sede 1');
+    console.log('    DNI 10004002  → técnico  sede 2');
+    console.log('\n  ROL ABASTECEDOR');
     console.log(
-      '    { "nro_documento": "10003001", "password": "Vendedor123!" }  → vendedor sede 1',
+      '    DNI 10005001  → abastecedor sede 1  (tiene 3 compras, stock crítico/bajo/OK)',
     );
     console.log(
-      '    { "nro_documento": "10003002", "password": "Vendedor123!" }  → vendedor sede 2',
+      '    DNI 10005002  → abastecedor sede 2  (stock independiente de sede 1)',
+    );
+    console.log('\n  CASO BORDE');
+    console.log('    DNI 10003099  → suspendido → 401');
+    console.log('\n  CATÁLOGO (20 items: 14 productos + 6 repuestos, 2 sedes)');
+    console.log('    GET /catalogo?id_sede=1   → 14 productos con promos');
+    console.log(
+      '    GET /catalogo?id_sede=2   → mismo catálogo, stock independiente',
+    );
+    console.log('\n  STOCK ABASTECEDOR');
+    console.log(
+      '    GET /stock?id_sede=1                     → todos los items',
     );
     console.log(
-      '    { "nro_documento": "10003099", "password": "Vendedor123!" }  → 401 (suspendido)',
+      '    GET /stock?id_sede=1&requiere_reposicion=true → críticos y bajos',
     );
-    console.log('\n  CATÁLOGO  (requiere JWT vendedor sede 1 o 2)');
-    console.log(
-      '    GET /catalogo?id_sede=1   → 6 productos, algunos con promo',
-    );
-    console.log('    GET /catalogo?id_sede=1&con_stock=true');
-    console.log('    GET /catalogo?id_sede=1&nombre=cable');
-    console.log('\n  VENTAS  (requiere JWT vendedor de la sede correcta)');
-    console.log(
-      '    GET  /ventas              → ventas del vendedor autenticado',
-    );
-    console.log('    GET  /ventas/1            → detalle venta 1');
-    console.log('    POST /ventas');
-    console.log('\n  PAGOS & BOLETAS');
-    console.log('    GET  /ventas/1/pagos');
-    console.log('    POST /ventas/1/pagos      → { metodo_pago, monto }');
-    console.log('    GET  /ventas/1/boleta');
+    console.log('    GET /stock/critico?id_sede=1             → solo críticos');
     console.log('');
   } catch (err) {
-    // Revertir todo si cualquier seed falla. DB queda vacío.
     await qr.rollbackTransaction();
     console.error('\n[ERROR] Seed fallido. Se hizo ROLLBACK. DB queda vacío.');
     console.error(err);
     process.exit(1);
   } finally {
-    // Liberar conexión al pool y cerrar DataSource
     await qr.release();
     await AppDataSource.destroy();
   }

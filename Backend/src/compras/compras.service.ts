@@ -10,7 +10,8 @@ import {
   CompraResponseDto,
   DetalleCompraResponseDto,
 } from './dto/compra-response.dto';
-import { PaginatedResult, PaginationDto } from '../common/dto/pagination.dto';
+import { PaginatedResult } from '../common/dto/pagination.dto';
+import { ComprasQueryDto } from './dto/compras-query.dto';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import {
   CompraNotFoundException,
@@ -32,7 +33,7 @@ interface CompraRow {
 }
 
 interface DetalleRow {
-  id_detalle_compra: number;
+  id_detalle: number;
   id_item: number;
   item_nombre: string | null;
   sku: string | null;
@@ -74,12 +75,17 @@ export class ComprasService {
 
   async findAll(
     user: JwtPayload,
-    query: PaginationDto,
+    query: ComprasQueryDto,
   ): Promise<PaginatedResult<CompraResponseDto>> {
+    const proveedorFilter = query.proveedor ?? null;
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
-        `SELECT COUNT(*) AS total FROM compras_refill WHERE id_sede_destino = $1`,
-        [user.id_sede!],
+        `SELECT COUNT(*) AS total
+         FROM compras_refill c
+         JOIN proveedores p ON p.id_proveedor = c.id_proveedor
+         WHERE c.id_sede_destino = $1
+           AND ($2::text IS NULL OR p.razon_social ILIKE '%' || $2 || '%')`,
+        [user.id_sede!, proveedorFilter],
       ),
       this.dataSource.query<CompraRow[]>(
         `SELECT c.id_compra, c.id_empleado_refiller, e.nombre_completo AS empleado,
@@ -91,15 +97,21 @@ export class ComprasService {
          JOIN proveedores p ON p.id_proveedor = c.id_proveedor
          LEFT JOIN detalle_compra_refill d ON d.id_compra = c.id_compra
          WHERE c.id_sede_destino = $1
+           AND ($4::text IS NULL OR p.razon_social ILIKE '%' || $4 || '%')
          GROUP BY c.id_compra, e.nombre_completo, p.razon_social
          ORDER BY c.fecha_compra DESC
          LIMIT $2 OFFSET $3`,
-        [user.id_sede!, query.limit, (query.page - 1) * query.limit],
+        [
+          user.id_sede!,
+          query.limit,
+          (query.page - 1) * query.limit,
+          proveedorFilter,
+        ],
       ),
     ]);
 
     return {
-      items: rows.map(this.toCompraResponse),
+      items: rows.map((row) => this.toCompraResponse(row)),
       total: parseInt(total, 10),
       page: query.page,
       limit: query.limit,
@@ -123,7 +135,7 @@ export class ComprasService {
         [id, idSede],
       ),
       this.dataSource.query<DetalleRow[]>(
-        `SELECT d.id_detalle_compra, d.id_item, i.nombre AS item_nombre, i.sku,
+        `SELECT d.id_detalle, d.id_item, i.nombre AS item_nombre, i.sku,
                 d.cantidad_comprada, d.costo_unidad, d.precio_venta_sugerido
          FROM detalle_compra_refill d
          JOIN items i ON i.id_item = d.id_item
@@ -135,7 +147,7 @@ export class ComprasService {
     if (!compra) throw new CompraNotFoundException(id);
     return {
       ...this.toCompraResponse(compra),
-      detalles: detalles.map(this.toDetalleResponse),
+      detalles: detalles.map((detalle) => this.toDetalleResponse(detalle)),
     };
   }
 
@@ -232,7 +244,7 @@ export class ComprasService {
 
   private toDetalleResponse(row: DetalleRow): DetalleCompraResponseDto {
     return {
-      id_detalle_compra: row.id_detalle_compra,
+      id_detalle_compra: row.id_detalle,
       id_item: row.id_item,
       item_nombre: row.item_nombre ?? null,
       sku: row.sku ?? null,

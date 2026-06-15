@@ -31,7 +31,7 @@ import { CreateCompraDto } from './dto/create-compra.dto';
 import { AddItemCompraDto } from './dto/add-item-compra.dto';
 import { UpdateItemCompraDto } from './dto/update-item-compra.dto';
 import { CompraResponseDto } from './dto/compra-response.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { ComprasQueryDto } from './dto/compras-query.dto';
 
 @ApiTags('compras')
 @ApiBearerAuth()
@@ -54,7 +54,7 @@ export class ComprasController {
   @Get()
   @ApiOperation({ summary: 'Historial de compras de la sede' })
   @ApiOkResponse({ type: CompraResponseDto, isArray: true })
-  findAll(@Query() query: PaginationDto, @CurrentUser() user: JwtPayload) {
+  findAll(@Query() query: ComprasQueryDto, @CurrentUser() user: JwtPayload) {
     return this.comprasService.findAll(user, query);
   }
 

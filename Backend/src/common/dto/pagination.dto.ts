@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
-/** DTO reutilizable para paginación page-based. Límite máximo 100 registros. */
+/** DTO reutilizable para paginación page-based. Límite máximo 500 registros. */
 export class PaginationDto {
   @ApiPropertyOptional({ example: 1, description: 'Página (inicia en 1)' })
   @IsOptional()
@@ -16,7 +16,7 @@ export class PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   limit: number = 20;
 }
 

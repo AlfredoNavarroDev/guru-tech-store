@@ -81,7 +81,11 @@ describe('StockService', () => {
         .mockResolvedValueOnce([{ total: '0' }])
         .mockResolvedValueOnce([]);
 
-      await service.findAll(1, { page: 1, limit: 20, requiere_reposicion: true });
+      await service.findAll(1, {
+        page: 1,
+        limit: 20,
+        requiere_reposicion: true,
+      });
 
       const countCall = ds.query.mock.calls[0] as [string, unknown[]];
       expect(countCall[0]).toContain('requiere_reposicion = $2');
@@ -100,6 +104,29 @@ describe('StockService', () => {
       // OFFSET = (page - 1) * limit = 10
       expect(dataCall[1]).toContain(10);
     });
+
+    it('findAll: ordena por la columna item expuesta por la vista', async () => {
+      ds.query
+        .mockResolvedValueOnce([{ total: '1' }])
+        .mockResolvedValueOnce([mockStockRow]);
+
+      await service.findAll(1, { page: 1, limit: 20 });
+
+      const dataCall = ds.query.mock.calls[1] as [string, unknown[]];
+      expect(dataCall[0]).toContain('ORDER BY item');
+      expect(dataCall[0]).not.toContain('ORDER BY nombre');
+    });
+
+    it('findAll: convierte precio_compra_actual decimal a number', async () => {
+      ds.query
+        .mockResolvedValueOnce([{ total: '1' }])
+        .mockResolvedValueOnce([mockStockRow]);
+
+      const result = await service.findAll(1, { page: 1, limit: 20 });
+      const [row] = result.items as Array<{ precio_compra_actual: unknown }>;
+
+      expect(row.precio_compra_actual).toBe(8.5);
+    });
   });
 
   describe('findCritico', () => {
@@ -115,6 +142,18 @@ describe('StockService', () => {
         expect.stringContaining('v_abastecedor_stock_critico'),
         [1],
       );
+    });
+
+    it('findCritico: convierte precio_compra_actual decimal a number', async () => {
+      ds.query.mockResolvedValueOnce([
+        { ...mockStockRow, requiere_reposicion: true },
+      ]);
+
+      const [row] = (await service.findCritico(1)) as Array<{
+        precio_compra_actual: unknown;
+      }>;
+
+      expect(row.precio_compra_actual).toBe(8.5);
     });
   });
 

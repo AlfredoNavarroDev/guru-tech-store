@@ -35,9 +35,12 @@ export async function seedMaster(qr: QueryRunner): Promise<void> {
     (3, 'Anker'),
     (4, 'Xiaomi'),
     (5, 'Genérico'),
-    (6, 'Huawei')
+    (6, 'Huawei'),
+    (7, 'Logitech'),
+    (8, 'HP'),
+    (9, 'Lenovo')
   `);
-  console.log('  OK - 6 marcas');
+  console.log('  OK - 9 marcas');
 
   // Categorías usadas por v_vendedor_catalogo
   console.log('  Insertando Categorias...');
@@ -46,9 +49,11 @@ export async function seedMaster(qr: QueryRunner): Promise<void> {
     (1, 'Cables y Cargadores'),
     (2, 'Fundas y Protectores'),
     (3, 'Auriculares'),
-    (4, 'Accesorios')
+    (4, 'Accesorios'),
+    (5, 'Teclados y Mouse'),
+    (6, 'Almacenamiento')
   `);
-  console.log('  OK - 4 categorias');
+  console.log('  OK - 6 categorias');
 
   // Ajustar secuencias para no colisionar con ids fijos del seed
   await qr.query(
@@ -58,10 +63,10 @@ export async function seedMaster(qr: QueryRunner): Promise<void> {
     `SELECT setval(pg_get_serial_sequence('Roles',      'id_rol'),        5)`,
   );
   await qr.query(
-    `SELECT setval(pg_get_serial_sequence('Marcas',     'id_marca'),      6)`,
+    `SELECT setval(pg_get_serial_sequence('Marcas',     'id_marca'),      9)`,
   );
   await qr.query(
-    `SELECT setval(pg_get_serial_sequence('Categorias', 'id_categoria'),  4)`,
+    `SELECT setval(pg_get_serial_sequence('Categorias', 'id_categoria'),  6)`,
   );
 
   console.log('[Seed 01] Completado.\n');

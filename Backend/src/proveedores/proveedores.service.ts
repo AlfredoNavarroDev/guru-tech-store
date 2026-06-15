@@ -42,7 +42,7 @@ export class ProveedoresService {
       take: query.limit,
     });
     return {
-      items: items.map(this.toResponse),
+      items: items.map((item) => this.toResponse(item)),
       total,
       page: query.page,
       limit: query.limit,

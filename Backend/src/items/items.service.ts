@@ -94,7 +94,12 @@ export class ItemsService {
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (id_sede, id_item)
            DO UPDATE SET stock_minimo = EXCLUDED.stock_minimo`,
-          [idSede, row.id_item, dto.cantidad_inicial ?? 0, dto.stock_minimo ?? 0],
+          [
+            idSede,
+            row.id_item,
+            dto.cantidad_inicial ?? 0,
+            dto.stock_minimo ?? 0,
+          ],
         );
         return row.id_item;
       },
@@ -157,7 +162,7 @@ export class ItemsService {
     ]);
 
     return {
-      items: rows.map(this.toResponse),
+      items: rows.map((row) => this.toResponse(row)),
       total: parseInt(total, 10),
       page: query.page,
       limit: query.limit,

@@ -40,8 +40,8 @@ describe('ItemsService', () => {
           async (fn: (m: typeof mockManager) => Promise<unknown>) => {
             mockManager.query
               .mockResolvedValueOnce([{ id_item: 1 }]) // INSERT items RETURNING
-              .mockResolvedValueOnce([])                // INSERT item_categorias
-              .mockResolvedValueOnce([]);               // INSERT inventario_sedes
+              .mockResolvedValueOnce([]) // INSERT item_categorias
+              .mockResolvedValueOnce([]); // INSERT inventario_sedes
             return fn(mockManager);
           },
         ),
@@ -82,16 +82,14 @@ describe('ItemsService', () => {
     });
 
     it('create: repuesto sin categorias → no lanza error', async () => {
-      ds.query
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([
-          {
-            ...mockItemRow,
-            tipo: 'repuesto',
-            calidad: 'original',
-            categorias_str: '',
-          },
-        ]);
+      ds.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        {
+          ...mockItemRow,
+          tipo: 'repuesto',
+          calidad: 'original',
+          categorias_str: '',
+        },
+      ]);
 
       ds.transaction.mockImplementation(
         async (fn: (m: { query: jest.Mock }) => Promise<unknown>) => {
@@ -99,7 +97,7 @@ describe('ItemsService', () => {
             query: jest
               .fn()
               .mockResolvedValueOnce([{ id_item: 2 }]) // INSERT items
-              .mockResolvedValueOnce([]),               // INSERT inventario_sedes (sin categorias)
+              .mockResolvedValueOnce([]), // INSERT inventario_sedes (sin categorias)
           };
           return fn(m);
         },
@@ -174,7 +172,7 @@ describe('ItemsService', () => {
       let inventarioParams: unknown[] = [];
 
       ds.query
-        .mockResolvedValueOnce([])            // SKU check
+        .mockResolvedValueOnce([]) // SKU check
         .mockResolvedValueOnce([mockItemRow]); // findOne
 
       ds.transaction.mockImplementation(
@@ -183,7 +181,7 @@ describe('ItemsService', () => {
             query: jest
               .fn()
               .mockResolvedValueOnce([{ id_item: 1 }]) // INSERT items
-              .mockResolvedValueOnce([])                // INSERT categorias
+              .mockResolvedValueOnce([]) // INSERT categorias
               .mockImplementation((_sql: string, params: unknown[]) => {
                 inventarioParams = params;
                 return Promise.resolve([]);
@@ -208,9 +206,9 @@ describe('ItemsService', () => {
       );
 
       // [idSede, id_item, cantidad_inicial, stock_minimo]
-      expect(inventarioParams[0]).toBe(2);  // id_sede
+      expect(inventarioParams[0]).toBe(2); // id_sede
       expect(inventarioParams[2]).toBe(10); // cantidad_inicial
-      expect(inventarioParams[3]).toBe(5);  // stock_minimo
+      expect(inventarioParams[3]).toBe(5); // stock_minimo
     });
   });
 
@@ -322,7 +320,7 @@ describe('ItemsService', () => {
       await service.remove(1);
 
       const deleteCalls = ds.query.mock.calls.filter((c: [string, unknown[]]) =>
-        (c[0] as string).includes('DELETE FROM items'),
+        c[0].includes('DELETE FROM items'),
       );
       expect(deleteCalls).toHaveLength(1);
     });

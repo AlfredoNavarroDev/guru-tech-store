@@ -9,7 +9,7 @@ import { CompraRefill } from './compra-refill.entity';
 
 @Entity('detalle_compra_refill')
 export class DetalleCompraRefill {
-  @PrimaryGeneratedColumn({ name: 'id_detalle_compra' })
+  @PrimaryGeneratedColumn({ name: 'id_detalle' })
   id_detalle_compra: number;
 
   @Column({ name: 'id_compra' })

@@ -25,11 +25,10 @@ export class StockController {
   @ApiOperation({
     summary: 'HU-12 — Stock actual de la sede con filtros y paginación',
   })
-  @ApiOkResponse({ description: 'PaginatedResult desde v_abastecedor_stock_actual' })
-  findAll(
-    @Query() query: QueryStockDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  @ApiOkResponse({
+    description: 'PaginatedResult desde v_abastecedor_stock_actual',
+  })
+  findAll(@Query() query: QueryStockDto, @CurrentUser() user: JwtPayload) {
     return this.stockService.findAll(user.id_sede!, query);
   }
 

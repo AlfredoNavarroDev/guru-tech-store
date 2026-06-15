@@ -105,7 +105,7 @@ describe('ComprasService', () => {
       expect(result.total).toBe(1);
       expect(ds.query).toHaveBeenCalledWith(
         expect.stringContaining('id_sede_destino = $1'),
-        [mockUser.id_sede],
+        [mockUser.id_sede, null],
       );
     });
   });

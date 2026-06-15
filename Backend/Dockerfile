@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 WORKDIR /app
 COPY package*.json ./
@@ -6,7 +6,7 @@ RUN npm ci && npm cache clean --force
 COPY . .
 RUN npm run build
 
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     fonts-liberation \
