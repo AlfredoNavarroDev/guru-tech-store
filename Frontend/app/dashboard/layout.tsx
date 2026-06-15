@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
-import { getSession, clearSession, type AuthSession } from "@/lib/api/auth"
+import { getSession, clearSession, setAuthCookie, type AuthSession } from "@/lib/api/auth"
 
 const SEGMENT_TITLES: Record<string, string> = {
   dashboard: "Resumen",
@@ -19,6 +19,7 @@ const SEGMENT_TITLES: Record<string, string> = {
   stock: "Stock",
   items: "Ítems",
   nueva: "Nueva compra",
+  historial: "Historial técnico",
 }
 
 function getPageTitle(pathname: string): string {
@@ -41,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const currentSession = getSession()
         if (!currentSession) { router.push("/login"); return }
         setSession(currentSession)
+        setAuthCookie(currentSession.access_token)
       } catch {
         router.push("/login")
       }

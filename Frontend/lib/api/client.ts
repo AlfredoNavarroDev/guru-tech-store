@@ -54,7 +54,7 @@ async function tryRefresh(): Promise<string | null> {
       const session = normalizeSession(JSON.parse(raw))
       session.access_token = data.access_token
       localStorage.setItem('guru_auth', JSON.stringify(session))
-      document.cookie = `guru_token=${data.access_token}; path=/; SameSite=Strict`
+      document.cookie = `guru_token=${data.access_token}; path=/; SameSite=Strict; max-age=604800`
     }
     localStorage.setItem('guru_refresh_token', data.refresh_token)
 
