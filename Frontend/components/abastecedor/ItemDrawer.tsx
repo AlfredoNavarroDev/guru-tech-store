@@ -20,7 +20,7 @@ interface ItemDrawerProps {
   open: boolean
   onClose: () => void
   item?: Item | null
-  onSaved: () => void
+  onSaved: (created?: Item) => void
 }
 
 const EMPTY: CreateItemPayload = {
@@ -89,30 +89,32 @@ export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
       if (item) {
         await updateItem(item.id_item, form)
         toast.success("Ítem actualizado")
+        onSaved()
       } else {
-        await createItem(form)
+        const created = await createItem(form)
         toast.success("Ítem creado")
+        onSaved(created)
       }
-      onSaved()
-      onClose()
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Error al guardar")
+      return
     } finally {
       setSaving(false)
     }
+    onClose()
   }
 
-  const inputCls = "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-  const labelCls = "block text-xs text-white/50 mb-1"
+  const inputCls = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text-heading placeholder:text-text-muted focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+  const labelCls = "block text-xs text-text-muted mb-1"
 
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <div className="rounded-t-2xl sm:rounded-2xl bg-[#0a0a0f] border border-white/10 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 className="text-base font-semibold text-white">
+      <div className="max-h-[90vh] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white sm:rounded-2xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <h2 className="text-base font-semibold text-text-heading">
             {item ? "Editar ítem" : "Nuevo ítem"}
           </h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/10 text-white/50">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-gray-100 hover:text-text-heading">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -218,14 +220,14 @@ export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
                 {categorias.map((c) => {
                   const selected = (form.categoria_ids ?? []).includes(c.id_categoria)
                   return (
-                    <button
+                  <button
                       key={c.id_categoria}
                       type="button"
                       onClick={() => toggleCategoria(c.id_categoria)}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         selected
                           ? 'bg-blue-600 text-white'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
+                          : 'bg-gray-100 text-text-muted hover:bg-gray-200'
                       }`}
                     >
                       {c.nombre_categoria}
@@ -237,10 +239,10 @@ export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-4">
+        <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
           <button
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-white/60 hover:bg-white/10 transition-colors"
+            className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-gray-100 transition-colors"
           >
             Cancelar
           </button>
