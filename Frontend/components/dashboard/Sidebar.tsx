@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
-  Boxes, ClipboardList, ShieldCheck, Wrench, Truck,
+  Boxes, ClipboardList, ShieldCheck, Wrench, Truck, History,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
@@ -16,10 +16,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { AuthSession } from "@/lib/api/auth"
 
 const vendedorNavLinks = [
-  { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
-  { href: "/dashboard/ventas", label: "Ventas", icon: Receipt },
+  { href: "/dashboard",          label: "Resumen",  icon: LayoutDashboard },
+  { href: "/dashboard/ventas",   label: "Ventas",   icon: Receipt },
   { href: "/dashboard/catalogo", label: "Catálogo", icon: Grid3X3 },
   { href: "/dashboard/clientes", label: "Clientes", icon: UserRound },
+]
+
+const propietarioNavLinks = [
+  { href: "/dashboard",            label: "Resumen",    icon: LayoutDashboard },
+  { href: "/dashboard/ventas",     label: "Ventas",     icon: Receipt },
+  { href: "/dashboard/clientes",   label: "Clientes",   icon: UserRound },
+  { href: "/dashboard/empleados",  label: "Empleados",  icon: UserRound },
+  { href: "/dashboard/stock",      label: "Inventario", icon: Boxes },
+  { href: "/dashboard/catalogo",   label: "Catálogo",   icon: Grid3X3 },
 ]
 
 const roleNavLinks = {
@@ -39,11 +48,12 @@ const roleNavLinks = {
     { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
   ],
   tecnico: [
-    { href: "/dashboard", label: "Servicio técnico", icon: Wrench },
+    { href: "/dashboard",           label: "Reparaciones", icon: Wrench },
+    { href: "/dashboard/historial", label: "Historial",    icon: History },
   ],
-  vendedor: vendedorNavLinks,
-  propietario: vendedorNavLinks,
-  gerente: vendedorNavLinks,
+  vendedor:    vendedorNavLinks,
+  propietario: propietarioNavLinks,
+  gerente:     vendedorNavLinks,
 }
 
 function matchesRoute(pathname: string, href: string) {

@@ -9,6 +9,7 @@ RUN npm run build
 FROM node:22-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    chromium \
     fonts-liberation \
     libasound2 \
     libatk1.0-0 \
@@ -23,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
   && rm -rf /var/lib/apt/lists/*
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=builder /app/dist ./dist

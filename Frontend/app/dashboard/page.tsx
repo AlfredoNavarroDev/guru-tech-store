@@ -18,6 +18,7 @@ import { getSession } from "@/lib/api/auth"
 import { AdminDashboard } from "./_components/AdminDashboard"
 import { TecnicoDashboard } from "./_components/TecnicoDashboard"
 import { AbastecedorDashboard } from "./_components/AbastecedorDashboard"
+import { PropietarioDashboard } from "./_components/PropietarioDashboard"
 
 const SALES_ROLES = ["vendedor", "propietario", "gerente"]
 
@@ -121,6 +122,7 @@ export default function DashboardPage() {
   if (rol === "admin" || rol === "administrador") return <AdminDashboard />
   if (rol === "abastecedor") return <AbastecedorDashboard />
   if (rol === "tecnico") return <TecnicoDashboard />
+  if (rol === "propietario") return <PropietarioDashboard />
 
   return (
     <div className="p-6 lg:p-8 bg-gray-50 min-h-full">

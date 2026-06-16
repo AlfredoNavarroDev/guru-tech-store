@@ -4,9 +4,10 @@ import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react
 import { AnimatePresence, motion } from "motion/react"
 import {
   AlertCircle,
-  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Edit3,
   Eye,
   EyeOff,
@@ -14,19 +15,15 @@ import {
   Loader2,
   Plus,
   Power,
-  RefreshCw,
   Search,
-  ShieldCheck,
   UsersRound,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { NumberTicker } from "@/components/ui/number-ticker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getSession } from "@/lib/api/auth"
@@ -50,7 +47,19 @@ import {
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
-const rowTransition = { duration: 0.22, ease: "easeOut" as const }
+
+const AVATAR_COLORS = [
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-cyan-100 text-cyan-700",
+]
+
+function avatarColor(id: number) {
+  return AVATAR_COLORS[id % AVATAR_COLORS.length]
+}
 
 function noopSubscribe() {
   return () => undefined
@@ -72,6 +81,10 @@ const EMPTY_CREATE: CreateEmpleadoInput = {
 type EstadoFiltro = "todos" | "activo" | "inactivo"
 type PanelMode = "create" | "edit" | "password" | null
 
+const inputCls =
+  "h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 outline-none transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+const labelCls = "block text-xs font-medium text-gray-600 mb-1.5"
+
 function decodeUserId(token?: string): number | null {
   if (!token) return null
   try {
@@ -83,12 +96,8 @@ function decodeUserId(token?: string): number | null {
   }
 }
 
-function docExpectedLength(tipo: TipoDocumento): number {
-  return tipo === "DNI" ? 8 : tipo === "CE" ? 12 : 9
-}
-
 function docMaxLength(tipo: TipoDocumento): number {
-  return tipo === "pasaporte" ? 9 : docExpectedLength(tipo)
+  return tipo === "DNI" ? 8 : tipo === "CE" ? 12 : 9
 }
 
 function cleanDocumentValue(tipo: TipoDocumento, value: string): string {
@@ -105,11 +114,19 @@ function validateDocument(tipo: TipoDocumento, value: string): string | null {
   return null
 }
 
-function estadoBadge(estado: string) {
+function EstadoBadge({ estado }: { estado: string }) {
   if (estado === "activo") {
-    return <Badge className="bg-emerald-100 text-emerald-700">Activo</Badge>
+    return (
+      <span className="w-fit rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium leading-none text-emerald-700">
+        Activo
+      </span>
+    )
   }
-  return <Badge variant="secondary" className="bg-gray-100 text-gray-600">Inactivo</Badge>
+  return (
+    <span className="w-fit rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium leading-none text-gray-600">
+      Inactivo
+    </span>
+  )
 }
 
 function money(value: number | null) {
@@ -127,35 +144,31 @@ function initials(name: string) {
     .toUpperCase()
 }
 
-function SkeletonTable() {
+function SkeletonRows() {
   return (
     <div className="space-y-2">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-[1.4fr_0.9fr_0.8fr_0.8fr_120px] md:items-center">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-44" />
-              <Skeleton className="h-3 w-28" />
-            </div>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 animate-pulse"
+        >
+          <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2 min-w-0">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-24 rounded" />
           </div>
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-5 w-20 rounded-full" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-8 w-full" />
+          <div className="hidden sm:flex flex-col gap-1 min-w-[140px]">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-4 w-16 rounded-full" />
+          </div>
+          <div className="hidden md:flex gap-1.5">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+          </div>
         </div>
       ))}
     </div>
-  )
-}
-
-function LockedField({ locked, msg, children }: { locked: boolean; msg: string; children: React.ReactElement }) {
-  if (!locked) return children
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent>{msg}</TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -248,147 +261,160 @@ function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: Emplo
 
   const inner = (
     <>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-gray-950">
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-gray-100">
+            <UsersRound className="h-4 w-4 text-gray-900" />
+          </div>
+          <h2 className="text-sm font-semibold text-gray-900">
             {mode === "create" ? "Nuevo empleado" : "Editar empleado"}
           </h2>
-          <p className="text-sm text-gray-500">Datos operativos para sede actual.</p>
         </div>
-        <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Cerrar formulario">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+          aria-label="Cerrar formulario"
+        >
           <X className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <TooltipProvider>
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="space-y-1.5 text-sm font-medium text-gray-700">
-            Tipo documento
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className={labelCls}>
+              Tipo documento <span className="text-red-500">*</span>
+            </label>
             <select
               disabled={mode === "edit" || submitting}
               value={form.tipo_documento}
               onChange={(event) => set("tipo_documento", event.target.value as TipoDocumento)}
-              className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+              className={cn(inputCls, "cursor-pointer appearance-none")}
             >
               <option value="DNI">DNI</option>
               <option value="CE">CE</option>
               <option value="pasaporte">Pasaporte</option>
             </select>
-          </label>
+          </div>
 
-          <label className="space-y-1.5 text-sm font-medium text-gray-700">
-            Numero documento
-            <Input
+          <div>
+            <label className={labelCls}>
+              Numero documento <span className="text-red-500">*</span>
+            </label>
+            <input
               disabled={mode === "edit" || submitting}
               value={form.nro_documento}
               maxLength={docMaxLength(form.tipo_documento)}
+              inputMode={form.tipo_documento === "pasaporte" ? "text" : "numeric"}
               onChange={(event) => set("nro_documento", cleanDocumentValue(form.tipo_documento, event.target.value))}
               placeholder={form.tipo_documento === "pasaporte" ? "AB123456" : "12345678"}
+              className={inputCls}
             />
-          </label>
+          </div>
 
-          <LockedField locked={mode === "edit" && !!isSelf} msg="No puedes modificar tu propio rol">
-            <label className="space-y-1.5 text-sm font-medium text-gray-700">
-              Rol
-              <select
-                disabled={submitting || (mode === "edit" && isSelf)}
-                value={form.id_rol}
-                onChange={(event) => set("id_rol", Number(event.target.value))}
-                className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
-              >
-                {ROLES.map((role) => (
-                  <option key={role.id} value={role.id}>{role.label}</option>
-                ))}
-              </select>
+          <div>
+            <label className={cn(labelCls, mode === "edit" && isSelf && "opacity-50")}>
+              Rol <span className="text-red-500">*</span>
             </label>
-          </LockedField>
+            <select
+              disabled={submitting || (mode === "edit" && isSelf)}
+              value={form.id_rol}
+              onChange={(event) => set("id_rol", Number(event.target.value))}
+              className={cn(inputCls, "cursor-pointer appearance-none")}
+              title={mode === "edit" && isSelf ? "No puedes modificar tu propio rol" : undefined}
+            >
+              {ROLES.map((role) => (
+                <option key={role.id} value={role.id}>{role.label}</option>
+              ))}
+            </select>
+          </div>
 
-          <label className="space-y-1.5 text-sm font-medium text-gray-700 md:col-span-2">
-            Nombre completo
-            <Input
+          <div className="sm:col-span-2">
+            <label className={labelCls}>
+              Nombre completo <span className="text-red-500">*</span>
+            </label>
+            <input
               disabled={submitting}
               value={form.nombre_completo}
               onChange={(event) => set("nombre_completo", event.target.value)}
               placeholder="Nombre y apellidos"
+              className={inputCls}
             />
-          </label>
+          </div>
 
-          <label className="space-y-1.5 text-sm font-medium text-gray-700">
-            Telefono
-            <Input
+          <div>
+            <label className={labelCls}>Telefono</label>
+            <input
               disabled={submitting}
+              type="tel"
               value={form.telefono ?? ""}
               onChange={(event) => set("telefono", event.target.value)}
               placeholder="987654321"
+              className={inputCls}
             />
-          </label>
+          </div>
 
-          <LockedField locked={mode === "edit" && !!isSelf} msg="No puedes modificar tu propio sueldo">
-            <label className="space-y-1.5 text-sm font-medium text-gray-700">
-              Sueldo
-              <Input
-                disabled={submitting || (mode === "edit" && isSelf)}
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.sueldo_soles ?? ""}
-                onChange={(event) =>
-                  set("sueldo_soles", event.target.value ? Number(event.target.value) : undefined)
-                }
-                placeholder="1200"
-              />
-            </label>
-          </LockedField>
+          <div>
+            <label className={cn(labelCls, mode === "edit" && isSelf && "opacity-50")}>Sueldo</label>
+            <input
+              disabled={submitting || (mode === "edit" && isSelf)}
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.sueldo_soles ?? ""}
+              onChange={(event) =>
+                set("sueldo_soles", event.target.value ? Number(event.target.value) : undefined)
+              }
+              placeholder="1200"
+              className={inputCls}
+              title={mode === "edit" && isSelf ? "No puedes modificar tu propio sueldo" : undefined}
+            />
+          </div>
 
-          <LockedField locked={mode === "edit" && !!isSelf} msg="No puedes modificar tu propia frecuencia de pago">
-            <label className="space-y-1.5 text-sm font-medium text-gray-700">
-              Frecuencia de pago
-              <select
-                disabled={submitting || (mode === "edit" && isSelf)}
-                value={form.frecuencia_pago}
-                onChange={(event) => set("frecuencia_pago", event.target.value as FrecuenciaPago)}
-                className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
-              >
-                {FRECUENCIAS_PAGO.map((frecuencia) => (
-                  <option key={frecuencia.value} value={frecuencia.value}>{frecuencia.label}</option>
-                ))}
-              </select>
-            </label>
-          </LockedField>
+          <div>
+            <label className={cn(labelCls, mode === "edit" && isSelf && "opacity-50")}>Frecuencia de pago</label>
+            <select
+              disabled={submitting || (mode === "edit" && isSelf)}
+              value={form.frecuencia_pago}
+              onChange={(event) => set("frecuencia_pago", event.target.value as FrecuenciaPago)}
+              className={cn(inputCls, "cursor-pointer appearance-none")}
+              title={mode === "edit" && isSelf ? "No puedes modificar tu propia frecuencia de pago" : undefined}
+            >
+              {FRECUENCIAS_PAGO.map((frecuencia) => (
+                <option key={frecuencia.value} value={frecuencia.value}>{frecuencia.label}</option>
+              ))}
+            </select>
+          </div>
 
-          <label className="space-y-1.5 text-sm font-medium text-gray-700 md:col-span-2">
-            Direccion
-            <Input
+          <div className="sm:col-span-2">
+            <label className={labelCls}>Direccion</label>
+            <input
               disabled={submitting}
               value={form.direccion_completa ?? ""}
               onChange={(event) => set("direccion_completa", event.target.value)}
               placeholder="Av. Lima 123"
+              className={inputCls}
             />
-          </label>
-
+          </div>
         </div>
-        </TooltipProvider>
 
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              role="alert"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={rowTransition}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>Cancelar</Button>
-          <Button type="submit" disabled={submitting}>
+        <div className="mt-5 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="bg-[#020617] hover:bg-[#0f172a] text-white gap-2"
+          >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "create" ? "Crear empleado" : "Guardar cambios"}
           </Button>
@@ -397,29 +423,12 @@ function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: Emplo
     </>
   )
 
-  if (bare) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={rowTransition}
-      >
-        {inner}
-      </motion.div>
-    )
-  }
+  if (bare) return inner
 
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={rowTransition}
-      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-    >
-      {inner}
-    </motion.section>
+    <div className="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+      <div className="p-6">{inner}</div>
+    </div>
   )
 }
 
@@ -427,10 +436,9 @@ interface PasswordPanelProps {
   empleado: Empleado
   onCancel: () => void
   onSaved: () => void
-  bare?: boolean
 }
 
-function PasswordPanel({ empleado, onCancel, onSaved, bare }: PasswordPanelProps) {
+function PasswordPanel({ empleado, onCancel, onSaved }: PasswordPanelProps) {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -455,29 +463,39 @@ function PasswordPanel({ empleado, onCancel, onSaved, bare }: PasswordPanelProps
     }
   }
 
-  const inner = (
+  return (
     <>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-gray-950">Cambiar contraseña</h2>
-          <p className="text-sm text-gray-500">{empleado.nombre_completo}</p>
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-gray-100">
+            <KeyRound className="h-4 w-4 text-gray-900" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Cambiar contraseña</h2>
+            <p className="text-xs text-gray-500">{empleado.nombre_completo}</p>
+          </div>
         </div>
-        <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Cerrar formulario">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+          aria-label="Cerrar formulario"
+        >
           <X className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block max-w-sm space-y-1.5 text-sm font-medium text-gray-700">
-          Nueva contraseña
+        <div className="max-w-sm">
+          <label className={labelCls}>Nueva contraseña</label>
           <div className="relative">
-            <Input
+            <input
               type={showPassword ? "text" : "password"}
               value={password}
               disabled={submitting}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimo 8 caracteres"
-              className="pr-10"
+              className={cn(inputCls, "pr-10")}
             />
             <button
               type="button"
@@ -488,56 +506,30 @@ function PasswordPanel({ empleado, onCancel, onSaved, bare }: PasswordPanelProps
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-        </label>
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              role="alert"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={rowTransition}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>Cancelar</Button>
-          <Button type="submit" disabled={submitting}>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="bg-[#020617] hover:bg-[#0f172a] text-white gap-2"
+          >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Actualizar contraseña
           </Button>
         </div>
       </form>
     </>
-  )
-
-  if (bare) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={rowTransition}
-      >
-        {inner}
-      </motion.div>
-    )
-  }
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={rowTransition}
-      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-    >
-      {inner}
-    </motion.section>
   )
 }
 
@@ -588,17 +580,15 @@ export default function AdminEmpleadosPage() {
     const items = data?.items ?? []
     const normalized = search.trim().toLowerCase()
     if (!normalized) return items
-    return items.filter((empleado) => {
-      return [
+    return items.filter((empleado) =>
+      [
         empleado.nombre_completo,
         empleado.nro_documento,
         empleado.telefono ?? "",
         roleName(empleado.id_rol, empleado.rol_nombre),
       ].some((value) => value.toLowerCase().includes(normalized))
-    })
+    )
   }, [data?.items, search])
-
-  const activeCount = data?.items.filter((empleado) => empleado.estado === "activo").length ?? 0
 
   function closePanel() {
     setPanelMode(null)
@@ -616,7 +606,7 @@ export default function AdminEmpleadosPage() {
 
   function reload() {
     closePanel()
-    setRefetchKey(k => k + 1)
+    setRefetchKey((k) => k + 1)
   }
 
   async function toggleEstado(empleado: Empleado) {
@@ -625,7 +615,6 @@ export default function AdminEmpleadosPage() {
       toast.error("No puedes desactivar tu propia cuenta")
       return
     }
-
     setBusyId(empleado.id_empleado)
     try {
       await updateEmpleadoEstado(empleado.id_empleado, nextActive)
@@ -638,299 +627,351 @@ export default function AdminEmpleadosPage() {
     }
   }
 
+  const isCreateOpen = panelMode === "create"
+  const totalPages = data?.totalPages ?? 1
+
   return (
-    <main className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+    <div className="bg-bg-main min-h-full p-4 sm:p-6 lg:p-8">
+      {/* Header */}
+      <BlurFade delay={0} duration={0.45}>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
+                <UsersRound className="h-4 w-4 text-gray-900" />
+              </div>
+              <h1 className="text-2xl font-bold text-text-heading">Empleados</h1>
+            </div>
+            <p className="mt-1.5 text-sm text-gray-500">
+              Gestiona altas, roles, contraseñas y estado de acceso de {session?.sede ?? "tu sede"}
+            </p>
+          </div>
+          <Button
+            onClick={toggleCreatePanel}
+            aria-expanded={isCreateOpen}
+            className={cn(
+              "shrink-0 gap-2",
+              isCreateOpen
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-[#020617] hover:bg-[#0f172a] text-white",
+            )}
+            variant={isCreateOpen ? "ghost" : "default"}
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo empleado
+            {isCreateOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      </BlurFade>
+
+      {/* Create form */}
+      <AnimatePresence>
+        {isCreateOpen && (
+          <motion.div
+            key="create-form"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            <EmployeeForm mode="create" onCancel={closePanel} onSaved={reload} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* BottomSheet: edit */}
+      <BottomSheet open={panelMode === "edit" && selected !== null} onClose={closePanel}>
+        <div
+          className="relative flex w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
+          style={{ maxHeight: "92dvh" }}
+        >
+          <div className="flex shrink-0 justify-center pb-1 pt-3 sm:hidden">
+            <div className="h-1 w-10 rounded-full bg-gray-200" />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            {panelMode === "edit" && selected && (
+              <EmployeeForm
+                bare
+                mode="edit"
+                empleado={selected}
+                onCancel={closePanel}
+                onSaved={reload}
+                isSelf={selected.id_empleado === currentUserId}
+              />
+            )}
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* BottomSheet: password */}
+      <BottomSheet open={panelMode === "password" && selected !== null} onClose={closePanel}>
+        <div
+          className="relative flex w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
+          style={{ maxHeight: "92dvh" }}
+        >
+          <div className="flex shrink-0 justify-center pb-1 pt-3 sm:hidden">
+            <div className="h-1 w-10 rounded-full bg-gray-200" />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            {panelMode === "password" && selected && (
+              <PasswordPanel empleado={selected} onCancel={closePanel} onSaved={closePanel} />
+            )}
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* Filters */}
+      <BlurFade delay={0.08} duration={0.45}>
+        <div className="mb-6 flex flex-wrap gap-2">
+          <div className="relative min-w-48 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="pl-9"
+              placeholder="Buscar por nombre, documento o telefono..."
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(event) => {
+              setPage(1)
+              setRoleFilter(event.target.value === "todos" ? "todos" : Number(event.target.value))
+            }}
+            className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none transition-colors focus:border-transparent focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="todos">Todos los roles</option>
+            {ROLES.map((role) => (
+              <option key={role.id} value={role.id}>{role.label}</option>
+            ))}
+          </select>
+          <select
+            value={estadoFilter}
+            onChange={(event) => {
+              setPage(1)
+              setEstadoFilter(event.target.value as EstadoFiltro)
+            }}
+            className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none transition-colors focus:border-transparent focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="todos">Todos los estados</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+          </select>
+        </div>
+      </BlurFade>
+
+      {/* Error state */}
+      {!loading && error && (
         <BlurFade delay={0} duration={0.4}>
-          <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Rol administrador
-              </div>
-              <h1 className="text-2xl font-semibold text-gray-950 sm:text-3xl">Empleados de la sede</h1>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Gestiona altas, cambios de rol, contraseñas y estado de acceso para empleados de {session?.sede ?? "tu sede"}.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={reload} disabled={loading}>
-                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-                Actualizar
-              </Button>
-              <Button onClick={toggleCreatePanel} aria-expanded={panelMode === "create"}>
-                <Plus className={cn("h-4 w-4 transition-transform", panelMode === "create" && "rotate-45")} />
-                {panelMode === "create" ? "Cerrar formulario" : "Nuevo empleado"}
-              </Button>
-            </div>
-          </header>
-        </BlurFade>
-
-        <section className="grid gap-3 md:grid-cols-3">
-          {[
-            { label: "Total filtrado", value: data?.total ?? 0, icon: UsersRound, color: "text-blue-600" },
-            { label: "Activos en pagina", value: activeCount, icon: CheckCircle2, color: "text-emerald-600" },
-          ].map((stat, index) => {
-            const Icon = stat.icon
-            return (
-              <BlurFade key={stat.label} delay={0.06 + index * 0.06} duration={0.35}>
-                <motion.div
-                  whileHover={{ y: -2 }}
-                  transition={rowTransition}
-                  className="rounded-lg border border-gray-200 bg-white p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">{stat.label}</span>
-                    <Icon className={cn("h-4 w-4", stat.color)} />
-                  </div>
-                  <p className="mt-2 text-2xl font-semibold tabular-nums text-gray-950">
-                    <NumberTicker value={stat.value} />
-                  </p>
-                </motion.div>
-              </BlurFade>
-            )
-          })}
-          <BlurFade delay={0.18} duration={0.35}>
-            <motion.div
-              whileHover={{ y: -2 }}
-              transition={rowTransition}
-              className="rounded-lg border border-gray-200 bg-white p-4"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Sede</span>
-                <ShieldCheck className="h-4 w-4 text-violet-600" />
-              </div>
-              <p className="mt-2 truncate text-lg font-semibold text-gray-950">{session?.sede ?? "No cargada"}</p>
-            </motion.div>
-          </BlurFade>
-        </section>
-
-        <AnimatePresence mode="wait">
-          {panelMode === "create" && (
-            <EmployeeForm key="create" mode="create" onCancel={closePanel} onSaved={reload} />
-          )}
-        </AnimatePresence>
-
-        <BottomSheet open={panelMode === "edit" && selected !== null} onClose={closePanel}>
-          <div className="relative w-full bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col" style={{ maxHeight: "92dvh" }}>
-            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-              <div className="h-1 w-10 rounded-full bg-gray-200" />
-            </div>
-            <div className="flex-1 overflow-y-auto min-h-0 px-5 py-5">
-              {panelMode === "edit" && selected && (
-                <EmployeeForm bare mode="edit" empleado={selected} onCancel={closePanel} onSaved={reload} isSelf={selected.id_empleado === currentUserId} />
-              )}
-            </div>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-red-200 bg-red-50 py-16 text-center">
+            <AlertCircle className="mb-3 h-10 w-10 text-red-500" />
+            <p className="mb-1 text-sm font-medium text-gray-900">Error al cargar</p>
+            <p className="mb-5 max-w-xs text-xs text-gray-500">{error}</p>
+            <Button variant="outline" size="sm" onClick={() => setRefetchKey((k) => k + 1)}>
+              Reintentar
+            </Button>
           </div>
-        </BottomSheet>
-
-        <BottomSheet open={panelMode === "password" && selected !== null} onClose={closePanel}>
-          <div className="relative w-full bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col" style={{ maxHeight: "92dvh" }}>
-            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-              <div className="h-1 w-10 rounded-full bg-gray-200" />
-            </div>
-            <div className="flex-1 overflow-y-auto min-h-0 px-5 py-5">
-              {panelMode === "password" && selected && (
-                <PasswordPanel bare empleado={selected} onCancel={closePanel} onSaved={closePanel} />
-              )}
-            </div>
-          </div>
-        </BottomSheet>
-
-        <BlurFade delay={0.22} duration={0.35}>
-          <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px]">
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  className="pl-9"
-                  placeholder="Buscar en pagina por nombre, documento, telefono o rol"
-                />
-              </label>
-              <select
-                value={roleFilter}
-                onChange={(event) => { setPage(1); setRoleFilter(event.target.value === "todos" ? "todos" : Number(event.target.value)) }}
-                className="h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="todos">Todos los roles</option>
-                {ROLES.map((role) => (
-                  <option key={role.id} value={role.id}>{role.label}</option>
-                ))}
-              </select>
-              <select
-                value={estadoFilter}
-                onChange={(event) => { setPage(1); setEstadoFilter(event.target.value as EstadoFiltro) }}
-                className="h-9 rounded-lg border border-gray-300 bg-white px-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="todos">Todos los estados</option>
-                <option value="activo">Activos</option>
-                <option value="inactivo">Inactivos</option>
-              </select>
-            </div>
-          </section>
         </BlurFade>
+      )}
 
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              role="alert"
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={rowTransition}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-            >
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Results count */}
+      {!loading && !error && (
+        <BlurFade delay={0.12} duration={0.35}>
+          <p className="mb-4 text-xs text-gray-500">
+            {filteredItems.length === 0
+              ? "Sin resultados"
+              : `${data?.total ?? 0} empleado${(data?.total ?? 0) !== 1 ? "s" : ""} en total`}
+          </p>
+        </BlurFade>
+      )}
 
-        <BlurFade delay={0.28} duration={0.35}>
-        <section className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-          {loading ? (
-            <SkeletonTable />
-          ) : filteredItems.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={rowTransition}
-              className="flex min-h-52 flex-col items-center justify-center gap-2 text-center"
-            >
-              <UsersRound className="h-10 w-10 text-gray-300" />
-              <h2 className="text-base font-semibold text-gray-900">Sin empleados para mostrar</h2>
-              <p className="text-sm text-gray-500">Cambia filtros o registra un empleado nuevo.</p>
-            </motion.div>
-          ) : (
-            <div className="space-y-2">
-              <div className="hidden grid-cols-[1.4fr_0.9fr_0.8fr_0.8fr_150px] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 md:grid">
-                <span>Empleado</span>
-                <span>Rol</span>
-                <span>Estado</span>
-                <span>Sueldo</span>
-                <span className="text-right">Acciones</span>
-              </div>
-              <AnimatePresence initial={false}>
+      {/* Loading */}
+      {loading && <SkeletonRows />}
+
+      {/* Empty state */}
+      {!loading && !error && filteredItems.length === 0 && (
+        <BlurFade delay={0} duration={0.4}>
+          <div className="flex flex-col items-center gap-3 py-16">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+              <UsersRound className="h-6 w-6 text-gray-400" />
+            </div>
+            <p className="text-sm font-medium text-gray-500">Sin empleados para mostrar</p>
+            <p className="text-xs text-gray-400">Cambia los filtros o registra un empleado nuevo.</p>
+            {!isCreateOpen && (
+              <Button
+                size="sm"
+                onClick={toggleCreatePanel}
+                className="mt-1 gap-2 bg-[#020617] text-white hover:bg-[#0f172a]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Registrar primer empleado
+              </Button>
+            )}
+          </div>
+        </BlurFade>
+      )}
+
+      {/* Employee list */}
+      {!loading && !error && filteredItems.length > 0 && (
+        <>
+          <div className="space-y-2" role="table" aria-label="Lista de empleados">
+            <AnimatePresence initial={false}>
               {filteredItems.map((empleado, index) => {
                 const isSelf = empleado.id_empleado === currentUserId
                 const inactive = empleado.estado !== "activo"
                 return (
-                  <motion.article
-                    key={empleado.id_empleado}
-                    layout
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    whileHover={{ y: -1 }}
-                    transition={{ ...rowTransition, delay: index * 0.035 }}
-                    className={cn(
-                      "grid gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-colors md:grid-cols-[1.4fr_0.9fr_0.8fr_0.8fr_150px] md:items-center",
-                      inactive && "bg-gray-50"
-                    )}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
+                  <BlurFade key={empleado.id_empleado} delay={Math.min(index * 0.04, 0.3)} duration={0.35}>
+                    <div
+                      className={cn(
+                        "flex cursor-default items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-all duration-200 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm",
+                        inactive && "opacity-70",
+                      )}
+                      role="row"
+                      aria-label={`Empleado: ${empleado.nombre_completo}`}
+                    >
+                      {/* Avatar */}
+                      <div
+                        className={cn(
+                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                          inactive ? "bg-gray-100 text-gray-500" : avatarColor(empleado.id_empleado),
+                        )}
+                      >
                         {initials(empleado.nombre_completo)}
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-gray-950">{empleado.nombre_completo}</p>
-                        <p className="text-sm text-gray-500">
-                          {empleado.tipo_documento} {empleado.nro_documento}
-                          {empleado.telefono ? ` · ${empleado.telefono}` : ""}
+
+                      {/* Name + doc */}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {empleado.nombre_completo}
                         </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-xs text-gray-500">
+                            {empleado.tipo_documento} {empleado.nro_documento}
+                          </span>
+                          {empleado.telefono && (
+                            <span className="text-xs text-gray-400">· {empleado.telefono}</span>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Role + estado */}
+                      <div className="hidden min-w-[140px] flex-col gap-1 sm:flex">
+                        <span className="text-xs font-medium text-gray-700">
+                          {roleName(empleado.id_rol, empleado.rol_nombre)}
+                        </span>
+                        <EstadoBadge estado={empleado.estado} />
+                      </div>
+
+                      {/* Salary */}
+                      <div className="hidden min-w-[120px] flex-col gap-0.5 md:flex">
+                        <span className="tabular-nums text-xs font-medium text-gray-700">
+                          {money(empleado.sueldo_soles)}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {frecuenciaPagoLabel(empleado.frecuencia_pago)}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <TooltipProvider>
+                        <div className="flex shrink-0 gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Editar empleado"
+                                onClick={() => { setSelected(empleado); setPanelMode("edit") }}
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Editar empleado</TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Cambiar contraseña"
+                                onClick={() => { setSelected(empleado); setPanelMode("password") }}
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Cambiar contraseña</TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  "flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                                  inactive
+                                    ? "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                    : "text-red-400 hover:bg-red-50 hover:text-red-600",
+                                  (busyId === empleado.id_empleado || (isSelf && !inactive)) &&
+                                    "cursor-not-allowed opacity-30",
+                                )}
+                                aria-label={inactive ? "Activar empleado" : "Desactivar empleado"}
+                                disabled={busyId === empleado.id_empleado || (isSelf && !inactive)}
+                                onClick={() => toggleEstado(empleado)}
+                              >
+                                {busyId === empleado.id_empleado ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Power className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {isSelf && !inactive
+                                ? "No puedes desactivar tu propia cuenta"
+                                : inactive
+                                  ? "Activar empleado"
+                                  : "Desactivar empleado"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
                     </div>
-                    <div className="text-sm text-gray-700">{roleName(empleado.id_rol, empleado.rol_nombre)}</div>
-                    <div>{estadoBadge(empleado.estado)}</div>
-                    <div className="text-sm text-gray-700">
-                      <p>{money(empleado.sueldo_soles)}</p>
-                      <p className="text-xs text-gray-500">{frecuenciaPagoLabel(empleado.frecuencia_pago)}</p>
-                    </div>
-                    <TooltipProvider>
-                    <div className="flex justify-end gap-1.5">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label="Editar empleado"
-                            onClick={() => { setSelected(empleado); setPanelMode("edit") }}
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Editar empleado</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label="Cambiar contraseña"
-                            onClick={() => { setSelected(empleado); setPanelMode("password") }}
-                          >
-                            <KeyRound className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Cambiar contraseña</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon-sm"
-                            variant={inactive ? "ghost" : "destructive"}
-                            aria-label={inactive ? "Activar empleado" : "Desactivar empleado"}
-                            disabled={busyId === empleado.id_empleado || (isSelf && !inactive)}
-                            onClick={() => toggleEstado(empleado)}
-                          >
-                            {busyId === empleado.id_empleado ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Power className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {isSelf && !inactive ? "No puedes desactivar tu propia cuenta" : inactive ? "Activar empleado" : "Desactivar empleado"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    </TooltipProvider>
-                  </motion.article>
+                  </BlurFade>
                 )
               })}
-              </AnimatePresence>
-            </div>
-          )}
+            </AnimatePresence>
+          </div>
 
-          <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-gray-500">
-              Pagina {data?.page ?? page} de {data?.totalPages ?? 1} · {data?.total ?? 0} registros
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <button
                 disabled={loading || page <= 1}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
                 Anterior
-              </Button>
-              <Button
-                variant="outline"
-                disabled={loading || page >= (data?.totalPages ?? 1)}
+              </button>
+              <span className="text-xs text-gray-500">
+                Pagina{" "}
+                <span className="font-semibold text-gray-900">{data?.page ?? page}</span> de{" "}
+                <span className="font-semibold text-gray-900">{totalPages}</span>
+              </span>
+              <button
+                disabled={loading || page >= totalPages}
                 onClick={() => setPage((current) => current + 1)}
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Siguiente
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-          </div>
-        </section>
-        </BlurFade>
-      </div>
-    </main>
+          )}
+        </>
+      )}
+    </div>
   )
 }
