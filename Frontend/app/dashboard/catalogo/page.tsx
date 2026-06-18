@@ -34,6 +34,7 @@ import { toast } from "sonner"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 import { ItemImage } from "@/components/ui/item-image"
+import { ItemSpecsSidebar, ItemSpecsContent } from "@/components/vendedor/ItemSpecsSidebar"
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -548,6 +549,17 @@ export default function CatalogoPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [cartLoaded, setCartLoaded] = useState(false)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [specItem, setSpecItem] = useState<CatalogoItem | null>(null)
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+
   const cartSaveEnabled = useRef(false)
   const hasAutoOpenedRef = useRef(false)
 
@@ -808,6 +820,7 @@ export default function CatalogoPage() {
       }
       return next
     })
+    setSpecItem(null)
     setCatalogoPage(1)
   }, [catalogoItems])
 
@@ -822,6 +835,7 @@ export default function CatalogoPage() {
       }
       return next
     })
+    setSpecItem(null)
     setCatalogoPage(1)
   }, [])
 
@@ -832,6 +846,7 @@ export default function CatalogoPage() {
       else next.add(modelo)
       return next
     })
+    setSpecItem(null)
     setCatalogoPage(1)
   }, [])
 
@@ -840,6 +855,7 @@ export default function CatalogoPage() {
     setSelectedMarcas(new Set())
     setSelectedModelos(new Set())
     setSoloConPromo(false)
+    setSpecItem(null)
     setCatalogoPage(1)
   }, [])
 
@@ -1665,6 +1681,7 @@ export default function CatalogoPage() {
                   delay={Math.min(i * 0.05, 0.3)}
                   onAdd={addToCart}
                   onDecrement={decrementFromCard}
+                  onViewSpecs={(clicked) => setSpecItem(prev => prev?.id_item === clicked.id_item ? null : clicked)}
                   inCart={cartMap.has(item.id_item)}
                   cartQty={cartMap.get(item.id_item)?.cantidad ?? 0}
                 />
@@ -1699,27 +1716,36 @@ export default function CatalogoPage() {
           )}
         </div>
 
-        {/* ══════════ RIGHT: filter sidebar (desktop) ══════════ */}
-        {loading ? (
-          <FilterSidebarSkeleton />
-        ) : (
-          <FilterSidebar
-            categorias={categorias}
-            marcas={marcas}
-            modelos={modelos}
-            selectedCategorias={selectedCategorias}
-            selectedMarcas={selectedMarcas}
-            selectedModelos={selectedModelos}
-            soloConStock={soloConStock}
-            soloConPromo={soloConPromo}
-            onToggleCategoria={toggleCategoria}
-            onToggleMarca={toggleMarca}
-            onToggleModelo={toggleModelo}
-            onToggleStock={handleToggleStock}
-            onTogglePromo={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
-            onClearAll={clearAllFilters}
-          />
-        )}
+        {/* ══════════ RIGHT: specs sidebar OR filter sidebar (desktop) ══════════ */}
+        <AnimatePresence>
+          {specItem ? (
+            <ItemSpecsSidebar
+              key="specs-sidebar"
+              item={specItem}
+              onClose={() => setSpecItem(null)}
+            />
+          ) : loading ? (
+            <FilterSidebarSkeleton key="filter-skeleton" />
+          ) : (
+            <FilterSidebar
+              key="filter-sidebar"
+              categorias={categorias}
+              marcas={marcas}
+              modelos={modelos}
+              selectedCategorias={selectedCategorias}
+              selectedMarcas={selectedMarcas}
+              selectedModelos={selectedModelos}
+              soloConStock={soloConStock}
+              soloConPromo={soloConPromo}
+              onToggleCategoria={toggleCategoria}
+              onToggleMarca={toggleMarca}
+              onToggleModelo={toggleModelo}
+              onToggleStock={handleToggleStock}
+              onTogglePromo={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
+              onClearAll={clearAllFilters}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Mobile floating cart button */}
@@ -1738,6 +1764,18 @@ export default function CatalogoPage() {
           )}
         </button>
       </div>
+
+      {/* Mobile specs bottom sheet */}
+      <BottomSheet
+        open={!!specItem && !isDesktop}
+        onClose={() => setSpecItem(null)}
+      >
+        <div className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white">
+          {specItem && (
+            <ItemSpecsContent item={specItem} onClose={() => setSpecItem(null)} />
+          )}
+        </div>
+      </BottomSheet>
     </div>
   )
 }
