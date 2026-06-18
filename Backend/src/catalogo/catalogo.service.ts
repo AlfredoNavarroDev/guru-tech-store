@@ -10,8 +10,9 @@ export class CatalogoService {
   // Productos disponibles en la sede. JOIN a Items solo si se filtra por categoría/marca.
   async findAll(idSede: number, query: QueryCatalogoDto): Promise<object[]> {
     let sql = `SELECT id_item, sku, producto, marca, categoria, modelo,
-                      precio_venta_actual, stock_disponible,
-                      promo_nombre, promo_tipo, promo_valor, precio_con_descuento
+                      precio_venta_actual, imagen_url, stock_disponible,
+                      promo_nombre, promo_tipo, promo_valor, precio_con_descuento,
+                      calidad, especificaciones
                FROM v_vendedor_catalogo
                WHERE id_sede = $1`;
 
