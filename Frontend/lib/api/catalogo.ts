@@ -14,6 +14,8 @@ export interface CatalogoItem {
   promo_valor: number | null
   precio_con_descuento: number | null
   imagen_url: string | null
+  calidad: string | null
+  especificaciones: Record<string, unknown> | null
 }
 
 export interface QueryCatalogo {
