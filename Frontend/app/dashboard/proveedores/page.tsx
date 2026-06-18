@@ -479,7 +479,7 @@ export default function ProveedoresPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por nombre o RUC..."
-              className="pl-9"
+              className="pl-9 bg-white"
             />
           </div>
           <Button

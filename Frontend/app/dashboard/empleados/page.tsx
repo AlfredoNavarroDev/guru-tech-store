@@ -732,7 +732,7 @@ export default function AdminEmpleadosPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="pl-9"
+              className="pl-9 bg-white"
               placeholder="Buscar por nombre, documento o telefono..."
             />
           </div>

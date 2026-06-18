@@ -119,7 +119,7 @@ export default function HistorialPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar cliente, equipo, ID..."
-                  className="rounded-xl pl-9 text-sm"
+                  className="rounded-xl pl-9 text-sm bg-white"
                 />
               </div>
             </div>
