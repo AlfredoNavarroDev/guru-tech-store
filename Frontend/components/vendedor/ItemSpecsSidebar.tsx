@@ -120,9 +120,23 @@ export function ItemSpecsContent({ item, onClose }: ItemSpecsSidebarProps) {
               <tbody>
                 {Object.entries(item.especificaciones!).map(([k, v]) => (
                   <tr key={k} className="border-b border-gray-100 last:border-0">
-                    <td className="py-1.5 text-gray-500">{k}</td>
+                    <td className="py-1.5 text-gray-500 capitalize">{k.replace(/_/g, " ")}</td>
                     <td className="py-1.5 text-right font-semibold text-gray-900">
-                      {typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)}
+                      {Array.isArray(v) ? (
+                        <span className="flex flex-col items-end gap-0.5">
+                          {v.map((item, i) => <span key={i}>{String(item)}</span>)}
+                        </span>
+                      ) : typeof v === "object" && v !== null ? (
+                        <span className="flex flex-col items-end gap-0.5">
+                          {Object.entries(v).map(([sk, sv]) => (
+                            <span key={sk}>{sk.replace(/_/g, "-")}: {String(sv)}</span>
+                          ))}
+                        </span>
+                      ) : typeof v === "boolean" ? (
+                        v ? "Sí" : "No"
+                      ) : (
+                        String(v)
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -34,7 +34,7 @@ import { toast } from "sonner"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 import { ItemImage } from "@/components/ui/item-image"
-import { ItemSpecsSidebar, ItemSpecsContent } from "@/components/vendedor/ItemSpecsSidebar"
+import { ItemSpecsContent } from "@/components/vendedor/ItemSpecsSidebar"
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -295,7 +295,6 @@ function FilterSection({ title, open, onToggle, children }: FilterSectionProps) 
 
 function FilterSidebarSkeleton() {
   return (
-    <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 p-3 overflow-y-auto">
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
           <Filter className="h-3.5 w-3.5 text-gray-300" />
@@ -331,7 +330,6 @@ function FilterSidebarSkeleton() {
           </div>
         </div>
       </div>
-    </div>
   )
 }
 
@@ -514,14 +512,12 @@ function FilterPanelContent({
 
 function FilterSidebar(props: FilterSidebarProps) {
   return (
-    <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 p-3 overflow-y-auto">
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
-          <Filter className="h-3.5 w-3.5 text-gray-400" />
-          <span className="text-sm font-semibold text-gray-900">Filtros</span>
-        </div>
-        <FilterPanelContent {...props} />
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
+        <Filter className="h-3.5 w-3.5 text-gray-400" />
+        <span className="text-sm font-semibold text-gray-900">Filtros</span>
       </div>
+      <FilterPanelContent {...props} />
     </div>
   )
 }
@@ -1482,7 +1478,7 @@ export default function CatalogoPage() {
               </div>
       </BottomSheet>
 
-      <div className="flex">
+      <div className="flex relative overflow-x-clip">
         {/* ══════════ CENTER: product grid ══════════ */}
         <div className="flex-1 min-w-0 p-4 sm:p-6">
           <BlurFade delay={0} duration={0.5}>
@@ -1717,35 +1713,59 @@ export default function CatalogoPage() {
         </div>
 
         {/* ══════════ RIGHT: specs sidebar OR filter sidebar (desktop) ══════════ */}
-        <AnimatePresence>
-          {specItem ? (
-            <ItemSpecsSidebar
-              key="specs-sidebar"
-              item={specItem}
-              onClose={() => setSpecItem(null)}
-            />
-          ) : loading ? (
-            <FilterSidebarSkeleton key="filter-skeleton" />
-          ) : (
-            <FilterSidebar
-              key="filter-sidebar"
-              categorias={categorias}
-              marcas={marcas}
-              modelos={modelos}
-              selectedCategorias={selectedCategorias}
-              selectedMarcas={selectedMarcas}
-              selectedModelos={selectedModelos}
-              soloConStock={soloConStock}
-              soloConPromo={soloConPromo}
-              onToggleCategoria={toggleCategoria}
-              onToggleMarca={toggleMarca}
-              onToggleModelo={toggleModelo}
-              onToggleStock={handleToggleStock}
-              onTogglePromo={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
-              onClearAll={clearAllFilters}
-            />
-          )}
-        </AnimatePresence>
+        <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 relative">
+          <AnimatePresence>
+            {specItem ? (
+              <motion.div
+                key="specs"
+                className="absolute inset-0 flex flex-col bg-white border-l-2 border-blue-500 overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <ItemSpecsContent item={specItem} onClose={() => setSpecItem(null)} />
+              </motion.div>
+            ) : loading ? (
+              <motion.div
+                key="skeleton"
+                className="absolute inset-0 bg-gray-100 p-3 overflow-y-auto"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <FilterSidebarSkeleton />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="filter"
+                className="absolute inset-0 bg-gray-100 p-3 overflow-y-auto"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <FilterSidebar
+                  categorias={categorias}
+                  marcas={marcas}
+                  modelos={modelos}
+                  selectedCategorias={selectedCategorias}
+                  selectedMarcas={selectedMarcas}
+                  selectedModelos={selectedModelos}
+                  soloConStock={soloConStock}
+                  soloConPromo={soloConPromo}
+                  onToggleCategoria={toggleCategoria}
+                  onToggleMarca={toggleMarca}
+                  onToggleModelo={toggleModelo}
+                  onToggleStock={handleToggleStock}
+                  onTogglePromo={() => { setSoloConPromo((v) => !v); setCatalogoPage(1) }}
+                  onClearAll={clearAllFilters}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Mobile floating cart button */}
