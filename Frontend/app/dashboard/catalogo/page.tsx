@@ -74,6 +74,7 @@ interface ProductCardProps {
   delay: number
   onAdd: (item: CatalogoItem) => void
   onDecrement: (id: number) => void
+  onViewSpecs: (item: CatalogoItem) => void
   inCart: boolean
   cartQty: number
 }
@@ -90,7 +91,7 @@ function discountLabel(item: CatalogoItem): string {
   return ""
 }
 
-function ProductCard({ item, delay, onAdd, onDecrement, inCart, cartQty }: ProductCardProps) {
+function ProductCard({ item, delay, onAdd, onDecrement, onViewSpecs, inCart, cartQty }: ProductCardProps) {
   const hasPromo = item.precio_con_descuento != null &&
     item.precio_con_descuento !== 0 &&
     Number(item.precio_con_descuento) < Number(item.precio_venta_actual)
@@ -99,7 +100,13 @@ function ProductCard({ item, delay, onAdd, onDecrement, inCart, cartQty }: Produ
 
   return (
     <BlurFade delay={delay} duration={0.4} className="h-full">
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden h-full flex flex-col transition-all duration-200 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-300">
+      <div
+        role="button"
+        tabIndex={0}
+        className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden h-full flex flex-col transition-all duration-200 hover:-translate-y-1.5 hover:shadow-xl hover:border-gray-300 cursor-pointer"
+        onClick={() => onViewSpecs(item)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onViewSpecs(item) } }}
+      >
         <ItemImage
           src={item.imagen_url}
           alt={item.producto}
@@ -137,7 +144,7 @@ function ProductCard({ item, delay, onAdd, onDecrement, inCart, cartQty }: Produ
               >
                 <button
                   type="button"
-                  onClick={() => onDecrement(item.id_item)}
+                  onClick={(e) => { e.stopPropagation(); onDecrement(item.id_item) }}
                   className="text-gray-400 hover:text-gray-700 transition-colors"
                   aria-label="Reducir cantidad"
                 >
@@ -154,7 +161,7 @@ function ProductCard({ item, delay, onAdd, onDecrement, inCart, cartQty }: Produ
                 </motion.span>
                 <button
                   type="button"
-                  onClick={() => onAdd(item)}
+                  onClick={(e) => { e.stopPropagation(); onAdd(item) }}
                   disabled={cartQty >= item.stock_disponible}
                   className="text-blue-500 hover:text-blue-700 transition-colors disabled:opacity-30"
                   aria-label="Incrementar cantidad"
@@ -173,7 +180,7 @@ function ProductCard({ item, delay, onAdd, onDecrement, inCart, cartQty }: Produ
               >
                 <RippleButton
                   type="button"
-                  onClick={() => onAdd(item)}
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); onAdd(item) }}
                   disabled={item.stock_disponible === 0}
                   rippleColor="rgba(172,248,71,0.45)"
                   duration="550ms"
