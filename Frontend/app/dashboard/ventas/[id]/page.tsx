@@ -19,6 +19,8 @@ import {
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { cn, formatNum } from "@/lib/utils"
+import { Th, Td } from "@/components/ui/data-table"
+import { MetodoPagoBadge } from "@/components/ui/status-badge"
 import { toast } from "sonner"
 import { getVenta, getPagos, getBoleta, emitirBoleta, type VentaVista, type Pago, type Boleta } from "@/lib/api/ventas"
 
@@ -35,23 +37,6 @@ function formatDate(iso: string) {
 }
 
 const formatSoles = (n: number | string | null | undefined) => `S/ ${formatNum(n)}`
-
-function metodoBadge(metodo: string) {
-  const map: Record<string, { label: string; cls: string }> = {
-    efectivo:      { label: "Efectivo",      cls: "bg-green-100 text-green-700" },
-    tarjeta:       { label: "Tarjeta",       cls: "bg-blue-50 text-blue-500" },
-    transferencia: { label: "Transferencia", cls: "bg-violet-100 text-violet-700" },
-    yape:          { label: "Yape",          cls: "bg-purple-100 text-purple-700" },
-    plin:          { label: "Plin",          cls: "bg-teal-100 text-teal-700" },
-    otro:          { label: "Otro",          cls: "bg-gray-100 text-gray-600" },
-  }
-  const found = map[metodo.toLowerCase()] ?? { label: metodo, cls: "bg-gray-100 text-gray-600" }
-  return (
-    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", found.cls)}>
-      {found.label}
-    </span>
-  )
-}
 
 // ─── skeleton ────────────────────────────────────────────────────────────────
 
@@ -99,35 +84,6 @@ const SectionCard = memo(function SectionCard({
     </BlurFade>
   )
 })
-
-// ─── table helpers ────────────────────────────────────────────────────────────
-
-function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <th
-      className={cn(
-        "py-2 text-xs font-medium uppercase tracking-wider text-gray-500",
-        right ? "text-right" : "text-left",
-      )}
-    >
-      {children}
-    </th>
-  )
-}
-
-function Td({ children, right, mono }: { children: React.ReactNode; right?: boolean; mono?: boolean }) {
-  return (
-    <td
-      className={cn(
-        "py-3 text-sm text-gray-700",
-        right ? "text-right" : "text-left",
-        mono && "font-mono tabular-nums",
-      )}
-    >
-      {children}
-    </td>
-  )
-}
 
 // ─── page ─────────────────────────────────────────────────────────────────────
 
@@ -465,7 +421,7 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-col gap-1">
-                        {metodoBadge(pago.metodo_pago)}
+                        <MetodoPagoBadge metodo={pago.metodo_pago} />
                         {pago.referencia_transaccion && (
                           <p className="mt-1 truncate text-xs text-gray-500">
                             Ref: {pago.referencia_transaccion}

@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { TipoDocumentoBadge } from "@/components/ui/status-badge"
 import {
   getClientes,
   createCliente,
@@ -35,18 +36,6 @@ import {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 
-function docBadge(tipo: string) {
-  const map: Record<string, string> = {
-    DNI:       "bg-blue-100 text-blue-700",
-    CE:        "bg-amber-100 text-amber-700",
-    pasaporte: "bg-violet-100 text-violet-700",
-  }
-  return (
-    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", map[tipo] ?? "bg-gray-100 text-gray-600")}>
-      {tipo}
-    </span>
-  )
-}
 
 function initials(name: string) {
   return name
@@ -348,7 +337,7 @@ function ClientRow({ cliente, delay }: { cliente: ClienteVista; delay: number })
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-gray-900">{cliente.nombre_completo}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {docBadge(cliente.tipo_documento)}
+            <TipoDocumentoBadge tipo={cliente.tipo_documento} />
             <span className="font-mono text-xs text-gray-500">{cliente.nro_documento}</span>
             {cliente.es_extranjero && (
               <span className="flex items-center gap-0.5 text-xs text-gray-500">
@@ -562,7 +551,7 @@ export default function ClientesPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por nombre o DNI…"
-              className="pl-9"
+              className="pl-9 bg-white"
             />
           </div>
 

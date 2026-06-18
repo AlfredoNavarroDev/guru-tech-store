@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { cn } from "@/lib/utils"
+import { Th, Td } from "@/components/ui/data-table"
 import { getCompra, type Compra } from "@/lib/api/compras"
 
 function fmtDate(iso: string) {
@@ -84,33 +85,6 @@ const SectionCard = memo(function SectionCard({
     </BlurFade>
   )
 })
-
-function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <th
-      className={cn(
-        "py-2 text-xs font-medium uppercase tracking-wider text-gray-500",
-        right ? "text-right" : "text-left",
-      )}
-    >
-      {children}
-    </th>
-  )
-}
-
-function Td({ children, right, mono }: { children: React.ReactNode; right?: boolean; mono?: boolean }) {
-  return (
-    <td
-      className={cn(
-        "py-3 text-sm text-gray-700",
-        right ? "text-right" : "text-left",
-        mono && "font-mono tabular-nums",
-      )}
-    >
-      {children}
-    </td>
-  )
-}
 
 export default function CompraDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
