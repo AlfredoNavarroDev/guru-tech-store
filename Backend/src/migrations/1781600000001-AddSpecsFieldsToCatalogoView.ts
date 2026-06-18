@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSpecsFieldsToCatalogoView1781600000001
-  implements MigrationInterface
-{
+export class AddSpecsFieldsToCatalogoView1781600000001 implements MigrationInterface {
   name = 'AddSpecsFieldsToCatalogoView1781600000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -36,8 +34,6 @@ export class AddSpecsFieldsToCatalogoView1781600000001
           i.modelo,
           i.precio_venta_actual,
           i.imagen_url,
-          i.calidad,
-          i.especificaciones,
           inv.id_sede,
           s.nombre                  AS sede,
           inv.cantidad_actual        AS stock_disponible,
@@ -50,7 +46,9 @@ export class AddSpecsFieldsToCatalogoView1781600000001
               WHEN pv.promo_tipo = 'monto_fijo'
                   THEN GREATEST(i.precio_venta_actual - pv.promo_valor, 0)
               ELSE i.precio_venta_actual
-          END                       AS precio_con_descuento
+          END                       AS precio_con_descuento,
+          i.calidad,
+          i.especificaciones
       FROM Items i
       JOIN  Inventario_Sedes inv   ON inv.id_item = i.id_item
       JOIN  Sedes s                ON s.id_sede   = inv.id_sede
