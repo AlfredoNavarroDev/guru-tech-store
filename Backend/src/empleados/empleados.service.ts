@@ -4,7 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Empleado } from '../auth/entities/empleado.entity';
 import { Rol } from '../auth/entities/rol.entity';
-import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { JwtPayload } from '../common/types';
 import { PaginatedResult } from '../common/dto/pagination.dto';
 import {
   EmpleadoNotFoundException,

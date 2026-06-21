@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../types';
 
 /** Extrae el usuario autenticado del request. Requiere JwtAuthGuard previo. */
 export const CurrentUser = createParamDecorator(

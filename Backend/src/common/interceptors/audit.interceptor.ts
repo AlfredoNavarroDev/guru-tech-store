@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Observable } from 'rxjs';
-import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../types';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {

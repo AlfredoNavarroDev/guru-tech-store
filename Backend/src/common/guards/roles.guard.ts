@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { JwtPayload } from '../types';
 
 /** Guard RBAC: verifica que el usuario tenga al menos un rol requerido. Usar tras JwtAuthGuard. */
 @Injectable()

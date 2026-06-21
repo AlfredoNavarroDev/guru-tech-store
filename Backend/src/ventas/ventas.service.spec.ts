@@ -10,7 +10,7 @@ import {
 } from '../common/exceptions';
 import { Venta } from './entities/venta.entity';
 import { DetalleVenta } from './entities/detalle-venta.entity';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 import type { CreateVentaDto } from './dto/create-venta.dto';
 import type { QueryVentasDto } from './dto/query-ventas.dto';
 
@@ -23,7 +23,7 @@ const createMockRepository = () => ({
 const mockUser: JwtPayload = {
   sub: 10,
   id_sede: 1,
-  roles: ['vendedor'],
+  rol: 'vendedor',
   nombre: 'Vendedor Test',
 };
 

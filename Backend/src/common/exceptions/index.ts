@@ -7,3 +7,4 @@ export * from './ventas.exceptions';
 export * from './items.exceptions';
 export * from './proveedores.exceptions';
 export * from './compras.exceptions';
+export * from './reparaciones.exceptions';

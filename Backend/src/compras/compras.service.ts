@@ -12,7 +12,7 @@ import {
 } from './dto/compra-response.dto';
 import { PaginatedResult } from '../common/dto/pagination.dto';
 import { ComprasQueryDto } from './dto/compras-query.dto';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 import {
   CompraNotFoundException,
   DeadlockException,

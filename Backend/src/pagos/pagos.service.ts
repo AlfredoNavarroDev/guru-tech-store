@@ -3,8 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Pago } from './entities/pago.entity';
 import { CreatePagoVentaDto } from './dto/create-pago-venta.dto';
-import { VentaNotFoundException } from '../common/exceptions';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { CreatePagoReparacionDto } from './dto/create-pago-reparacion.dto';
+import {
+  ReparacionNotFoundException,
+  VentaNotFoundException,
+} from '../common/exceptions';
+import type { JwtPayload } from '../common/types';
 
 // Servicio de pagos. Permite cobro diferido y pagos mixtos con distintos métodos.
 @Injectable()
@@ -42,6 +46,30 @@ export class PagosService {
     return this.pagoRepo.find({ where: { id_venta: idVenta } });
   }
 
+  // HU-19: Registra adelanto o pago final de reparación.
+  async createForReparacion(
+    idReparacion: number,
+    dto: CreatePagoReparacionDto,
+    user: JwtPayload,
+  ): Promise<Pago> {
+    await this.assertReparacionInSede(idReparacion, user.id_sede!);
+    const pago = this.pagoRepo.create({
+      id_reparacion: idReparacion,
+      id_venta: null,
+      metodo_pago: dto.metodo_pago,
+      monto: dto.monto,
+      es_adelanto: dto.es_adelanto ?? false,
+      referencia_transaccion: dto.referencia_transaccion ?? null,
+    });
+    return this.pagoRepo.save(pago);
+  }
+
+  // Pagos de una reparación (adelantos + pagos finales).
+  async findByReparacion(idReparacion: number, user: JwtPayload): Promise<Pago[]> {
+    await this.assertReparacionInSede(idReparacion, user.id_sede!);
+    return this.pagoRepo.find({ where: { id_reparacion: idReparacion } });
+  }
+
   // Verifica existencia y ownership sin cargar entidad completa.
   private async assertVentaOwnedByUser(
     idVenta: number,
@@ -52,5 +80,16 @@ export class PagosService {
       [idVenta, idEmpleado],
     );
     if (!rows.length) throw new VentaNotFoundException(idVenta);
+  }
+
+  private async assertReparacionInSede(
+    idReparacion: number,
+    idSede: number,
+  ): Promise<void> {
+    const rows = await this.dataSource.query<{ id_reparacion: number }[]>(
+      `SELECT id_reparacion FROM reparaciones WHERE id_reparacion = $1 AND id_sede = $2`,
+      [idReparacion, idSede],
+    );
+    if (!rows.length) throw new ReparacionNotFoundException(idReparacion);
   }
 }

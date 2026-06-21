@@ -16,7 +16,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
 import { Boleta } from './entities/boleta.entity';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 
 // Fila de v_boleta_venta: una por cada ítem de la venta.
 interface BolVistaRow {
@@ -45,6 +45,29 @@ interface BolVistaRow {
 interface PagoRow {
   metodo_pago: string;
   monto: string;
+}
+
+// Fila de datos de reparación para boleta (JOIN con repuestos usados).
+interface BolReparacionRow {
+  id_reparacion: number;
+  id_sede: number;
+  sede_nombre: string;
+  sede_direccion: string | null;
+  sede_telefono: string | null;
+  tecnico: string;
+  fecha_ingreso: Date;
+  monto_cotizado: string | null;
+  monto_descuento: string;
+  tipo_descuento: string | null;
+  id_cliente: number | null;
+  cliente_nombre: string | null;
+  cliente_tipo_doc: string | null;
+  cliente_nro_doc: string | null;
+  producto: string | null;
+  sku: string | null;
+  cantidad: number | null;
+  precio_cobrado: string | null;
+  importe: string | null;
 }
 
 // Datos inyectados en la plantilla Handlebars.
@@ -264,6 +287,78 @@ export class BoletasService implements OnModuleInit {
     return this.templateFn(data);
   }
 
+  // Emite boleta para reparación. Idempotente: una reparación → una boleta.
+  async emitirParaReparacion(idReparacion: number, user: JwtPayload): Promise<Boleta> {
+    await this.assertReparacionInSede(idReparacion, user.id_sede!);
+
+    const existing = await this.boletaRepo.findOne({
+      where: { id_reparacion: idReparacion },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `La reparación ${idReparacion} ya tiene boleta emitida`,
+      );
+    }
+
+    const r2Config = this.getR2Config();
+    const { head, rows, pagosRows, total, subtotal } =
+      await this.queryDatosReparacion(idReparacion, user.id_sede!);
+    const numero = await this.generarNumero(head.id_sede);
+
+    let boleta = this.boletaRepo.create({
+      numero,
+      id_venta: null,
+      id_reparacion: idReparacion,
+      total,
+      estado: 'emitida',
+      url_pdf: null,
+    });
+
+    await this.dataSource.transaction(async (manager) => {
+      boleta = await manager.save(Boleta, boleta);
+      try {
+        const data = this.buildTemplateDataForReparacion(
+          numero,
+          new Date(),
+          head,
+          rows,
+          pagosRows,
+          subtotal,
+          total,
+        );
+        const html = this.templateFn(data);
+        const pdfBuffer = await this.generatePdf(html);
+        const key = `boletas/reparaciones/${boleta.numero}.pdf`;
+        await this.s3.send(
+          new PutObjectCommand({
+            Bucket: r2Config.bucket,
+            Key: key,
+            Body: pdfBuffer,
+            ContentType: 'application/pdf',
+          }),
+        );
+        boleta.url_pdf = `${r2Config.publicUrl}/${key}`;
+        await manager.save(Boleta, boleta);
+      } catch (err) {
+        this.logger.error('Error generando PDF o subiendo a R2', err);
+        throw err;
+      }
+    });
+
+    return boleta;
+  }
+
+  // Busca boleta de una reparación. Lanza 404 si no existe.
+  async findByReparacion(idReparacion: number, user: JwtPayload): Promise<Boleta> {
+    await this.assertReparacionInSede(idReparacion, user.id_sede!);
+    const boleta = await this.boletaRepo.findOne({
+      where: { id_reparacion: idReparacion },
+    });
+    if (!boleta)
+      throw new NotFoundException(`No hay boleta para la reparación ${idReparacion}`);
+    return boleta;
+  }
+
   // Busca boleta por venta. Lanza 404 si no existe.
   async findByVenta(idVenta: number, user: JwtPayload): Promise<Boleta> {
     await this.assertVentaOwnedByUser(idVenta, user.sub);
@@ -329,6 +424,142 @@ export class BoletasService implements OnModuleInit {
     );
     if (!rows.length)
       throw new NotFoundException(`Venta ${idVenta} no encontrada`);
+  }
+
+  private async assertReparacionInSede(
+    idReparacion: number,
+    idSede: number,
+  ): Promise<void> {
+    const rows = await this.dataSource.query<{ id_reparacion: number }[]>(
+      `SELECT id_reparacion FROM reparaciones WHERE id_reparacion = $1 AND id_sede = $2`,
+      [idReparacion, idSede],
+    );
+    if (!rows.length)
+      throw new NotFoundException(`Reparación ${idReparacion} no encontrada`);
+  }
+
+  private async queryDatosReparacion(
+    idReparacion: number,
+    idSede: number,
+  ): Promise<{
+    head: BolReparacionRow;
+    rows: BolReparacionRow[];
+    pagosRows: PagoRow[];
+    total: number;
+    subtotal: number;
+  }> {
+    const rows = await this.dataSource.query<BolReparacionRow[]>(
+      `SELECT
+         r.id_reparacion, r.id_sede,
+         s.nombre AS sede_nombre, s.direccion AS sede_direccion, s.telefono AS sede_telefono,
+         e.nombre_completo AS tecnico,
+         r.fecha_ingreso, r.monto_cotizado, r.monto_descuento, r.tipo_descuento,
+         r.id_cliente, c.nombre_completo AS cliente_nombre,
+         c.tipo_documento AS cliente_tipo_doc, c.nro_documento AS cliente_nro_doc,
+         i.nombre AS producto, i.sku,
+         rru.cantidad, rru.precio_cobrado,
+         (rru.cantidad * rru.precio_cobrado) AS importe
+       FROM reparaciones r
+       JOIN sedes s ON s.id_sede = r.id_sede
+       JOIN empleados e ON e.id_empleado = r.id_tecnico
+       LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
+       LEFT JOIN reparacion_repuestos_usados rru ON rru.id_reparacion = r.id_reparacion
+       LEFT JOIN items i ON i.id_item = rru.id_item
+       WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
+      [idReparacion, idSede],
+    );
+    if (!rows.length)
+      throw new NotFoundException(`Reparación ${idReparacion} no encontrada`);
+
+    const pagosRows = await this.dataSource.query<PagoRow[]>(
+      `SELECT metodo_pago, monto FROM pagos WHERE id_reparacion = $1 ORDER BY fecha_pago ASC`,
+      [idReparacion],
+    );
+
+    const head = rows[0];
+    // Si hay repuestos, subtotal = suma de importes; si no, usar monto_cotizado.
+    const subtotal =
+      head.importe !== null
+        ? rows.reduce((s, r) => s + Number(r.importe), 0)
+        : Number(head.monto_cotizado ?? 0);
+
+    const descuento = Number(head.monto_descuento);
+    const tipo = head.tipo_descuento;
+    let total: number;
+    if (tipo === 'porcentaje') {
+      total = subtotal * (1 - descuento / 100);
+    } else if (tipo === 'monto_fijo') {
+      total = subtotal - descuento;
+    } else {
+      total = subtotal;
+    }
+    total = Math.max(0, parseFloat(total.toFixed(2)));
+
+    return { head, rows, pagosRows, total, subtotal };
+  }
+
+  private buildTemplateDataForReparacion(
+    numero: string,
+    fechaEmision: Date,
+    head: BolReparacionRow,
+    rows: BolReparacionRow[],
+    pagosRows: PagoRow[],
+    subtotal: number,
+    total: number,
+  ): BoletaTemplateData {
+    const descuento = Number(head.monto_descuento);
+    const tipo = head.tipo_descuento;
+    const descuentoSoles = tipo === 'porcentaje' ? subtotal - total : descuento;
+
+    const detalles =
+      rows[0].producto !== null
+        ? rows.map((r) => ({
+            producto: r.producto!,
+            sku: r.sku ?? '',
+            cantidad: r.cantidad!,
+            precioUnitario: this.fmtMoney(Number(r.precio_cobrado)),
+            importe: this.fmtMoney(Number(r.importe)),
+          }))
+        : [
+            {
+              producto: 'Servicio de reparación técnica',
+              sku: '',
+              cantidad: 1,
+              precioUnitario: this.fmtMoney(subtotal),
+              importe: this.fmtMoney(subtotal),
+            },
+          ];
+
+    return {
+      logoBase64: this.logoBase64,
+      sedeNombre: head.sede_nombre,
+      sedeDireccion: head.sede_direccion ?? '',
+      sedeTelefono: head.sede_telefono ?? '',
+      numero,
+      fechaEmision: fechaEmision.toLocaleString('es-PE', {
+        timeZone: 'America/Lima',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      vendedor: head.tecnico,
+      clienteNombre: head.cliente_nombre,
+      clienteTipoDoc: head.cliente_tipo_doc,
+      clienteNroDoc: head.cliente_nro_doc,
+      detalles,
+      subtotal: this.fmtMoney(subtotal),
+      tieneDescuento: descuento > 0,
+      descuento: this.fmtMoney(descuentoSoles),
+      descuentoLabel: tipo === 'porcentaje' ? `${descuento}%` : '',
+      total: this.fmtMoney(total),
+      pagos: pagosRows.map((p) => ({
+        metodo:
+          p.metodo_pago.charAt(0).toUpperCase() + p.metodo_pago.slice(1),
+        monto: this.fmtMoney(Number(p.monto)),
+      })),
+    };
   }
 
   // Construye el objeto de datos para la plantilla Handlebars.

@@ -5,7 +5,7 @@ import { PagosService } from './pagos.service';
 import { VentaNotFoundException } from '../common/exceptions';
 import { Pago } from './entities/pago.entity';
 import type { CreatePagoVentaDto } from './dto/create-pago-venta.dto';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 
 const createMockRepository = () => ({
   create: jest.fn(),

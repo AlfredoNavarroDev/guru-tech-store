@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 import { VentasService } from './ventas.service';
 import { PagosService } from '../pagos/pagos.service';
 import { BoletasService } from '../boletas/boletas.service';

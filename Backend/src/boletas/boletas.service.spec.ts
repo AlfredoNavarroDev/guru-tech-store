@@ -9,7 +9,7 @@ import {
 import { DataSource } from 'typeorm';
 import { BoletasService } from './boletas.service';
 import { Boleta } from './entities/boleta.entity';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 
 jest.mock(
   '@sparticuz/chromium',

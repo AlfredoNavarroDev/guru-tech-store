@@ -11,7 +11,7 @@ import {
   VentaRecienteDto,
   VentaResponseDto,
 } from './dto/venta-response.dto';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 import type { PaginatedResult } from '../common/dto/pagination.dto';
 import {
   DescuentoSinJustificacionException,

@@ -12,7 +12,7 @@ import {
 } from '../common/exceptions';
 import { Empleado } from '../auth/entities/empleado.entity';
 import { Rol } from '../auth/entities/rol.entity';
-import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import type { JwtPayload } from '../common/types';
 
 const createMockRepository = () => ({
   findOne: jest.fn(),
@@ -71,7 +71,7 @@ describe('EmpleadosService', () => {
       const dtoConPago = {
         ...dto,
         sueldo_soles: 1800,
-        frecuencia_pago: 'quincenal',
+        frecuencia_pago: 'quincenal' as const,
       };
       const saved = {
         id_empleado: 5,

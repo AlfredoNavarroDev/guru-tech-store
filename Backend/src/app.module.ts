@@ -17,6 +17,7 @@ import { ItemsModule } from './items/items.module';
 import { StockModule } from './stock/stock.module';
 import { ProveedoresModule } from './proveedores/proveedores.module';
 import { ComprasModule } from './compras/compras.module';
+import { ReparacionesModule } from './reparaciones/reparaciones.module';
 
 @Module({
   imports: [
@@ -72,6 +73,9 @@ import { ComprasModule } from './compras/compras.module';
     StockModule,
     ProveedoresModule,
     ComprasModule,
+
+    // Módulos del Sprint 3.
+    ReparacionesModule,
   ],
   controllers: [AppController],
   providers: [

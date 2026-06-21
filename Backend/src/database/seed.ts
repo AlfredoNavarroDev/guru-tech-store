@@ -8,10 +8,11 @@ import { seedClientes } from './seed-03-clientes';
 import { seedCatalogo } from './seed-04-catalogo';
 import { seedProveedores } from './seed-05-proveedores';
 import { seedCompras } from './seed-06-compras';
+import { seedReparaciones } from './seed-07-reparaciones';
 
 async function main(): Promise<void> {
   console.log('============================================================');
-  console.log(' SEED — Sprint 2 / Todos los roles');
+  console.log(' SEED — Sprint 3 / Todos los roles');
   console.log('============================================================');
 
   console.log('\nConectando a la base de datos...');
@@ -29,6 +30,9 @@ async function main(): Promise<void> {
         Logs_Sistema,
         Boletas,
         Pagos,
+        reparacion_repuestos_usados,
+        reparaciones,
+        estados_reparacion,
         Detalle_Venta,
         Ventas,
         Movimientos_Inventario,
@@ -56,6 +60,7 @@ async function main(): Promise<void> {
     await seedCatalogo(qr);
     await seedProveedores(qr);
     await seedCompras(qr);
+    await seedReparaciones(qr);
 
     await qr.commitTransaction();
 
