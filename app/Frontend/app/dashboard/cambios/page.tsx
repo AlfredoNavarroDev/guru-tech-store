@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { ArrowLeftRight, Plus, ArrowRight } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
-import { cn } from "@/lib/utils"
 import { CambioDrawer } from "@/components/vendedor/CambioDrawer"
 
 // ─── Static mock data ────────────────────────────────────────────────────────
