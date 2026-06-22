@@ -1,7 +1,7 @@
 services:
   backend:
     build:
-      context: ./app/Backend
+      context: ./Backend
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
@@ -11,7 +11,7 @@ services:
       - "host.docker.internal:host-gateway"
   frontend:
     build:
-      context: ./app/Frontend
+      context: ./Frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
