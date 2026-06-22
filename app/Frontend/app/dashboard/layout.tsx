@@ -20,6 +20,7 @@ const SEGMENT_TITLES: Record<string, string> = {
   items: "Ítems",
   nueva: "Nueva compra",
   historial: "Historial técnico",
+  cambios: "Cambios de producto",
 }
 
 function getPageTitle(pathname: string): string {

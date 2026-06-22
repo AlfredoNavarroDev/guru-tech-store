@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
   Boxes, ClipboardList, ShieldCheck, Wrench, Truck, History,
+  ArrowLeftRight,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
@@ -20,6 +21,7 @@ const vendedorNavLinks = [
   { href: "/dashboard/ventas",   label: "Ventas",   icon: Receipt },
   { href: "/dashboard/catalogo", label: "Catálogo", icon: Grid3X3 },
   { href: "/dashboard/clientes", label: "Clientes", icon: UserRound },
+  { href: "/dashboard/cambios",  label: "Cambios",  icon: ArrowLeftRight },
 ]
 
 const propietarioNavLinks = [
@@ -29,6 +31,7 @@ const propietarioNavLinks = [
   { href: "/dashboard/empleados",  label: "Empleados",  icon: UserRound },
   { href: "/dashboard/stock",      label: "Inventario", icon: Boxes },
   { href: "/dashboard/catalogo",   label: "Catálogo",   icon: Grid3X3 },
+  { href: "/dashboard/cambios",    label: "Cambios",    icon: ArrowLeftRight },
 ]
 
 const roleNavLinks = {
