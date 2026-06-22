@@ -28,9 +28,17 @@ const mockUser: JwtPayload = {
   nombre: 'Tecnico Test',
 };
 
-const mockEstadoPendiente = { id_estado: 1, nombre: 'pendiente', es_final: false };
+const mockEstadoPendiente = {
+  id_estado: 1,
+  nombre: 'pendiente',
+  es_final: false,
+};
 const mockEstadoListo = { id_estado: 5, nombre: 'listo', es_final: true };
-const mockEstadoEntregado = { id_estado: 6, nombre: 'entregado', es_final: true };
+const mockEstadoEntregado = {
+  id_estado: 6,
+  nombre: 'entregado',
+  es_final: true,
+};
 
 const mockReparacionRow = {
   id_reparacion: 1,
@@ -93,15 +101,20 @@ describe('ReparacionesService', () => {
     it('crea reparacion con estado inicial pendiente → devuelve ReparacionResponseDto', async () => {
       dataSource.query
         .mockResolvedValueOnce([mockEstadoPendiente]) // SELECT primer estado
-        .mockResolvedValueOnce([mockReparacionRow])   // findOne: reparacion
-        .mockResolvedValueOnce([])                    // findOne: repuestos
-        .mockResolvedValueOnce([]);                   // findOne: pagos
+        .mockResolvedValueOnce([mockReparacionRow]) // findOne: reparacion
+        .mockResolvedValueOnce([]) // findOne: repuestos
+        .mockResolvedValueOnce([]); // findOne: pagos
 
       reparacionRepo.create.mockReturnValue({ id_reparacion: 1 });
       reparacionRepo.save.mockResolvedValue({ id_reparacion: 1 });
 
       const result = await service.create(
-        { id_cliente: 5, marca: 'Samsung', modelo: 'Galaxy S21', monto_cotizado: 120 },
+        {
+          id_cliente: 5,
+          marca: 'Samsung',
+          modelo: 'Galaxy S21',
+          monto_cotizado: 120,
+        },
         mockUser,
       );
 
@@ -135,8 +148,8 @@ describe('ReparacionesService', () => {
       };
       dataSource.query
         .mockResolvedValueOnce([mockReparacionRow]) // reparacion
-        .mockResolvedValueOnce([repuestoRow])        // repuestos
-        .mockResolvedValueOnce([pagoRow]);            // pagos
+        .mockResolvedValueOnce([repuestoRow]) // repuestos
+        .mockResolvedValueOnce([pagoRow]); // pagos
 
       const result = await service.findOne(1, mockUser);
 
@@ -184,18 +197,18 @@ describe('ReparacionesService', () => {
   describe('updateEstado', () => {
     it('actualiza estado correctamente y retorna reparacion actualizada', async () => {
       dataSource.query
-        .mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'pendiente' }]) // assertAccess
-        .mockResolvedValueOnce([mockEstadoListo])   // SELECT nuevo estado
-        .mockResolvedValueOnce(undefined)            // UPDATE raw
-        .mockResolvedValueOnce([{ ...mockReparacionRow, id_estado: 5, estado: 'listo' }]) // findOne reparacion
-        .mockResolvedValueOnce([])                   // findOne repuestos
+        .mockResolvedValueOnce([
+          { ...mockReparacionRow, es_final: false, estado: 'pendiente' },
+        ]) // assertAccess
+        .mockResolvedValueOnce([mockEstadoListo]) // SELECT nuevo estado
+        .mockResolvedValueOnce(undefined) // UPDATE raw
+        .mockResolvedValueOnce([
+          { ...mockReparacionRow, id_estado: 5, estado: 'listo' },
+        ]) // findOne reparacion
+        .mockResolvedValueOnce([]) // findOne repuestos
         .mockResolvedValueOnce([]); // findOne pagos
 
-      const result = await service.updateEstado(
-        1,
-        { id_estado: 5 },
-        mockUser,
-      );
+      const result = await service.updateEstado(1, { id_estado: 5 }, mockUser);
 
       expect(dataSource.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE reparaciones'),
@@ -216,7 +229,9 @@ describe('ReparacionesService', () => {
 
     it('lanza EstadoReparacionNotFoundException si id_estado no existe', async () => {
       dataSource.query
-        .mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'pendiente' }])
+        .mockResolvedValueOnce([
+          { ...mockReparacionRow, es_final: false, estado: 'pendiente' },
+        ])
         .mockResolvedValueOnce([]); // estado no encontrado
 
       await expect(
@@ -226,12 +241,19 @@ describe('ReparacionesService', () => {
 
     it('establece fecha_entrega_cliente al pasar a entregado', async () => {
       dataSource.query
-        .mockResolvedValueOnce([{ ...mockReparacionRow, es_final: true, estado: 'listo', fecha_terminado: new Date() }])
+        .mockResolvedValueOnce([
+          {
+            ...mockReparacionRow,
+            es_final: true,
+            estado: 'listo',
+            fecha_terminado: new Date(),
+          },
+        ])
         .mockResolvedValueOnce([mockEstadoEntregado])
-        .mockResolvedValueOnce(undefined)   // UPDATE raw
+        .mockResolvedValueOnce(undefined) // UPDATE raw
         .mockResolvedValueOnce([mockReparacionRow])
-        .mockResolvedValueOnce([])           // findOne repuestos
-        .mockResolvedValueOnce([]);          // findOne pagos
+        .mockResolvedValueOnce([]) // findOne repuestos
+        .mockResolvedValueOnce([]); // findOne pagos
 
       await service.updateEstado(1, { id_estado: 6 }, mockUser);
 
@@ -247,7 +269,9 @@ describe('ReparacionesService', () => {
   describe('addRepuesto', () => {
     it('agrega repuesto y devuelve RepuestoUsadoResponseDto', async () => {
       dataSource.query
-        .mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'reparacion' }]) // assertAccess
+        .mockResolvedValueOnce([
+          { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
+        ]) // assertAccess
         .mockResolvedValueOnce([
           {
             id_repuesto_u: 1,
@@ -265,7 +289,12 @@ describe('ReparacionesService', () => {
 
       const result = await service.addRepuesto(
         1,
-        { id_item: 12, cantidad: 1, precio_cobrado: 45, costo_unitario_momento: 30 },
+        {
+          id_item: 12,
+          cantidad: 1,
+          precio_cobrado: 45,
+          costo_unitario_momento: 30,
+        },
         mockUser,
       );
 
@@ -274,14 +303,23 @@ describe('ReparacionesService', () => {
     });
 
     it('lanza StockInsuficienteException si trigger rechaza la inserción', async () => {
-      dataSource.query.mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'reparacion' }]);
+      dataSource.query.mockResolvedValueOnce([
+        { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
+      ]);
       repuestoRepo.create.mockReturnValue({});
-      repuestoRepo.save.mockRejectedValue(new Error('Stock insuficiente para id_item 12'));
+      repuestoRepo.save.mockRejectedValue(
+        new Error('Stock insuficiente para id_item 12'),
+      );
 
       await expect(
         service.addRepuesto(
           1,
-          { id_item: 12, cantidad: 100, precio_cobrado: 45, costo_unitario_momento: 30 },
+          {
+            id_item: 12,
+            cantidad: 100,
+            precio_cobrado: 45,
+            costo_unitario_momento: 30,
+          },
           mockUser,
         ),
       ).rejects.toThrow(StockInsuficienteException);
@@ -292,8 +330,15 @@ describe('ReparacionesService', () => {
 
   describe('removeRepuesto', () => {
     it('elimina repuesto existente', async () => {
-      const mockRepuesto = { id_repuesto_u: 1, id_reparacion: 1, id_item: 12, cantidad: 1 };
-      dataSource.query.mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'reparacion' }]);
+      const mockRepuesto = {
+        id_repuesto_u: 1,
+        id_reparacion: 1,
+        id_item: 12,
+        cantidad: 1,
+      };
+      dataSource.query.mockResolvedValueOnce([
+        { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
+      ]);
       repuestoRepo.findOne.mockResolvedValue(mockRepuesto);
       repuestoRepo.remove.mockResolvedValue(undefined);
 
@@ -303,7 +348,9 @@ describe('ReparacionesService', () => {
     });
 
     it('lanza RepuestoUsadoNotFoundException si no existe', async () => {
-      dataSource.query.mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'reparacion' }]);
+      dataSource.query.mockResolvedValueOnce([
+        { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
+      ]);
       repuestoRepo.findOne.mockResolvedValue(null);
 
       await expect(service.removeRepuesto(1, 99, mockUser)).rejects.toThrow(
@@ -317,7 +364,10 @@ describe('ReparacionesService', () => {
   afterAll(() => {
     const results = [
       ['create: crea con estado pendiente', 'PASS'],
-      ['findOne: devuelve detalle con repuestos, pagos y saldo pendiente', 'PASS'],
+      [
+        'findOne: devuelve detalle con repuestos, pagos y saldo pendiente',
+        'PASS',
+      ],
       ['findOne: 404 si no existe', 'PASS'],
       ['findAll: lista paginada por sede', 'PASS'],
       ['updateEstado: actualiza estado', 'PASS'],
@@ -329,12 +379,20 @@ describe('ReparacionesService', () => {
       ['removeRepuesto: elimina existente', 'PASS'],
       ['removeRepuesto: 404 si no existe', 'PASS'],
     ];
-    console.log('\n┌──────────────────────────────────────────────────────────────┐');
-    console.log('│           ReparacionesService — Resumen de tests              │');
-    console.log('├──────────────────────────────────────────────────────────────┤');
+    console.log(
+      '\n┌──────────────────────────────────────────────────────────────┐',
+    );
+    console.log(
+      '│           ReparacionesService — Resumen de tests              │',
+    );
+    console.log(
+      '├──────────────────────────────────────────────────────────────┤',
+    );
     results.forEach(([name, status]) =>
       console.log(`│ ${status === 'PASS' ? '✓' : '✗'} ${name.padEnd(60)}│`),
     );
-    console.log('└──────────────────────────────────────────────────────────────┘');
+    console.log(
+      '└──────────────────────────────────────────────────────────────┘',
+    );
   });
 });

@@ -65,6 +65,14 @@ export class CatalogoService {
     }
 
     sql += ` ORDER BY producto`;
-    return this.dataSource.query(sql, params);
+    const rows = (await this.dataSource.query(sql, params)) as {
+      id_item: number;
+    }[];
+    const seen = new Set<number>();
+    return rows.filter((row) => {
+      if (seen.has(row.id_item)) return false;
+      seen.add(row.id_item);
+      return true;
+    });
   }
 }

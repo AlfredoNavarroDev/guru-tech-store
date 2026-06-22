@@ -288,7 +288,10 @@ export class BoletasService implements OnModuleInit {
   }
 
   // Emite boleta para reparación. Idempotente: una reparación → una boleta.
-  async emitirParaReparacion(idReparacion: number, user: JwtPayload): Promise<Boleta> {
+  async emitirParaReparacion(
+    idReparacion: number,
+    user: JwtPayload,
+  ): Promise<Boleta> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
 
     const existing = await this.boletaRepo.findOne({
@@ -349,13 +352,18 @@ export class BoletasService implements OnModuleInit {
   }
 
   // Busca boleta de una reparación. Lanza 404 si no existe.
-  async findByReparacion(idReparacion: number, user: JwtPayload): Promise<Boleta> {
+  async findByReparacion(
+    idReparacion: number,
+    user: JwtPayload,
+  ): Promise<Boleta> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
     const boleta = await this.boletaRepo.findOne({
       where: { id_reparacion: idReparacion },
     });
     if (!boleta)
-      throw new NotFoundException(`No hay boleta para la reparación ${idReparacion}`);
+      throw new NotFoundException(
+        `No hay boleta para la reparación ${idReparacion}`,
+      );
     return boleta;
   }
 
@@ -555,8 +563,7 @@ export class BoletasService implements OnModuleInit {
       descuentoLabel: tipo === 'porcentaje' ? `${descuento}%` : '',
       total: this.fmtMoney(total),
       pagos: pagosRows.map((p) => ({
-        metodo:
-          p.metodo_pago.charAt(0).toUpperCase() + p.metodo_pago.slice(1),
+        metodo: p.metodo_pago.charAt(0).toUpperCase() + p.metodo_pago.slice(1),
         monto: this.fmtMoney(Number(p.monto)),
       })),
     };

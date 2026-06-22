@@ -31,13 +31,21 @@ export class CreateReparacionDto {
   @MaxLength(50)
   modelo?: string;
 
-  @ApiPropertyOptional({ example: '012345678901234', description: 'IMEI de 15 dígitos' })
+  @ApiPropertyOptional({
+    example: '012345678901234',
+    description: 'IMEI de 15 dígitos',
+  })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{15}$/, { message: 'imei debe tener exactamente 15 dígitos numéricos' })
+  @Matches(/^\d{15}$/, {
+    message: 'imei debe tener exactamente 15 dígitos numéricos',
+  })
   imei?: string;
 
-  @ApiPropertyOptional({ example: true, description: 'Si el equipo enciende al ingresar' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Si el equipo enciende al ingresar',
+  })
   @IsOptional()
   @IsBoolean()
   esta_encendido?: boolean;
@@ -55,7 +63,10 @@ export class CreateReparacionDto {
   @IsString()
   diagnostico_tecnico?: string;
 
-  @ApiPropertyOptional({ example: 250.0, description: 'Cotización estimada (>= 0)' })
+  @ApiPropertyOptional({
+    example: 250.0,
+    description: 'Cotización estimada (>= 0)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -74,10 +85,15 @@ export class CreateReparacionDto {
   @IsIn(['porcentaje', 'monto_fijo'])
   tipo_descuento?: 'porcentaje' | 'monto_fijo';
 
-  @ApiPropertyOptional({ example: '2026-06-28', description: 'Fecha estimada de entrega (YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    example: '2026-06-28',
+    description: 'Fecha estimada de entrega (YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'fecha_estimada debe tener formato YYYY-MM-DD' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'fecha_estimada debe tener formato YYYY-MM-DD',
+  })
   fecha_estimada?: string;
 
   @ApiPropertyOptional({ example: 'Descuento cliente frecuente' })

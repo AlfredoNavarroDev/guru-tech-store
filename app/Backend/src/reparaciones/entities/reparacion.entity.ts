@@ -13,7 +13,11 @@ export class Reparacion {
   @PrimaryGeneratedColumn({ name: 'id_reparacion' })
   id_reparacion: number;
 
-  @Column({ name: 'fecha_ingreso', type: 'timestamptz', default: () => 'now()' })
+  @Column({
+    name: 'fecha_ingreso',
+    type: 'timestamptz',
+    default: () => 'now()',
+  })
   fecha_ingreso: Date;
 
   @Column({ name: 'id_cliente' })
@@ -52,7 +56,11 @@ export class Reparacion {
   @Column({ name: 'fecha_terminado', type: 'timestamptz', nullable: true })
   fecha_terminado: Date | null;
 
-  @Column({ name: 'fecha_entrega_cliente', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'fecha_entrega_cliente',
+    type: 'timestamptz',
+    nullable: true,
+  })
   fecha_entrega_cliente: Date | null;
 
   @Column({
@@ -73,7 +81,12 @@ export class Reparacion {
   })
   monto_descuento: number;
 
-  @Column({ name: 'tipo_descuento', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'tipo_descuento',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   tipo_descuento: string | null;
 
   @Column({ name: 'justificacion_descuento', type: 'text', nullable: true })

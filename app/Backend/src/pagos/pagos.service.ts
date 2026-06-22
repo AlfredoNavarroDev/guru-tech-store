@@ -65,7 +65,10 @@ export class PagosService {
   }
 
   // Pagos de una reparación (adelantos + pagos finales).
-  async findByReparacion(idReparacion: number, user: JwtPayload): Promise<Pago[]> {
+  async findByReparacion(
+    idReparacion: number,
+    user: JwtPayload,
+  ): Promise<Pago[]> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
     return this.pagoRepo.find({ where: { id_reparacion: idReparacion } });
   }

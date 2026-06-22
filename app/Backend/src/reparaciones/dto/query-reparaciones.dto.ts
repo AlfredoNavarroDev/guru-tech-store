@@ -18,12 +18,18 @@ export class QueryReparacionesDto extends PaginationDto {
   @Min(1)
   id_estado?: number;
 
-  @ApiPropertyOptional({ example: '2026-06-01', description: 'Fecha ingreso desde (YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    example: '2026-06-01',
+    description: 'Fecha ingreso desde (YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsString()
   fecha_desde?: string;
 
-  @ApiPropertyOptional({ example: '2026-06-30', description: 'Fecha ingreso hasta (YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    example: '2026-06-30',
+    description: 'Fecha ingreso hasta (YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsString()
   fecha_hasta?: string;
@@ -38,7 +44,10 @@ export class QueryReparacionesDto extends PaginationDto {
   @IsString()
   modelo?: string;
 
-  @ApiPropertyOptional({ example: '012345678901234', description: 'IMEI exacto o parcial' })
+  @ApiPropertyOptional({
+    example: '012345678901234',
+    description: 'IMEI exacto o parcial',
+  })
   @IsOptional()
   @IsString()
   imei?: string;

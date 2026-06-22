@@ -1,0 +1,267 @@
+import { Injectable } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { CreateCambioDto } from './dto/create-cambio.dto';
+import { QueryCambiosDto } from './dto/query-cambios.dto';
+import type {
+  CambioResponseDto,
+  VentaDetalleResponse,
+} from './dto/cambio-response.dto';
+import type { PaginatedResult } from '../common/dto/pagination.dto';
+import type { JwtPayload } from '../common/types';
+import {
+  CambioNotFoundException,
+  CantidadExcedidaException,
+  ItemNoEnVentaException,
+  StockInsuficienteException,
+  VentaNotFoundException,
+} from '../common/exceptions';
+
+interface CambioRow {
+  id_cambio: number;
+  id_venta_origen: number;
+  id_garantia: number | null;
+  id_empleado: number;
+  id_sede: number;
+  id_item_devuelto: number;
+  nombre_item_devuelto: string;
+  cantidad: number;
+  precio_devuelto: string;
+  id_item_entregado: number;
+  nombre_item_entregado: string;
+  precio_entregado: string;
+  diferencia_cobrada: string;
+  metodo_pago_dif: string | null;
+  referencia_transaccion: string | null;
+  motivo: string;
+  detalle: string | null;
+  fecha_cambio: Date;
+  created_at: Date;
+}
+
+@Injectable()
+export class CambiosService {
+  constructor(private readonly dataSource: DataSource) {}
+
+  // Devuelve cabecera + ítems de una venta. Vendedor solo ve ventas de su sede.
+  async findVentaDetalle(
+    id_venta: number,
+    user: JwtPayload,
+  ): Promise<VentaDetalleResponse> {
+    const [venta] = await this.dataSource.query<
+      Array<{ id_venta: number; fecha_emision: Date; cliente: string | null }>
+    >(
+      `SELECT v.id_venta, v.fecha_emision, c.nombre_completo AS cliente
+       FROM ventas v
+       LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
+       WHERE v.id_venta = $1 AND v.id_sede = $2`,
+      [id_venta, user.id_sede!],
+    );
+    if (!venta) throw new VentaNotFoundException(id_venta);
+
+    const detalles = await this.dataSource.query<
+      Array<{
+        id_item: number;
+        nombre: string;
+        sku: string;
+        precio_unitario_momento: string;
+        cantidad: number;
+      }>
+    >(
+      `SELECT dv.id_item, i.nombre, i.sku, dv.precio_unitario_momento, dv.cantidad
+       FROM detalle_venta dv
+       JOIN items i ON i.id_item = dv.id_item
+       WHERE dv.id_venta = $1`,
+      [id_venta],
+    );
+
+    return {
+      id_venta: venta.id_venta,
+      fecha_emision: venta.fecha_emision,
+      cliente: venta.cliente,
+      detalles: detalles.map((d) => ({
+        id_item: d.id_item,
+        nombre: d.nombre,
+        sku: d.sku,
+        precio_unitario_momento: parseFloat(d.precio_unitario_momento),
+        cantidad: d.cantidad,
+      })),
+    };
+  }
+
+  async create(
+    dto: CreateCambioDto,
+    user: JwtPayload,
+  ): Promise<CambioResponseDto> {
+    // 1. Venta pertenece a sede del vendedor.
+    const [venta] = await this.dataSource.query<Array<{ id_venta: number }>>(
+      `SELECT id_venta FROM ventas WHERE id_venta = $1 AND id_sede = $2`,
+      [dto.id_venta_origen, user.id_sede!],
+    );
+    if (!venta) throw new VentaNotFoundException(dto.id_venta_origen);
+
+    // 2. Ítem devuelto está en el detalle de esa venta.
+    const [detalleRow] = await this.dataSource.query<
+      Array<{ cantidad: number }>
+    >(
+      `SELECT cantidad FROM detalle_venta WHERE id_venta = $1 AND id_item = $2`,
+      [dto.id_venta_origen, dto.id_item_devuelto],
+    );
+    if (!detalleRow) {
+      throw new ItemNoEnVentaException(
+        dto.id_item_devuelto,
+        dto.id_venta_origen,
+      );
+    }
+    if (dto.cantidad > detalleRow.cantidad) {
+      throw new CantidadExcedidaException(dto.cantidad, detalleRow.cantidad);
+    }
+
+    // 3. Pre-verificar stock del ítem entregado antes de entrar en transacción.
+    const [invEntregado] = await this.dataSource.query<
+      Array<{ id_inventario: number; cantidad_actual: number }>
+    >(
+      `SELECT id_inventario, cantidad_actual FROM inventario_sedes WHERE id_item = $1 AND id_sede = $2`,
+      [dto.id_item_entregado, user.id_sede!],
+    );
+    if (!invEntregado || invEntregado.cantidad_actual < dto.cantidad) {
+      throw new StockInsuficienteException(
+        `Stock insuficiente para ítem ${dto.id_item_entregado}`,
+      );
+    }
+
+    // 4. Transacción atómica: insert + ajuste de inventario de ambos ítems.
+    let insertedId!: number;
+    await this.dataSource.transaction(async (manager) => {
+      const [inserted] = await manager.query<Array<{ id_cambio: number }>>(
+        `INSERT INTO cambios_producto
+           (id_venta_origen, id_garantia, id_empleado, id_sede,
+            id_item_devuelto, cantidad, precio_devuelto,
+            id_item_entregado, precio_entregado, diferencia_cobrada,
+            metodo_pago_dif, referencia_transaccion, motivo, detalle)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         RETURNING id_cambio`,
+        [
+          dto.id_venta_origen,
+          dto.id_garantia ?? null,
+          user.sub,
+          user.id_sede!,
+          dto.id_item_devuelto,
+          dto.cantidad,
+          dto.precio_devuelto,
+          dto.id_item_entregado,
+          dto.precio_entregado,
+          dto.diferencia_cobrada,
+          dto.metodo_pago_dif ?? null,
+          dto.referencia_transaccion ?? null,
+          dto.motivo,
+          dto.detalle ?? null,
+        ],
+      );
+      insertedId = inserted.id_cambio;
+
+      // Stock +cantidad: ítem devuelto regresa al inventario.
+      await manager.query(
+        `UPDATE inventario_sedes SET cantidad_actual = cantidad_actual + $1
+         WHERE id_item = $2 AND id_sede = $3`,
+        [dto.cantidad, dto.id_item_devuelto, user.id_sede!],
+      );
+
+      // Stock -cantidad: ítem entregado sale del inventario.
+      await manager.query(
+        `UPDATE inventario_sedes SET cantidad_actual = cantidad_actual - $1
+         WHERE id_item = $2 AND id_sede = $3`,
+        [dto.cantidad, dto.id_item_entregado, user.id_sede!],
+      );
+    });
+
+    return this.findOne(insertedId, user);
+  }
+
+  async findAll(
+    user: JwtPayload,
+    query: QueryCambiosDto,
+  ): Promise<PaginatedResult<CambioResponseDto>> {
+    let where = `cp.id_sede = $1`;
+    const params: unknown[] = [user.id_sede!];
+    let idx = 2;
+
+    if (query.fecha_desde) {
+      where += ` AND cp.fecha_cambio >= $${idx++}`;
+      params.push(query.fecha_desde);
+    }
+    if (query.fecha_hasta) {
+      where += ` AND cp.fecha_cambio <= $${idx++}`;
+      params.push(`${query.fecha_hasta} 23:59:59`);
+    }
+
+    const baseFrom = `
+      FROM cambios_producto cp
+      JOIN items idev ON idev.id_item = cp.id_item_devuelto
+      JOIN items ient ON ient.id_item = cp.id_item_entregado
+      WHERE ${where}
+    `;
+
+    const [[{ total }], rows] = await Promise.all([
+      this.dataSource.query<[{ total: string }]>(
+        `SELECT COUNT(*) AS total ${baseFrom}`,
+        params,
+      ),
+      this.dataSource.query<CambioRow[]>(
+        `SELECT cp.*,
+                idev.nombre AS nombre_item_devuelto,
+                ient.nombre AS nombre_item_entregado
+         ${baseFrom}
+         ORDER BY cp.fecha_cambio DESC
+         LIMIT $${idx} OFFSET $${idx + 1}`,
+        [...params, query.limit, (query.page - 1) * query.limit],
+      ),
+    ]);
+
+    return {
+      items: rows.map((r) => this.toResponse(r)),
+      total: parseInt(total, 10),
+      page: query.page,
+      limit: query.limit,
+      totalPages: Math.ceil(parseInt(total, 10) / query.limit),
+    };
+  }
+
+  async findOne(id: number, user: JwtPayload): Promise<CambioResponseDto> {
+    const [row] = await this.dataSource.query<CambioRow[]>(
+      `SELECT cp.*,
+              idev.nombre AS nombre_item_devuelto,
+              ient.nombre AS nombre_item_entregado
+       FROM cambios_producto cp
+       JOIN items idev ON idev.id_item = cp.id_item_devuelto
+       JOIN items ient ON ient.id_item = cp.id_item_entregado
+       WHERE cp.id_cambio = $1 AND cp.id_sede = $2`,
+      [id, user.id_sede!],
+    );
+    if (!row) throw new CambioNotFoundException(id);
+    return this.toResponse(row);
+  }
+
+  private toResponse(row: CambioRow): CambioResponseDto {
+    return {
+      id_cambio: row.id_cambio,
+      id_venta_origen: row.id_venta_origen,
+      id_garantia: row.id_garantia,
+      id_empleado: row.id_empleado,
+      id_sede: row.id_sede,
+      id_item_devuelto: row.id_item_devuelto,
+      nombre_item_devuelto: row.nombre_item_devuelto,
+      cantidad: row.cantidad,
+      precio_devuelto: parseFloat(row.precio_devuelto),
+      id_item_entregado: row.id_item_entregado,
+      nombre_item_entregado: row.nombre_item_entregado,
+      precio_entregado: parseFloat(row.precio_entregado),
+      diferencia_cobrada: parseFloat(row.diferencia_cobrada),
+      metodo_pago_dif: row.metodo_pago_dif,
+      referencia_transaccion: row.referencia_transaccion,
+      motivo: row.motivo,
+      detalle: row.detalle,
+      fecha_cambio: row.fecha_cambio,
+      created_at: row.created_at,
+    };
+  }
+}

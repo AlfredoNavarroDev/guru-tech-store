@@ -1,6 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+
+const MOTIVOS_CAMBIO = ['defecto', 'garantia', 'otro'] as const;
 
 export class CreateCambioDto {
   @ApiProperty({ example: 1042 })
@@ -64,9 +76,10 @@ export class CreateCambioDto {
   @MaxLength(100)
   referencia_transaccion?: string;
 
-  @ApiProperty({ example: 'Defecto de fábrica' })
+  @ApiProperty({ enum: MOTIVOS_CAMBIO, example: 'defecto' })
   @IsString()
   @IsNotEmpty()
+  @IsIn(MOTIVOS_CAMBIO)
   @MaxLength(50)
   motivo: string;
 

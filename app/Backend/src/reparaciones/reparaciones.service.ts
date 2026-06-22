@@ -289,7 +289,8 @@ export class ReparacionesService {
       `SELECT id_estado, nombre, es_final FROM estados_reparacion WHERE id_estado = $1`,
       [dto.id_estado],
     );
-    if (!estadoNuevo) throw new EstadoReparacionNotFoundException(dto.id_estado);
+    if (!estadoNuevo)
+      throw new EstadoReparacionNotFoundException(dto.id_estado);
 
     const updates: Partial<Reparacion> = { id_estado: dto.id_estado };
 
@@ -307,7 +308,10 @@ export class ReparacionesService {
       updates.fecha_terminado = new Date();
     }
     // Estado "entregado" → fecha_entrega_cliente.
-    if (estadoNuevo.nombre === 'entregado' && !reparacion.raw.fecha_entrega_cliente) {
+    if (
+      estadoNuevo.nombre === 'entregado' &&
+      !reparacion.raw.fecha_entrega_cliente
+    ) {
       updates.fecha_entrega_cliente = new Date();
     }
 
@@ -395,7 +399,8 @@ export class ReparacionesService {
     const repuesto = await this.repuestoRepo.findOne({
       where: { id_repuesto_u: repuestoId, id_reparacion: reparacionId },
     });
-    if (!repuesto) throw new RepuestoUsadoNotFoundException(reparacionId, repuestoId);
+    if (!repuesto)
+      throw new RepuestoUsadoNotFoundException(reparacionId, repuestoId);
 
     await this.repuestoRepo.remove(repuesto);
   }
@@ -436,7 +441,10 @@ export class ReparacionesService {
       fecha_estimada: row.fecha_estimada ?? null,
       fecha_terminado: row.fecha_terminado ?? null,
       fecha_entrega_cliente: row.fecha_entrega_cliente ?? null,
-      monto_cotizado: row.monto_cotizado !== null ? parseFloat(String(row.monto_cotizado)) : null,
+      monto_cotizado:
+        row.monto_cotizado !== null
+          ? parseFloat(String(row.monto_cotizado))
+          : null,
       monto_descuento: parseFloat(String(row.monto_descuento)),
       tipo_descuento: row.tipo_descuento ?? null,
       justificacion_descuento: row.justificacion_descuento ?? null,

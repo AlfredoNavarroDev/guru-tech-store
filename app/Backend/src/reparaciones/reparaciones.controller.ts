@@ -44,10 +44,7 @@ export class ReparacionesController {
   // HU-15: Registra ingreso de equipo al servicio técnico.
   @Post()
   @ApiOperation({ summary: 'HU-15 — Registrar ingreso de equipo' })
-  create(
-    @Body() dto: CreateReparacionDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  create(@Body() dto: CreateReparacionDto, @CurrentUser() user: JwtPayload) {
     return this.reparacionesService.create(dto, user);
   }
 

@@ -3,7 +3,11 @@ import { AppException } from './app.exception';
 
 export class CambioNotFoundException extends AppException {
   constructor(id: number) {
-    super('CAMBIO_NOT_FOUND', `Cambio ${id} no encontrado`, HttpStatus.NOT_FOUND);
+    super(
+      'CAMBIO_NOT_FOUND',
+      `Cambio ${id} no encontrado`,
+      HttpStatus.NOT_FOUND,
+    );
   }
 }
 
