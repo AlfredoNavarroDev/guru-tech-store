@@ -9,3 +9,4 @@ export * from './proveedores.exceptions';
 export * from './compras.exceptions';
 export * from './reparaciones.exceptions';
 export * from './cambios.exceptions';
+export * from './garantias.exceptions';

@@ -19,6 +19,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { ComprasModule } from './compras/compras.module';
 import { ReparacionesModule } from './reparaciones/reparaciones.module';
 import { CambiosModule } from './cambios/cambios.module';
+import { GarantiasModule } from './garantias/garantias.module';
 
 @Module({
   imports: [
@@ -80,6 +81,9 @@ import { CambiosModule } from './cambios/cambios.module';
 
     // Módulos del Sprint 4.
     CambiosModule,
+
+    // Módulos del Sprint 5.
+    GarantiasModule,
   ],
   controllers: [AppController],
   providers: [

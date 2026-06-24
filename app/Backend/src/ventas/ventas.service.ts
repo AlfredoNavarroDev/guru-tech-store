@@ -85,7 +85,7 @@ export class VentasService {
       // Transacción: si falla un detalle → ROLLBACK de toda la venta.
       await this.dataSource.transaction(async (manager) => {
         const venta = manager.create(Venta, {
-          id_cliente: dto.id_cliente ?? null,
+          id_cliente: dto.id_cliente,
           // id_empleado e id_sede desde JWT → vendedor no puede falsear sede.
           id_empleado: user.sub,
           id_sede: user.id_sede!,
@@ -108,6 +108,13 @@ export class VentasService {
           });
           await manager.save(DetalleVenta, detalle);
         }
+
+        // Garantía de 15 días creada automáticamente junto con la venta.
+        await manager.query(
+          `INSERT INTO garantias (id_venta, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, $2::date, $2::date + INTERVAL '15 days', 'activa')`,
+          [savedVenta.id_venta, savedVenta.fecha_emision],
+        );
       });
     } catch (err: unknown) {
       const pgErr = err as { code?: string; message?: string };

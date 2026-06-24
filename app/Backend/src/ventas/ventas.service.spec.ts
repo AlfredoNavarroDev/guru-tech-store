@@ -65,8 +65,9 @@ describe('VentasService', () => {
       create: jest.fn().mockReturnValue({}),
       save: jest
         .fn()
-        .mockResolvedValueOnce({ id_venta: 1 })
+        .mockResolvedValueOnce({ id_venta: 1, fecha_emision: new Date('2026-01-01') })
         .mockResolvedValueOnce({}),
+      query: jest.fn().mockResolvedValue([]),
     });
 
     it('valida', async () => {
@@ -187,6 +188,33 @@ describe('VentasService', () => {
       }
 
       expect(caught?.message).toBe('DB connection failed');
+    });
+
+    it('inserta garantia automaticamente dentro de la transaccion', async () => {
+      const manager = buildManager();
+      dataSource.transaction.mockImplementation(
+        (cb: (m: typeof manager) => Promise<void>) => cb(manager),
+      );
+      ventaRepo.findOne.mockResolvedValue({
+        id_venta: 1,
+        fecha_emision: new Date('2026-01-01'),
+        id_cliente: null,
+        id_empleado: 10,
+        id_sede: 1,
+        monto_descuento: 0,
+        tipo_descuento: null,
+        justificacion_descuento: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        detalles: [],
+      });
+
+      await service.create({ items: [validItem] }, mockUser);
+
+      expect(manager.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO garantias'),
+        expect.any(Array),
+      );
     });
   });
 
