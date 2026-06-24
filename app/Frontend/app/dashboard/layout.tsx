@@ -19,13 +19,28 @@ const SEGMENT_TITLES: Record<string, string> = {
   stock: "Stock",
   items: "Ítems",
   nueva: "Nueva compra",
+  nuevo: "Nuevo cambio",
   historial: "Historial técnico",
   cambios: "Cambios de producto",
+  "ventas/:id": "Detalle de venta",
+  "cambios/:id": "Detalle de cambio",
+  "compras/:id": "Detalle de compra",
+  garantias: "Garantías",
+  "garantias/nueva": "Nueva garantía",
 }
 
 function getPageTitle(pathname: string): string {
-  const segment = pathname.split("/").filter(Boolean).pop() ?? "dashboard"
-  return SEGMENT_TITLES[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1)
+  const segments = pathname.split("/").filter(Boolean)
+  const last = segments[segments.length - 1] ?? "dashboard"
+  if (/^\d+$/.test(last)) {
+    const parent = segments[segments.length - 2] ?? "dashboard"
+    return SEGMENT_TITLES[`${parent}/:id`] ?? SEGMENT_TITLES[parent] ?? parent
+  }
+  if (segments.length >= 2) {
+    const compound = `${segments[segments.length - 2]}/${last}`
+    if (SEGMENT_TITLES[compound]) return SEGMENT_TITLES[compound]
+  }
+  return SEGMENT_TITLES[last] ?? last.charAt(0).toUpperCase() + last.slice(1)
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

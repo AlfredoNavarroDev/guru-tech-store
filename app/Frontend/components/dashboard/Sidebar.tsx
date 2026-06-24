@@ -17,11 +17,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { AuthSession } from "@/lib/api/auth"
 
 const vendedorNavLinks = [
-  { href: "/dashboard",          label: "Resumen",  icon: LayoutDashboard },
-  { href: "/dashboard/ventas",   label: "Ventas",   icon: Receipt },
-  { href: "/dashboard/catalogo", label: "Catálogo", icon: Grid3X3 },
-  { href: "/dashboard/clientes", label: "Clientes", icon: UserRound },
-  { href: "/dashboard/cambios",  label: "Cambios",  icon: ArrowLeftRight },
+  { href: "/dashboard",           label: "Resumen",    icon: LayoutDashboard },
+  { href: "/dashboard/ventas",    label: "Ventas",     icon: Receipt },
+  { href: "/dashboard/catalogo",  label: "Catálogo",   icon: Grid3X3 },
+  { href: "/dashboard/clientes",  label: "Clientes",   icon: UserRound },
+  { href: "/dashboard/cambios",   label: "Cambios",    icon: ArrowLeftRight },
+  { href: "/dashboard/garantias", label: "Garantías",  icon: ShieldCheck },
 ]
 
 const propietarioNavLinks = [
@@ -32,6 +33,7 @@ const propietarioNavLinks = [
   { href: "/dashboard/stock",      label: "Inventario", icon: Boxes },
   { href: "/dashboard/catalogo",   label: "Catálogo",   icon: Grid3X3 },
   { href: "/dashboard/cambios",    label: "Cambios",    icon: ArrowLeftRight },
+  { href: "/dashboard/garantias",  label: "Garantías",  icon: ShieldCheck },
 ]
 
 const roleNavLinks = {
@@ -51,8 +53,9 @@ const roleNavLinks = {
     { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
   ],
   tecnico: [
-    { href: "/dashboard",           label: "Reparaciones", icon: Wrench },
-    { href: "/dashboard/historial", label: "Historial",    icon: History },
+    { href: "/dashboard",            label: "Reparaciones", icon: Wrench },
+    { href: "/dashboard/historial",  label: "Historial",    icon: History },
+    { href: "/dashboard/garantias",  label: "Garantías",    icon: ShieldCheck },
   ],
   vendedor:    vendedorNavLinks,
   propietario: propietarioNavLinks,
