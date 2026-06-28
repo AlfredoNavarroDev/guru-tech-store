@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeftRight, CheckCircle2, ArrowLeft, ArrowRight,
-  Search, Loader2,
+  Search, Loader2, CalendarDays,
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,9 +12,11 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import {
   getVentaDetalle,
+  searchVentas,
   createCambio,
   type VentaDetalle,
   type VentaDetalleItem,
+  type VentaListItem,
 } from "@/lib/api/cambios"
 import { getCatalogo, type CatalogoItem } from "@/lib/api/catalogo"
 import { ApiError } from "@/lib/api/client"
@@ -49,15 +51,30 @@ function Step1({
   ventaData,
   loading,
   onSearch,
+  fecha,
+  setFecha,
+  listaVentas,
+  loadingLista,
+  listaVisible,
+  onListar,
+  onSelectVenta,
 }: {
   ventaId: string
   setVentaId: (v: string) => void
   ventaData: VentaDetalle | null
   loading: boolean
   onSearch: () => void
+  fecha: string
+  setFecha: (v: string) => void
+  listaVentas: VentaListItem[]
+  loadingLista: boolean
+  listaVisible: boolean
+  onListar: () => void
+  onSelectVenta: (id: number) => void
 }) {
   return (
     <div className="space-y-4">
+      {/* ID search */}
       <div className="flex gap-2">
         <input
           type="number"
@@ -96,6 +113,85 @@ function Step1({
               {ventaData.detalles.length} ítem{ventaData.detalles.length !== 1 ? "s" : ""}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-xs text-gray-400">o buscar por fecha</span>
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
+      {/* Date search */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <CalendarDays className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="date"
+            className={cn(inputCls, "pl-8")}
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            disabled={loadingLista}
+          />
+        </div>
+        <button
+          onClick={onListar}
+          disabled={loadingLista || !fecha}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loadingLista ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+          Listar
+        </button>
+      </div>
+
+      {/* Ventas list */}
+      {listaVisible && (
+        <div className="space-y-2">
+          {loadingLista ? (
+            <>
+              <Skeleton className="h-14 w-full rounded-xl" />
+              <Skeleton className="h-14 w-full rounded-xl" />
+              <Skeleton className="h-14 w-full rounded-xl" />
+            </>
+          ) : listaVentas.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-400">Sin resultados</p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto space-y-2 pb-1">
+              {listaVentas.map((v) => (
+                <button
+                  key={v.id_venta}
+                  onClick={() => onSelectVenta(v.id_venta)}
+                  disabled={loading || loadingLista}
+                  className={cn(
+                    "w-full rounded-xl border p-3 text-left transition-all",
+                    ventaData?.id_venta === v.id_venta
+                      ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
+                      : "border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/50",
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Venta #{v.id_venta}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {v.cliente ?? "Sin cliente"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">
+                        {new Date(v.fecha_emision).toLocaleDateString("es-PE")}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {v.total_items} ítem{v.total_items !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -384,6 +480,13 @@ export default function NuevoCambioPage() {
   const [loadingVenta, setLoadingVenta] = useState(false)
   const [ventaData, setVentaData] = useState<VentaDetalle | null>(null)
 
+  // Step 1 — date search
+  const today = new Date().toISOString().slice(0, 10)
+  const [fechaBusqueda, setFechaBusqueda] = useState(today)
+  const [listaVentas, setListaVentas] = useState<VentaListItem[]>([])
+  const [loadingLista, setLoadingLista] = useState(false)
+  const [listaVisible, setListaVisible] = useState(false)
+
   // Step 2
   const [itemDevuelto, setItemDevuelto] = useState<VentaDetalleItem | null>(null)
   const [cantidadDevuelta, setCantidadDevuelta] = useState(1)
@@ -419,6 +522,34 @@ export default function NuevoCambioPage() {
   async function handleSearch() {
     const id = parseInt(ventaId, 10)
     if (!id || id <= 0) return
+    setLoadingVenta(true)
+    setVentaData(null)
+    try {
+      const data = await getVentaDetalle(id)
+      setVentaData(data)
+      setListaVisible(false)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Venta no encontrada")
+    } finally {
+      setLoadingVenta(false)
+    }
+  }
+
+  async function handleListar() {
+    setLoadingLista(true)
+    setListaVisible(true)
+    try {
+      const data = await searchVentas({ fecha: fechaBusqueda })
+      setListaVentas(data)
+    } catch {
+      toast.error("Error al listar ventas")
+    } finally {
+      setLoadingLista(false)
+    }
+  }
+
+  async function handleSelectVentaFromList(id: number) {
+    setVentaId(String(id))
     setLoadingVenta(true)
     setVentaData(null)
     try {
@@ -565,6 +696,13 @@ export default function NuevoCambioPage() {
                     ventaData={ventaData}
                     loading={loadingVenta}
                     onSearch={handleSearch}
+                    fecha={fechaBusqueda}
+                    setFecha={setFechaBusqueda}
+                    listaVentas={listaVentas}
+                    loadingLista={loadingLista}
+                    listaVisible={listaVisible}
+                    onListar={handleListar}
+                    onSelectVenta={handleSelectVentaFromList}
                   />
                 )}
                 {step === 1 && ventaData && (

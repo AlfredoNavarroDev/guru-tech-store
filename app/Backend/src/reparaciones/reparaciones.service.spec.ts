@@ -12,6 +12,14 @@ import {
   StockInsuficienteException,
 } from '../common/exceptions';
 import type { JwtPayload } from '../common/types';
+import { ConfigService } from '@nestjs/config';
+
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn().mockImplementation(() => ({
+    send: jest.fn().mockResolvedValue({}),
+  })),
+  PutObjectCommand: jest.fn().mockImplementation((args) => args),
+}));
 
 const createMockRepository = () => ({
   create: jest.fn(),
@@ -63,6 +71,8 @@ const mockReparacionRow = {
   monto_descuento: '0.00',
   tipo_descuento: null,
   justificacion_descuento: null,
+  tipo_servicio: null,
+  fecha_estimada: null,
   created_at: new Date('2026-06-10'),
   updated_at: null,
 };
@@ -87,6 +97,21 @@ describe('ReparacionesService', () => {
           useValue: repuestoRepo,
         },
         { provide: DataSource, useValue: dataSource },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockImplementation((key: string, fallback = '') => {
+              const map: Record<string, string> = {
+                R2_ACCOUNT_ID: 'test-account',
+                R2_ACCESS_KEY_ID: 'test-key',
+                R2_SECRET_ACCESS_KEY: 'test-secret',
+                R2_BUCKET_NAME: 'test-bucket',
+                R2_PUBLIC_URL: 'https://cdn.test.com',
+              };
+              return map[key] ?? fallback;
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -356,6 +381,42 @@ describe('ReparacionesService', () => {
       await expect(service.removeRepuesto(1, 99, mockUser)).rejects.toThrow(
         RepuestoUsadoNotFoundException,
       );
+    });
+  });
+
+  // ── uploadFoto ─────────────────────────────────────────────────────────
+
+  describe('uploadFoto', () => {
+    it('almacena objeto {url, etapa, created_at} en fotos JSONB', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'pendiente' }]) // assertAccess
+        .mockResolvedValueOnce([]); // UPDATE fotos
+
+      const result = await service.uploadFoto(
+        1,
+        {
+          imagen_base64: Buffer.from('fake-image-data').toString('base64'),
+          content_type: 'image/jpeg',
+          estado: 'Pendiente',
+        },
+        mockUser,
+      );
+
+      expect(result).toHaveProperty('url');
+      expect(typeof result.url).toBe('string');
+
+      // Verificar que dataSource.query fue llamado con objeto estructurado
+      const queryCall = dataSource.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('SET fotos'),
+      );
+      expect(queryCall).toBeDefined();
+      const storedArray = JSON.parse((queryCall as unknown[][])[1][1] as string);
+      expect(storedArray).toHaveLength(1);
+      expect(storedArray[0]).toMatchObject({
+        url: expect.any(String),
+        etapa: 'Pendiente',
+        created_at: expect.any(String),
+      });
     });
   });
 

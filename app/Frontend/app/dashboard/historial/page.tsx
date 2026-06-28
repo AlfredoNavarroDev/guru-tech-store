@@ -1,142 +1,134 @@
 "use client"
 
-import { useState } from "react"
-import { CheckCircle2, Search, Phone, User } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { CheckCircle2, AlertCircle, FileX, ChevronLeft, ChevronRight, Search, User } from "lucide-react"
 import { motion } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { cn, formatNum } from "@/lib/utils"
+import { cn, formatNum, fmtFecha, repId } from "@/lib/utils"
+import { ApiError } from "@/lib/api/client"
+import { getReparaciones, type ReparacionResponse } from "@/lib/api/reparaciones"
 
-type EstadoReparacion = "Entregado"
-
-interface ReparacionHistorial {
-  id: string
-  cliente: string
-  telefono: string
-  equipo: string
-  marca: string
-  modelo: string
-  problema: string
-  estado: EstadoReparacion
-  fecha_ingreso: string
-  fecha_entrega: string
-  tecnico: string
-  total: number
-  adelanto: number
-}
-
-const HISTORIAL: ReparacionHistorial[] = [
-  {
-    id: "REP-006",
-    cliente: "Lucía Mamani",
-    telefono: "978 901 234",
-    equipo: "Impresora",
-    marca: "Epson",
-    modelo: "L3150",
-    problema: "Cabezal obstruido, luces parpadeantes",
-    estado: "Entregado",
-    fecha_ingreso: "2026-06-09",
-    fecha_entrega: "2026-06-13",
-    tecnico: "Juan Pérez",
-    total: 120,
-    adelanto: 60,
-  },
-  {
-    id: "REP-010",
-    cliente: "Diego Huanca",
-    telefono: "945 123 456",
-    equipo: "Laptop",
-    marca: "Lenovo",
-    modelo: "IdeaPad 5",
-    problema: "Teclado derramado, no responde",
-    estado: "Entregado",
-    fecha_ingreso: "2026-06-05",
-    fecha_entrega: "2026-06-08",
-    tecnico: "Luis Torres",
-    total: 180,
-    adelanto: 180,
-  },
-  {
-    id: "REP-009",
-    cliente: "Patricia León",
-    telefono: "962 789 000",
-    equipo: "Smartphone",
-    marca: "Xiaomi",
-    modelo: "Redmi Note 11",
-    problema: "Micrófono sin sonido, altavoz con distorsión",
-    estado: "Entregado",
-    fecha_ingreso: "2026-06-03",
-    fecha_entrega: "2026-06-07",
-    tecnico: "Juan Pérez",
-    total: 90,
-    adelanto: 90,
-  },
-]
-
-function fmtFecha(iso: string) {
-  try {
-    return new Date(iso + "T00:00:00").toLocaleDateString("es-PE", {
-      day: "2-digit", month: "short", year: "numeric",
-    })
-  } catch {
-    return iso
-  }
-}
+const PAGE_SIZE = 20
 
 export default function HistorialPage() {
-  const [search, setSearch] = useState("")
+  const [items, setItems]     = useState<ReparacionResponse[]>([])
+  const [total, setTotal]     = useState(0)
+  const [page, setPage]       = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [search, setSearch]   = useState("")
+
+  const load = useCallback(async (p: number) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await getReparaciones({ id_estado: 6, page: p, limit: PAGE_SIZE })
+      setItems(res.items)
+      setTotal(res.total)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Error cargando historial")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load(page)
+  }, [load, page])
+
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const filtered = search.trim()
-    ? HISTORIAL.filter(
-        (r) =>
-          r.id.toLowerCase().includes(search.toLowerCase()) ||
-          r.cliente.toLowerCase().includes(search.toLowerCase()) ||
-          r.equipo.toLowerCase().includes(search.toLowerCase()),
-      )
-    : HISTORIAL
+    ? items.filter((r) => {
+        const q = search.toLowerCase()
+        return (
+          String(r.id_reparacion).includes(q) ||
+          (r.cliente ?? "").toLowerCase().includes(q) ||
+          (r.marca ?? "").toLowerCase().includes(q) ||
+          (r.modelo ?? "").toLowerCase().includes(q)
+        )
+      })
+    : items
 
   return (
-    <div className="min-h-full bg-gray-50 p-6 lg:p-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <BlurFade delay={0} duration={0.35}>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+    <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
+      {/* Header */}
+      <BlurFade delay={0} duration={0.4}>
+        <div className="mb-6">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
+              <CheckCircle2 className="h-4 w-4 text-gray-900" />
             </div>
-            <div>
-              <h2 className="text-2xl font-extrabold text-text-heading">Historial de reparaciones</h2>
-              <p className="text-xs text-text-muted">{filtered.length} reparaciones entregadas</p>
-            </div>
+            <h1 className="text-2xl font-bold text-text-heading">Historial de reparaciones</h1>
           </div>
-        </BlurFade>
+          <p className="mt-1.5 text-sm text-gray-500">Equipos entregados al cliente</p>
+        </div>
+      </BlurFade>
 
-        <BlurFade delay={0.1} duration={0.35}>
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-6 py-4">
+      {/* Content */}
+      <BlurFade delay={0.06} duration={0.4}>
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <div className="flex items-center gap-3">
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar cliente, equipo, ID..."
-                  className="rounded-xl pl-9 text-sm bg-white"
+                  className="rounded-xl pl-9 text-sm"
                 />
               </div>
+              {!loading && !error && (
+                <p className="shrink-0 text-xs text-text-muted">
+                  {total} entregado{total !== 1 ? "s" : ""}
+                </p>
+              )}
             </div>
+          </div>
 
+          {/* Error */}
+          {!loading && error && (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <AlertCircle className="h-6 w-6 text-red-500" />
+              </div>
+              <p className="text-sm font-medium text-red-600">{error}</p>
+              <button
+                onClick={() => load(page)}
+                className="rounded-xl border border-red-200 bg-white px-4 py-2 text-xs text-red-600 hover:bg-red-50"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!loading && !error && items.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-20 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <FileX className="h-6 w-6 text-gray-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-500">Sin reparaciones entregadas</p>
+            </div>
+          )}
+
+          {/* Table */}
+          {(loading || (!error && items.length > 0)) && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     {[
-                      { label: "ID",        align: "left"  },
-                      { label: "Cliente",   align: "left"  },
-                      { label: "Equipo",    align: "left"  },
-                      { label: "Ingreso",   align: "left"  },
-                      { label: "Entrega",   align: "left"  },
-                      { label: "Técnico",   align: "left"  },
-                      { label: "Total S/",  align: "right" },
-                      { label: "Pagado S/", align: "right" },
+                      { label: "ID",         align: "left"  },
+                      { label: "Cliente",    align: "left"  },
+                      { label: "Equipo",     align: "left"  },
+                      { label: "Ingreso",    align: "left"  },
+                      { label: "Entrega",    align: "left"  },
+                      { label: "Técnico",    align: "left"  },
+                      { label: "Total S/",   align: "right" },
                     ].map((h) => (
                       <th
                         key={h.label}
@@ -151,51 +143,64 @@ export default function HistorialPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filtered.length === 0 ? (
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-14 ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-sm text-text-muted">
-                        Sin resultados
+                      <td colSpan={7} className="px-6 py-10 text-center text-sm text-text-muted">
+                        Sin resultados para &quot;{search}&quot;
                       </td>
                     </tr>
                   ) : (
                     filtered.map((r, i) => (
                       <motion.tr
-                        key={r.id}
+                        key={r.id_reparacion}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05, duration: 0.2 }}
+                        transition={{ delay: Math.min(i * 0.03, 0.2), duration: 0.2 }}
                         className="hover:bg-gray-50/70 transition-colors"
                       >
-                        <td className="px-4 py-3 font-mono text-xs text-text-muted">{r.id}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-text-muted whitespace-nowrap">
+                          {repId(r.id_reparacion)}
+                        </td>
                         <td className="px-4 py-3 min-w-[140px]">
-                          <div className="font-semibold text-text-heading">{r.cliente}</div>
-                          <div className="flex items-center gap-1 text-xs text-text-muted mt-0.5">
-                            <Phone className="h-3 w-3 shrink-0" />
-                            {r.telefono}
+                          <div className="font-semibold text-text-heading">
+                            {r.cliente ?? "Sin cliente"}
                           </div>
                         </td>
-                        <td className="px-4 py-3 min-w-[130px]">
-                          <div className="font-medium text-text-heading">{r.equipo}</div>
-                          <div className="text-xs text-text-muted">{r.marca} {r.modelo}</div>
+                        <td className="px-4 py-3 min-w-[120px]">
+                          <div className="font-medium text-text-heading">
+                            {[r.marca, r.modelo].filter(Boolean).join(" ") || "—"}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-text-muted whitespace-nowrap">{fmtFecha(r.fecha_ingreso)}</td>
-                        <td className="px-4 py-3 text-text-muted whitespace-nowrap">{fmtFecha(r.fecha_entrega)}</td>
+                        <td className="px-4 py-3 text-xs text-text-muted whitespace-nowrap">
+                          {fmtFecha(r.fecha_ingreso)}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-text-muted whitespace-nowrap">
+                          {fmtFecha(r.fecha_entrega_cliente)}
+                        </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 text-xs text-text-muted">
-                            <User className="h-3 w-3 shrink-0" />
-                            {r.tecnico}
-                          </div>
+                          {r.tecnico ? (
+                            <div className="flex items-center gap-1 text-xs text-text-muted">
+                              <User className="h-3 w-3 shrink-0" />
+                              {r.tecnico}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums font-semibold text-text-heading whitespace-nowrap">
-                          S/{formatNum(r.total)}
-                        </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <span className={cn(
-                            "font-semibold tabular-nums",
-                            r.adelanto >= r.total ? "text-green-600" : "text-amber-600",
-                          )}>
-                            S/{formatNum(r.adelanto)}
-                          </span>
+                          {r.monto_cotizado != null ? `S/${formatNum(r.monto_cotizado)}` : "—"}
                         </td>
                       </motion.tr>
                     ))
@@ -203,9 +208,35 @@ export default function HistorialPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Anterior
+            </button>
+            <span className="text-xs text-gray-500">
+              Página <span className="font-semibold text-gray-900">{page}</span> de{" "}
+              <span className="font-semibold text-gray-900">{totalPages}</span>
+            </span>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Siguiente
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
-        </BlurFade>
-      </div>
+        )}
+      </BlurFade>
     </div>
   )
 }

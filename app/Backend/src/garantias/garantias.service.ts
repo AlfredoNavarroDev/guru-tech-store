@@ -121,13 +121,19 @@ export class GarantiasService {
     const params: (string | number)[] = [sede];
     let idx = 2;
     let estadoFilter = '';
+    let idReparacionFilter = '';
 
     if (query.estado) {
       estadoFilter = ` AND g.estado = $${idx++}`;
       params.push(query.estado);
     }
 
-    const whereClause = `${sedeCondition}${estadoFilter}`;
+    if (query.id_reparacion) {
+      idReparacionFilter = ` AND g.id_reparacion = $${idx++}`;
+      params.push(query.id_reparacion);
+    }
+
+    const whereClause = `${sedeCondition}${estadoFilter}${idReparacionFilter}`;
 
     const [{ total }] = await this.dataSource.query<CountRow[]>(
       `SELECT COUNT(*) AS total FROM garantias g ${joinClause} WHERE ${whereClause}`,

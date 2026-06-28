@@ -41,6 +41,7 @@ export class ReparacionResponseDto {
   @ApiProperty() monto_descuento: number;
   @ApiPropertyOptional() tipo_descuento: string | null;
   @ApiPropertyOptional() justificacion_descuento: string | null;
+  @ApiPropertyOptional() tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date | null;
   @ApiPropertyOptional({ type: [RepuestoUsadoResponseDto] })
@@ -49,4 +50,6 @@ export class ReparacionResponseDto {
   pagos?: PagoReparacionResponseDto[];
   @ApiPropertyOptional() total_pagado?: number;
   @ApiPropertyOptional() saldo_pendiente?: number;
+  @ApiPropertyOptional()
+  fotos: { url: string; etapa: string; created_at: string }[] | null;
 }

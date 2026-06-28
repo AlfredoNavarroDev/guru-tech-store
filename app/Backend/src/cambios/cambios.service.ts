@@ -6,6 +6,7 @@ import type {
   CambioResponseDto,
   VentaDetalleResponse,
 } from './dto/cambio-response.dto';
+import type { VentaListItem } from './dto/venta-response.dto';
 import type { PaginatedResult } from '../common/dto/pagination.dto';
 import type { JwtPayload } from '../common/types';
 import {
@@ -15,6 +16,8 @@ import {
   StockInsuficienteException,
   VentaNotFoundException,
 } from '../common/exceptions';
+
+const VENTAS_LIMIT = 20;
 
 interface CambioRow {
   id_cambio: number;
@@ -86,6 +89,47 @@ export class CambiosService {
         cantidad: d.cantidad,
       })),
     };
+  }
+
+  async findVentas(
+    user: JwtPayload,
+    fecha?: string,
+  ): Promise<VentaListItem[]> {
+    let where = `v.id_sede = $1`;
+    const params: unknown[] = [user.id_sede!];
+    let idx = 2;
+
+    if (fecha) {
+      // $${idx} appears twice intentionally — PostgreSQL allows one bound param in multiple positions.
+      where += ` AND v.fecha_emision >= $${idx} AND v.fecha_emision < $${idx}::date + INTERVAL '1 day'`;
+      params.push(fecha);
+      idx++;
+    }
+
+    const rows = await this.dataSource.query<
+      Array<{
+        id_venta: number;
+        fecha_emision: Date;
+        cliente: string | null;
+        total_items: string;
+      }>
+    >(
+      `SELECT v.id_venta, v.fecha_emision, c.nombre_completo AS cliente,
+              (SELECT COUNT(*) FROM detalle_venta dv WHERE dv.id_venta = v.id_venta) AS total_items
+       FROM ventas v
+       LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
+       WHERE ${where}
+       ORDER BY v.fecha_emision DESC
+       LIMIT ${VENTAS_LIMIT}`,
+      params,
+    );
+
+    return rows.map((r) => ({
+      id_venta: r.id_venta,
+      fecha_emision: r.fecha_emision,
+      cliente: r.cliente,
+      total_items: parseInt(r.total_items, 10),
+    }));
   }
 
   async create(

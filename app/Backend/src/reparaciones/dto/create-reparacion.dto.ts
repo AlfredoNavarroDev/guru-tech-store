@@ -85,6 +85,11 @@ export class CreateReparacionDto {
   @IsIn(['porcentaje', 'monto_fijo'])
   tipo_descuento?: 'porcentaje' | 'monto_fijo';
 
+  @ApiPropertyOptional({ enum: ['software', 'hardware', 'mixto'] })
+  @IsOptional()
+  @IsIn(['software', 'hardware', 'mixto'])
+  tipo_servicio?: 'software' | 'hardware' | 'mixto';
+
   @ApiPropertyOptional({
     example: '2026-06-28',
     description: 'Fecha estimada de entrega (YYYY-MM-DD)',

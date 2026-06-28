@@ -1,40 +1,22 @@
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
-import { Client } from 'pg';
-import * as fs from 'fs';
-import * as path from 'path';
+import { AppDataSource } from '../data-source';
 
 dotenv.config();
 
-const DB_DIR = path.join(__dirname, '../../../DB');
-
-// Orden estricto: tablas primero, luego vistas, luego triggers
-const SQL_FILES = ['DB-Tables.sql', 'DB-Views.sql', 'DB-Triggers.sql'];
-
 async function migrate(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    console.error('DATABASE_URL no definida en .env');
-    process.exit(1);
+  await AppDataSource.initialize();
+  const migrations = await AppDataSource.runMigrations();
+  await AppDataSource.destroy();
+
+  if (migrations.length === 0) {
+    console.log('Migraciones TypeORM: ninguna pendiente');
+  } else {
+    console.log(
+      `Migraciones TypeORM aplicadas: ${migrations.map((m) => m.name).join(', ')}`,
+    );
   }
 
-  const client = new Client({ connectionString });
-  await client.connect();
-  console.log('Conectado a la base de datos\n');
-
-  for (const file of SQL_FILES) {
-    const filePath = path.join(DB_DIR, file);
-    if (!fs.existsSync(filePath)) {
-      console.warn(`SKIP — ${file} no encontrado`);
-      continue;
-    }
-    const sql = fs.readFileSync(filePath, 'utf-8');
-    console.log(`Aplicando ${file}...`);
-    await client.query(sql);
-    console.log(`OK    ${file}\n`);
-  }
-
-  await client.end();
   console.log('============================================================');
   console.log(' MIGRACIÓN COMPLETA');
   console.log('============================================================');

@@ -11,3 +11,20 @@ export function formatNum(n: number | string | null | undefined, decimals = 2): 
     maximumFractionDigits: decimals,
   })
 }
+
+export function fmtFecha(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  try {
+    return new Date(String(iso).slice(0, 10) + "T00:00:00").toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+  } catch {
+    return String(iso).slice(0, 10)
+  }
+}
+
+export function repId(id: number): string {
+  return `REP-${String(id).padStart(3, "0")}`
+}

@@ -202,6 +202,11 @@ export default function VentaPage() {
   async function handleConfirmSale() {
     if (cartItems.length === 0 || submitting) return
 
+    if (!selectedCliente) {
+      toast.error("Selecciona o crea un cliente para registrar la venta")
+      return
+    }
+
     if (montoDescuento > 0 && !justificacionDescuento.trim()) {
       toast.error("Ingresa el motivo del descuento")
       return
@@ -455,7 +460,7 @@ export default function VentaPage() {
             <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <div className="mb-3 flex items-center gap-2">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Cliente</h2>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400">Opcional</span>
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-500">Requerido</span>
               </div>
 
               {selectedCliente ? (

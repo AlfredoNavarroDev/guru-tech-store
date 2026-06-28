@@ -24,6 +24,7 @@ import { BoletasService } from '../boletas/boletas.service';
 import { CreateReparacionDto } from './dto/create-reparacion.dto';
 import { UpdateEstadoReparacionDto } from './dto/update-estado-reparacion.dto';
 import { AddRepuestoReparacionDto } from './dto/add-repuesto-reparacion.dto';
+import { UploadFotoReparacionDto } from './dto/upload-foto-reparacion.dto';
 import { QueryReparacionesDto } from './dto/query-reparaciones.dto';
 import { CreatePagoReparacionDto } from '../pagos/dto/create-pago-reparacion.dto';
 
@@ -77,6 +78,19 @@ export class ReparacionesController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.reparacionesService.updateEstado(id, dto, user);
+  }
+
+  // ── Fotos ─────────────────────────────────────────────────────────────
+
+  // RF-26: Sube foto de la etapa actual a R2 y persiste URL en el registro.
+  @Post(':id/fotos')
+  @ApiOperation({ summary: 'RF-26 — Subir foto de etapa del servicio técnico' })
+  uploadFoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UploadFotoReparacionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.reparacionesService.uploadFoto(id, dto, user);
   }
 
   // ── Repuestos ──────────────────────────────────────────────────────────

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, ArrowLeftRight, ArrowRight,
   AlertCircle, Calendar, FileText, CreditCard,
+  Ban, Download, ExternalLink, Loader2,
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { getCambio, type CambioResponse } from "@/lib/api/cambios"
+import { getCambio, getBoletaCambio, emitirBoletaCambio, type CambioResponse, type BoletaCambio } from "@/lib/api/cambios"
 import { ApiError } from "@/lib/api/client"
+import { toast } from "sonner"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -53,25 +55,53 @@ export default function CambioDetailPage({
   const [cambio, setCambio] = useState<CambioResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [boleta, setBoleta] = useState<BoletaCambio | null>(null)
+  const [boletaLoading, setBoletaLoading] = useState(true)
+  const [emitting, setEmitting] = useState(false)
 
   useEffect(() => {
     if (isNaN(cambioId)) {
       setError("ID de cambio inválido.")
       setLoading(false)
+      setBoletaLoading(false)
       return
     }
     let cancelled = false
-    getCambio(cambioId)
-      .then((data) => { if (!cancelled) setCambio(data) })
+    Promise.all([getCambio(cambioId), getBoletaCambio(cambioId)])
+      .then(([data, boletaData]) => {
+        if (!cancelled) {
+          setCambio(data)
+          setBoleta(boletaData)
+        }
+      })
       .catch((e) => {
         if (!cancelled)
           setError(e instanceof ApiError ? e.message : "Error cargando el cambio")
       })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+          setBoletaLoading(false)
+        }
+      })
     return () => { cancelled = true }
   }, [cambioId])
 
   const diferencia = cambio?.diferencia_cobrada ?? 0
+
+  async function handleEmitirBoleta() {
+    setEmitting(true)
+    try {
+      const result = await emitirBoletaCambio(cambioId)
+      setBoleta(result)
+      toast.success(`Boleta ${result.numero} emitida correctamente`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido"
+      toast.error(`No se pudo emitir la boleta: ${msg}`)
+    } finally {
+      setEmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
@@ -231,6 +261,79 @@ export default function CambioDetailPage({
                       label="Detalle"
                       value={<span className="text-sm text-gray-700">{cambio.detalle}</span>}
                     />
+                  )}
+                </div>
+              </div>
+            </BlurFade>
+
+            {/* Card: boleta */}
+            <BlurFade delay={0.20} duration={0.4}>
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                <div className="border-b border-gray-100 px-5 py-4">
+                  <h2 className="text-sm font-semibold text-gray-900">Boleta</h2>
+                </div>
+                <div className="p-5">
+                  {boletaLoading ? (
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-10 w-full rounded-xl bg-gray-200" />
+                    </div>
+                  ) : boleta ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                          <FileText className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Número de boleta</p>
+                          <p className="font-mono text-sm font-semibold text-gray-900">{boleta.numero}</p>
+                        </div>
+                      </div>
+                      {boleta.url_pdf ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => window.open(boleta.url_pdf!, "_blank")}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Ver PDF
+                          </button>
+                          <a
+                            href={boleta.url_pdf}
+                            download={`boleta-${boleta.numero}.pdf`}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Descargar
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-red-500">PDF no disponible — error al generar</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-gray-500">
+                        <Ban className="h-4 w-4" />
+                        <p className="text-sm">Sin boleta registrada</p>
+                      </div>
+                      <button
+                        onClick={handleEmitirBoleta}
+                        disabled={emitting || loading}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {emitting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generando...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4" />
+                            Emitir Boleta de Cambio
+                          </>
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

@@ -61,16 +61,19 @@ export function getItems(params?: {
   sku?: string
   categoria_id?: number
   id_marca?: number
+  con_stock?: boolean
 }) {
   const qs = new URLSearchParams()
-  if (params?.page)         qs.set('page',         String(params.page))
-  if (params?.limit)        qs.set('limit',        String(params.limit))
-  if (params?.tipo)         qs.set('tipo',         params.tipo)
-  if (params?.nombre)       qs.set('nombre',       params.nombre)
-  if (params?.sku)          qs.set('sku',          params.sku)
-  if (params?.categoria_id) qs.set('categoria_id', String(params.categoria_id))
-  if (params?.id_marca)     qs.set('id_marca',     String(params.id_marca))
-  return authRequest<ItemsResponse>(`items?${qs}`)
+  if (params?.page         !== undefined) qs.set('page',         String(params.page))
+  if (params?.limit        !== undefined) qs.set('limit',        String(params.limit))
+  if (params?.tipo         !== undefined) qs.set('tipo',         params.tipo)
+  if (params?.nombre       !== undefined) qs.set('nombre',       params.nombre)
+  if (params?.sku          !== undefined) qs.set('sku',          params.sku)
+  if (params?.categoria_id !== undefined) qs.set('categoria_id', String(params.categoria_id))
+  if (params?.id_marca     !== undefined) qs.set('id_marca',     String(params.id_marca))
+  if (params?.con_stock    !== undefined) qs.set('con_stock',    String(params.con_stock))
+  const query = qs.toString()
+  return authRequest<ItemsResponse>(query ? `items?${query}` : 'items')
 }
 
 export function createItem(payload: CreateItemPayload) {

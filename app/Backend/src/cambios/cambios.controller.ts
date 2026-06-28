@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiTags,
@@ -20,8 +21,10 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 import { CambiosService } from './cambios.service';
+import { BoletasService } from '../boletas/boletas.service';
 import { CreateCambioDto } from './dto/create-cambio.dto';
 import { QueryCambiosDto } from './dto/query-cambios.dto';
+import { QueryVentasDto } from './dto/query-ventas.dto';
 
 @ApiTags('cambios')
 @ApiBearerAuth()
@@ -29,7 +32,19 @@ import { QueryCambiosDto } from './dto/query-cambios.dto';
 @Roles('vendedor')
 @Controller('cambios')
 export class CambiosController {
-  constructor(private readonly cambiosService: CambiosService) {}
+  constructor(
+    private readonly cambiosService: CambiosService,
+    private readonly boletasService: BoletasService,
+  ) {}
+
+  @Get('ventas')
+  @ApiOperation({ summary: 'Listar ventas de la sede (filtrable por fecha, máx 20)' })
+  findVentas(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: QueryVentasDto,
+  ) {
+    return this.cambiosService.findVentas(user, query.fecha);
+  }
 
   // GET /cambios/venta/:id — declarado antes de :id para evitar conflicto de rutas.
   @Get('venta/:id')
@@ -68,5 +83,30 @@ export class CambiosController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.cambiosService.findOne(id, user);
+  }
+
+  // Boleta routes — declared after static routes to avoid conflicts.
+
+  @Post(':id/boleta')
+  @ApiOperation({
+    summary: 'Emitir boleta de comprobante de cambio de producto',
+  })
+  @ApiNotFoundResponse({ description: 'Cambio no encontrado' })
+  @ApiConflictResponse({ description: 'El cambio ya tiene boleta emitida' })
+  emitirBoleta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.boletasService.emitirParaCambio(id, user);
+  }
+
+  @Get(':id/boleta')
+  @ApiOperation({ summary: 'Obtener boleta de cambio de producto' })
+  @ApiNotFoundResponse({ description: 'Cambio no encontrado o sin boleta' })
+  getBoleta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.boletasService.findByCambio(id, user);
   }
 }

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Dark bg extends below content — no white gap */
+    html { background: #020617; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+      color: #191C1E;
+      background: #fff;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Geometric Header ──────────────────── */
+    .header-wrap {
+      background: #020617;
+      position: relative;
+      overflow: hidden;
+      height: 160px;
+      margin-bottom: 0;
+    }
+    .geo-white {
+      position: absolute;
+      top: 0; left: 0;
+      width: 230px; height: 160px;
+      background: #ffffff;
+      clip-path: polygon(0 0, 62% 0, 32% 100%, 0 100%);
+    }
+    .geo-blue {
+      position: absolute;
+      top: 0; left: 70px;
+      width: 240px; height: 160px;
+      background: #2563eb;
+      clip-path: polygon(18% 0, 100% 0, 74% 100%, 0 100%);
+    }
+    .header-brand {
+      position: absolute;
+      right: 48px;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    .brand-logo {
+      height: 72px;
+      width: auto;
+      object-fit: contain;
+      max-width: 220px;
+    }
+    .brand-lockup {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .brand-name {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-size: 9px;
+      color: #64748B;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .brand-ruc {
+      font-size: 10px;
+      color: #ACF847;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Boleta ID bar (below header) ─────── */
+    .boleta-bar {
+      background: #1e3a5f;
+      padding: 10px 48px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .boleta-bar-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #64748B;
+    }
+    .boleta-bar-num {
+      font-size: 14px;
+      font-weight: 800;
+      color: #ACF847;
+      letter-spacing: 0.5px;
+    }
+    .boleta-bar-sep {
+      width: 1px;
+      height: 16px;
+      background: #334155;
+    }
+    .boleta-bar-date {
+      font-size: 12px;
+      color: #94A3B8;
+      font-weight: 500;
+    }
+
+    /* ── Doc body ────────────────────────────── */
+    .doc-body { padding: 0 48px; flex: 1; }
+
+    /* ── Info section ───────────────────────── */
+    .info-section {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 32px;
+      margin-bottom: 28px;
+      align-items: start;
+    }
+    .info-panel-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #191C1E;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #2563eb;
+    }
+    .info-row {
+      font-size: 12px;
+      color: #334155;
+      margin-bottom: 3px;
+      line-height: 1.6;
+    }
+    .info-row strong { color: #191C1E; font-weight: 700; }
+
+    .venta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 20px;
+      row-gap: 5px;
+    }
+    .venta-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .vk {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: #64748B;
+    }
+    .vv {
+      font-size: 12px;
+      font-weight: 600;
+      color: #191C1E;
+      line-height: 1.3;
+    }
+
+    /* ── Exchange table (same structure as products table) ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: #2563eb;
+      color: #ffffff;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      font-style: italic;
+      text-align: left;
+    }
+    thead th.right { text-align: right; }
+    thead th.center { text-align: center; }
+    tbody tr { border-bottom: 1px solid #E2E8F0; }
+    tbody tr:nth-child(even) { background: #F8FAFC; }
+    tbody td {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #334155;
+    }
+    tbody td.right {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    tbody td.center { text-align: center; }
+    tbody td.sku {
+      color: #94A3B8;
+      font-size: 11px;
+    }
+    tbody td.arrow {
+      text-align: center;
+      font-size: 18px;
+      color: #2563eb;
+      font-weight: 900;
+      padding: 10px 6px;
+    }
+
+    /* ── Bottom split ───────────────────────── */
+    .bottom-section {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      border-top: 2px solid #E2E8F0;
+    }
+    .notes-panel {
+      padding: 16px 14px;
+      border-right: 1px solid #E2E8F0;
+    }
+    .notes-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #64748B;
+      margin-bottom: 8px;
+    }
+    .info-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .info-chip {
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      display: flex;
+      gap: 5px;
+    }
+    .info-chip .chip-key { font-weight: 700; color: #1d4ed8; }
+    .info-chip .chip-val { color: #3b82f6; font-weight: 500; }
+    .doc-note {
+      margin-top: 12px;
+      font-size: 10px;
+      color: #94A3B8;
+    }
+
+    .totals-panel {
+      min-width: 220px;
+      padding: 16px 14px;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+      font-size: 12px;
+      padding: 4px 0;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .total-row:last-of-type { border-bottom: none; }
+    .total-row .t-label { color: #64748B; font-weight: 500; }
+    .total-row .t-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: #191C1E;
+    }
+    .total-final-row {
+      background: #2563eb;
+      margin: 10px -14px -16px -14px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+      align-items: center;
+    }
+    .total-final-row .t-label {
+      font-size: 12px;
+      font-weight: 700;
+      font-style: italic;
+      color: #ffffff;
+    }
+    .total-final-row .t-value {
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #ACF847;
+      letter-spacing: -0.5px;
+    }
+    .total-neutral-row {
+      background: #F1F5F9;
+      margin: 10px -14px -16px -14px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 28px;
+      align-items: center;
+    }
+    .total-neutral-row .t-label {
+      font-size: 12px;
+      font-weight: 700;
+      font-style: italic;
+      color: #64748B;
+    }
+    .total-neutral-row .t-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #64748B;
+    }
+
+    /* ── Footer ─────────────────────────────── */
+    .footer {
+      background: #020617;
+      margin-top: 24px;
+      padding: 14px 48px;
+      text-align: center;
+    }
+    .footer-main {
+      font-size: 15px;
+      font-style: italic;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .footer-sub {
+      font-size: 10px;
+      color: #475569;
+      margin-top: 5px;
+      letter-spacing: 0.5px;
+    }
+    .footer-contacts {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #1e3a5f;
+    }
+    .footer-contact-item {
+      font-size: 10px;
+      color: #475569;
+    }
+    .footer-contact-item strong { color: #64748B; }
+  </style>
+</head>
+<body>
+
+  <!-- Geometric Header -->
+  <div class="header-wrap">
+    <div class="geo-white"></div>
+    <div class="geo-blue"></div>
+    <div class="header-brand">
+      {{#if logoBase64}}
+      <img src="{{logoBase64}}" alt="Guru Tech Solutions" class="brand-logo" />
+      {{/if}}
+      <div class="brand-lockup">
+        <div class="brand-name">GURU TECH</div>
+        <div class="brand-sub">Solutions</div>
+      </div>
+      <div class="brand-ruc">RUC: 10601005048</div>
+    </div>
+  </div>
+
+  <!-- Boleta ID bar -->
+  <div class="boleta-bar">
+    <span class="boleta-bar-label">Comprobante de Cambio</span>
+    <div class="boleta-bar-sep"></div>
+    <span class="boleta-bar-num">{{numero}}</span>
+    <div class="boleta-bar-sep"></div>
+    <span class="boleta-bar-date">{{fechaEmision}}</span>
+  </div>
+
+  <div class="doc-body">
+
+    <!-- Info: vendedor left, sede 2-col right -->
+    <div class="info-section">
+
+      <div>
+        <div class="info-panel-title">Atendido por</div>
+        <div class="info-row"><strong>{{vendedor}}</strong></div>
+      </div>
+
+      <div>
+        <div class="info-panel-title">Datos de la Sede</div>
+        <div class="venta-grid">
+          <div class="venta-cell">
+            <span class="vk">Sede</span>
+            <span class="vv">{{sedeNombre}}</span>
+          </div>
+          {{#if sedeDireccion}}
+          <div class="venta-cell">
+            <span class="vk">Dirección</span>
+            <span class="vv">{{sedeDireccion}}</span>
+          </div>
+          {{/if}}
+          {{#if sedeTelefono}}
+          <div class="venta-cell">
+            <span class="vk">Teléfono</span>
+            <span class="vv">{{sedeTelefono}}</span>
+          </div>
+          {{/if}}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Exchange table -->
+    <table>
+      <thead>
+        <tr>
+          <th>Devuelve</th>
+          <th>SKU</th>
+          <th class="right">Cant.</th>
+          <th class="right">P. Unit.</th>
+          <th class="center" style="width:32px;"></th>
+          <th>Recibe</th>
+          <th>SKU</th>
+          <th class="right">Cant.</th>
+          <th class="right">P. Unit.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{itemDevuelto.nombre}}</td>
+          <td class="sku">{{itemDevuelto.sku}}</td>
+          <td class="right">{{itemDevuelto.cantidad}}</td>
+          <td class="right">S/ {{itemDevuelto.precio}}</td>
+          <td class="arrow">&rarr;</td>
+          <td>{{itemRecibido.nombre}}</td>
+          <td class="sku">{{itemRecibido.sku}}</td>
+          <td class="right">{{itemRecibido.cantidad}}</td>
+          <td class="right">S/ {{itemRecibido.precio}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Bottom split -->
+    <div class="bottom-section">
+      <div class="notes-panel">
+        <div class="notes-label">Detalles del cambio</div>
+        <div class="info-chips">
+          <div class="info-chip">
+            <span class="chip-key">Motivo</span>
+            <span class="chip-val">{{motivo}}</span>
+          </div>
+          <div class="info-chip">
+            <span class="chip-key">Venta origen</span>
+            <span class="chip-val">#{{idVentaOrigen}}</span>
+          </div>
+          {{#if metodoPago}}
+          <div class="info-chip">
+            <span class="chip-key">Pago diferencia</span>
+            <span class="chip-val">{{metodoPago}}</span>
+          </div>
+          {{/if}}
+        </div>
+        {{#if detalle}}
+        <div class="info-row" style="font-size:11px; color:#64748B;">{{detalle}}</div>
+        {{/if}}
+        <div class="doc-note">Documento emitido por Guru Tech Solutions &middot; Conserve este comprobante</div>
+      </div>
+
+      <div class="totals-panel">
+        <div class="total-row">
+          <span class="t-label">Devuelve</span>
+          <span class="t-value">S/ {{itemDevuelto.precio}}</span>
+        </div>
+        <div class="total-row">
+          <span class="t-label">Recibe</span>
+          <span class="t-value">S/ {{itemRecibido.precio}}</span>
+        </div>
+        {{#if tieneDiferencia}}
+        <div class="total-final-row">
+          <span class="t-label">Diferencia cobrada</span>
+          <span class="t-value">+S/ {{diferenciaCobrada}}</span>
+        </div>
+        {{else}}
+        <div class="total-neutral-row">
+          <span class="t-label">Sin diferencia</span>
+          <span class="t-value">S/ 0.00</span>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-main">¡Gracias por confiar en Guru Tech Solutions!</div>
+    <div class="footer-sub">Comprobante de Cambio N&deg; {{numero}}</div>
+    {{#if sedeDireccion}}
+    <div class="footer-contacts">
+      <span class="footer-contact-item"><strong>Dir:</strong> {{sedeDireccion}}</span>
+      {{#if sedeTelefono}}<span class="footer-contact-item"><strong>Tel:</strong> {{sedeTelefono}}</span>{{/if}}
+      <span class="footer-contact-item"><strong>RUC:</strong> 10601005048</span>
+    </div>
+    {{/if}}
+  </div>
+
+</body>
+</html>

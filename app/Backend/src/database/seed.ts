@@ -9,10 +9,11 @@ import { seedCatalogo } from './seed-04-catalogo';
 import { seedProveedores } from './seed-05-proveedores';
 import { seedCompras } from './seed-06-compras';
 import { seedReparaciones } from './seed-07-reparaciones';
+import { seedCambios } from './seed-08-cambios';
 
 async function main(): Promise<void> {
   console.log('============================================================');
-  console.log(' SEED — Sprint 3 / Todos los roles');
+  console.log(' SEED — Sprint 4 / Todos los roles');
   console.log('============================================================');
 
   console.log('\nConectando a la base de datos...');
@@ -29,6 +30,7 @@ async function main(): Promise<void> {
       TRUNCATE TABLE
         Logs_Sistema,
         Boletas,
+        Cambios_Producto,
         Pagos,
         reparacion_repuestos_usados,
         reparaciones,
@@ -61,6 +63,7 @@ async function main(): Promise<void> {
     await seedProveedores(qr);
     await seedCompras(qr);
     await seedReparaciones(qr);
+    await seedCambios(qr);
 
     await qr.commitTransaction();
 
@@ -100,6 +103,12 @@ async function main(): Promise<void> {
       '    GET /stock?id_sede=1&requiere_reposicion=true → críticos y bajos',
     );
     console.log('    GET /stock/critico?id_sede=1             → solo críticos');
+    console.log('\n  CAMBIOS');
+    console.log(
+      '    GET /cambios             → 3 cambios sede 1 para vendedor',
+    );
+    console.log('    GET /cambios/3/boleta    → boleta ya emitida');
+    console.log('    POST /cambios/1/boleta   → emite boleta nueva');
     console.log('');
   } catch (err) {
     await qr.rollbackTransaction();

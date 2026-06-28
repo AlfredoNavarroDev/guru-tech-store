@@ -29,6 +29,7 @@ export class ClientesController {
 
   // Lista clientes con filtros por nombre o documento.
   @Get()
+  @Roles('vendedor', 'tecnico')
   @ApiOperation({ summary: 'HU-07 — Buscar clientes por nombre o documento' })
   findAll(@Query() query: QueryClienteDto): Promise<object[]> {
     return this.clientesService.findAll(query);
@@ -36,6 +37,7 @@ export class ClientesController {
 
   // Obtiene detalle de un cliente con su total de compras.
   @Get(':id')
+  @Roles('vendedor', 'tecnico')
   @ApiOperation({ summary: 'HU-07 — Detalle de cliente con total compras' })
   findOne(@Param('id', ParseIntPipe) id: number): Promise<object> {
     return this.clientesService.findOne(id);
@@ -43,6 +45,7 @@ export class ClientesController {
 
   // Crea un cliente validando unicidad de tipo + nro de documento.
   @Post()
+  @Roles('vendedor', 'tecnico')
   @ApiOperation({ summary: 'HU-07 — Crear cliente' })
   create(@Body() dto: CreateClienteDto) {
     return this.clientesService.create(dto);

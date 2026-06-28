@@ -214,6 +214,48 @@ describe('CambiosService', () => {
     });
   });
 
+  // ── findVentas ────────────────────────────────────────────────────────────
+
+  describe('findVentas', () => {
+    it('sin fecha → devuelve todas las ventas de la sede (límite 20)', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { id_venta: 1042, fecha_emision: new Date('2026-06-23'), cliente: 'Ana', total_items: '3' },
+        { id_venta: 1041, fecha_emision: new Date('2026-06-22'), cliente: null, total_items: '1' },
+      ]);
+
+      const result = await service.findVentas(mockUser);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id_venta).toBe(1042);
+      expect(result[0].total_items).toBe(3);
+      expect(result[1].cliente).toBeNull();
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM ventas v'),
+        expect.arrayContaining([mockUser.id_sede]),
+      );
+    });
+
+    it('con fecha → filtra por día completo', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { id_venta: 1042, fecha_emision: new Date('2026-06-23'), cliente: 'Ana', total_items: '2' },
+      ]);
+
+      const result = await service.findVentas(mockUser, '2026-06-23');
+
+      expect(result).toHaveLength(1);
+      expect(dataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('INTERVAL'),
+        expect.arrayContaining(['2026-06-23']),
+      );
+    });
+
+    it('sin ventas en fecha → devuelve array vacío', async () => {
+      dataSource.query.mockResolvedValueOnce([]);
+      const result = await service.findVentas(mockUser, '2026-01-01');
+      expect(result).toEqual([]);
+    });
+  });
+
   afterAll(() => {
     const results = [
       ['findVentaDetalle: venta otra sede → VentaNotFoundException', 'PASS'],

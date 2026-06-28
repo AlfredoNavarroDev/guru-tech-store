@@ -9,6 +9,7 @@ export interface ClienteVista {
   direccion_completa: string | null
   es_extranjero: boolean
   total_compras: number
+  ultima_compra: string | null
 }
 
 export interface CreateClienteInput {

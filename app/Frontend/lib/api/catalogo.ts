@@ -32,5 +32,5 @@ export function getCatalogo(query?: QueryCatalogo): Promise<CatalogoItem[]> {
   if (query?.nombre) params.set('nombre', query.nombre)
   if (query?.con_stock !== undefined) params.set('con_stock', String(query.con_stock))
   const qs = params.toString()
-  return authRequest<CatalogoItem[]>(`catalogos${qs ? `?${qs}` : ''}`)
+  return authRequest<CatalogoItem[]>(`catalogo${qs ? `?${qs}` : ''}`)
 }

@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DataSource, Repository } from 'typeorm';
 import { Reparacion } from './entities/reparacion.entity';
 import { ReparacionRepuesto } from './entities/reparacion-repuesto.entity';
 import { CreateReparacionDto } from './dto/create-reparacion.dto';
 import { UpdateEstadoReparacionDto } from './dto/update-estado-reparacion.dto';
 import { AddRepuestoReparacionDto } from './dto/add-repuesto-reparacion.dto';
+import { UploadFotoReparacionDto } from './dto/upload-foto-reparacion.dto';
 import { QueryReparacionesDto } from './dto/query-reparaciones.dto';
 import {
   PagoReparacionResponseDto,
@@ -46,8 +49,10 @@ interface ReparacionRow {
   monto_descuento: string;
   tipo_descuento: string | null;
   justificacion_descuento: string | null;
+  tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
   created_at: Date;
   updated_at: Date | null;
+  fotos: { url: string; etapa: string; created_at: string }[] | null;
 }
 
 interface RepuestoRow {
@@ -81,13 +86,25 @@ interface EstadoRow {
 // Servicio de reparaciones. Gestiona ingreso de equipos, estados, repuestos y pagos asociados.
 @Injectable()
 export class ReparacionesService {
+  private readonly s3: S3Client;
+
   constructor(
     @InjectRepository(Reparacion)
     private readonly reparacionRepo: Repository<Reparacion>,
     @InjectRepository(ReparacionRepuesto)
     private readonly repuestoRepo: Repository<ReparacionRepuesto>,
     private readonly dataSource: DataSource,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.s3 = new S3Client({
+      region: 'auto',
+      endpoint: `https://${config.get<string>('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: config.get<string>('R2_ACCESS_KEY_ID', ''),
+        secretAccessKey: config.get<string>('R2_SECRET_ACCESS_KEY', ''),
+      },
+    });
+  }
 
   // HU-15: Registra ingreso de equipo. Técnico autenticado es el responsable. Estado inicial = pendiente.
   async create(
@@ -114,6 +131,7 @@ export class ReparacionesService {
       monto_descuento: dto.monto_descuento ?? 0,
       tipo_descuento: dto.tipo_descuento ?? null,
       justificacion_descuento: dto.justificacion_descuento ?? null,
+      tipo_servicio: dto.tipo_servicio ?? null,
     });
 
     const saved = await this.reparacionRepo.save(reparacion);
@@ -176,8 +194,8 @@ export class ReparacionesService {
            r.id_estado, er.nombre AS estado, er.es_final,
            r.fecha_estimada, r.fecha_terminado, r.fecha_entrega_cliente,
            r.monto_cotizado, r.monto_descuento,
-           r.tipo_descuento, r.justificacion_descuento,
-           r.created_at, r.updated_at
+           r.tipo_descuento, r.justificacion_descuento, r.tipo_servicio,
+           r.created_at, r.updated_at, r.fotos
          FROM reparaciones r
          LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN empleados e ON e.id_empleado = r.id_tecnico
@@ -212,8 +230,8 @@ export class ReparacionesService {
            r.id_estado, er.nombre AS estado, er.es_final,
            r.fecha_estimada, r.fecha_terminado, r.fecha_entrega_cliente,
            r.monto_cotizado, r.monto_descuento,
-           r.tipo_descuento, r.justificacion_descuento,
-           r.created_at, r.updated_at
+           r.tipo_descuento, r.justificacion_descuento, r.tipo_servicio,
+           r.created_at, r.updated_at, r.fotos
          FROM reparaciones r
          LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN empleados e ON e.id_empleado = r.id_tecnico
@@ -405,6 +423,65 @@ export class ReparacionesService {
     await this.repuestoRepo.remove(repuesto);
   }
 
+  // RF-26: Registra foto por etapa del servicio técnico, sube a R2 y persiste URL en JSONB.
+  async uploadFoto(
+    id: number,
+    dto: UploadFotoReparacionDto,
+    user: JwtPayload,
+  ): Promise<{ url: string }> {
+    await this.assertAccess(id, user.id_sede!);
+
+    const buffer = Buffer.from(dto.imagen_base64, 'base64');
+    const extMap: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+    };
+    const ext = extMap[dto.content_type] ?? 'jpg';
+    const estadoSlug = dto.estado.replace(/ /g, '-');
+    const key = `fotos/reparaciones/${id}/${estadoSlug}-${Date.now()}.${ext}`;
+
+    const r2Config = this.getR2Config();
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: r2Config.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: dto.content_type,
+      }),
+    );
+
+    const url = `${r2Config.publicUrl}/${key}`;
+    await this.dataSource.query(
+      `UPDATE reparaciones
+       SET fotos = COALESCE(fotos, '[]'::jsonb) || $2::jsonb
+       WHERE id_reparacion = $1`,
+      [id, JSON.stringify([{ url, etapa: dto.estado, created_at: new Date().toISOString() }])],
+    );
+
+    return { url };
+  }
+
+  private getR2Config(): { bucket: string; publicUrl: string } {
+    const required = [
+      'R2_ACCOUNT_ID',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME',
+      'R2_PUBLIC_URL',
+    ] as const;
+    const missing = required.filter((k) => !this.config.get<string>(k));
+    if (missing.length > 0) {
+      throw new InternalServerErrorException(
+        `Configuración R2 incompleta: ${missing.join(', ')}`,
+      );
+    }
+    return {
+      bucket: this.config.get<string>('R2_BUCKET_NAME')!,
+      publicUrl: this.config.get<string>('R2_PUBLIC_URL')!,
+    };
+  }
+
   // Verifica que la reparación existe en la sede del técnico. Devuelve fila con estado para lógica interna.
   private async assertAccess(
     id: number,
@@ -448,8 +525,10 @@ export class ReparacionesService {
       monto_descuento: parseFloat(String(row.monto_descuento)),
       tipo_descuento: row.tipo_descuento ?? null,
       justificacion_descuento: row.justificacion_descuento ?? null,
+      tipo_servicio: row.tipo_servicio ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at ?? null,
+      fotos: row.fotos ?? null,
     };
   }
 

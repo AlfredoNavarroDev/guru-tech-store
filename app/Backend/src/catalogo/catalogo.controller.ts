@@ -13,7 +13,7 @@ import { QueryCatalogoDto } from './dto/query-catalogo.dto';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('vendedor')
-@Controller(['catalogo', 'catalogos'])
+@Controller('catalogo')
 export class CatalogoController {
   constructor(private readonly catalogoService: CatalogoService) {}
 

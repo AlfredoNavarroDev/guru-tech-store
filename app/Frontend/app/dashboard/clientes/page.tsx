@@ -16,6 +16,7 @@ import {
   X,
   Loader2,
   ShoppingBag,
+  Calendar,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
@@ -35,7 +36,11 @@ import {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-
+function formatDate(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  return d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" })
+}
 
 function initials(name: string) {
   return name
@@ -76,6 +81,11 @@ function SkeletonRows() {
           <div className="hidden sm:flex flex-col gap-1.5 min-w-[140px]">
             <Skeleton className="h-3 w-24" />
             <Skeleton className="h-3 w-32" />
+          </div>
+          <div className="hidden lg:flex flex-col items-center justify-center rounded-xl bg-gray-50 px-4 py-2.5 min-w-[120px] gap-1">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-3 w-20 rounded" />
+            <Skeleton className="h-2.5 w-16 rounded" />
           </div>
           <div className="flex shrink-0 flex-col items-center justify-center rounded-xl bg-gray-50 px-3 py-2 min-w-[72px] gap-1">
             <Skeleton className="h-3.5 w-5 rounded" />
@@ -364,6 +374,26 @@ function ClientRow({ cliente, delay }: { cliente: ClienteVista; delay: number })
               <span className="truncate">{cliente.direccion_completa}</span>
             </span>
           )}
+        </div>
+
+        {/* Última compra */}
+        <div className={cn(
+          "hidden lg:flex shrink-0 flex-col items-center justify-center rounded-xl px-4 py-2.5 min-w-[120px] gap-0.5",
+          cliente.ultima_compra
+            ? "bg-blue-50 ring-1 ring-blue-200"
+            : "bg-gray-50 ring-1 ring-gray-200",
+        )}>
+          <Calendar className={cn("h-4 w-4 mb-0.5", cliente.ultima_compra ? "text-blue-400" : "text-gray-300")} />
+          {cliente.ultima_compra ? (
+            <p className="text-xs font-semibold text-blue-700 text-center leading-tight">
+              {formatDate(cliente.ultima_compra)}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400">Sin compras</p>
+          )}
+          <p className={cn("text-[10px] font-medium", cliente.ultima_compra ? "text-blue-500" : "text-gray-300")}>
+            última compra
+          </p>
         </div>
 
         {/* Compras realizadas */}

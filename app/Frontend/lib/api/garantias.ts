@@ -33,11 +33,13 @@ export function getGarantias(query?: {
   page?: number
   limit?: number
   estado?: string
+  id_reparacion?: number
 }): Promise<PaginatedGarantias> {
   const params = new URLSearchParams()
   if (query?.page) params.set('page', String(query.page))
   if (query?.limit) params.set('limit', String(query.limit))
   if (query?.estado) params.set('estado', query.estado)
+  if (query?.id_reparacion) params.set('id_reparacion', String(query.id_reparacion))
   const qs = params.toString()
   return authRequest<PaginatedGarantias>(`garantias${qs ? `?${qs}` : ''}`)
 }

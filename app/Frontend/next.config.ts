@@ -9,6 +9,9 @@ const allowedDevOrigins = process.env.HOST_IP
 const nextConfig: NextConfig = {
   reactCompiler: !isDev,
   output: isDev ? undefined : "standalone",
+  experimental: {
+    optimizePackageImports: ["motion/react"],
+  },
   // Razonamiento: habilitar logo remoto permite usar next/image sin romper optimización.
   images: {
     remotePatterns: [

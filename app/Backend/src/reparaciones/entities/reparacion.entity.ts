@@ -92,8 +92,16 @@ export class Reparacion {
   @Column({ name: 'justificacion_descuento', type: 'text', nullable: true })
   justificacion_descuento: string | null;
 
+  @Column({
+    name: 'tipo_servicio',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
+
   @Column({ name: 'fotos', type: 'jsonb', nullable: true })
-  fotos: string[] | null;
+  fotos: { url: string; etapa: string; created_at: string }[] | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   created_at: Date;

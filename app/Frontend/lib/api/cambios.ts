@@ -1,4 +1,4 @@
-import { authRequest } from './client'
+import { authRequest, ApiError } from './client'
 
 export interface CreateCambioInput {
   id_venta_origen: number
@@ -28,6 +28,13 @@ export interface VentaDetalle {
   fecha_emision: string
   cliente: string | null
   detalles: VentaDetalleItem[]
+}
+
+export interface VentaListItem {
+  id_venta: number
+  fecha_emision: string
+  cliente: string | null
+  total_items: number
 }
 
 export interface CambioResponse {
@@ -71,6 +78,11 @@ export function getVentaDetalle(id_venta: number): Promise<VentaDetalle> {
   return authRequest<VentaDetalle>(`cambios/venta/${id_venta}`)
 }
 
+export function searchVentas(params?: { fecha?: string }): Promise<VentaListItem[]> {
+  const qs = params?.fecha ? `?fecha=${encodeURIComponent(params.fecha)}` : ''
+  return authRequest<VentaListItem[]>(`cambios/ventas${qs}`)
+}
+
 export function createCambio(dto: CreateCambioInput): Promise<CambioResponse> {
   return authRequest<CambioResponse>('cambios', {
     method: 'POST',
@@ -90,4 +102,27 @@ export function getCambios(query?: QueryCambios): Promise<PaginatedCambios> {
 
 export function getCambio(id: number): Promise<CambioResponse> {
   return authRequest<CambioResponse>(`cambios/${id}`)
+}
+
+export interface BoletaCambio {
+  id_boleta: number
+  numero: string
+  fecha_emision: string
+  id_cambio: number
+  total: number
+  estado: string
+  url_pdf: string | null
+}
+
+export async function getBoletaCambio(idCambio: number): Promise<BoletaCambio | null> {
+  try {
+    return await authRequest<BoletaCambio>(`cambios/${idCambio}/boleta`)
+  } catch (e) {
+    if (e instanceof ApiError && e.statusCode === 404) return null
+    throw e
+  }
+}
+
+export function emitirBoletaCambio(idCambio: number): Promise<BoletaCambio> {
+  return authRequest<BoletaCambio>(`cambios/${idCambio}/boleta`, { method: 'POST' })
 }

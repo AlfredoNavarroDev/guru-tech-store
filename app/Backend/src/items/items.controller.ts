@@ -52,6 +52,7 @@ export class ItemsController {
   }
 
   @Get()
+  @Roles('abastecedor', 'tecnico')
   @ApiOperation({
     summary:
       'HU-13 / HU-14 — Listar ítems con filtros (tipo, nombre, sku, categoria)',

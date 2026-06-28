@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
-  Boxes, ClipboardList, ShieldCheck, Wrench, Truck, History,
+  Boxes, ClipboardList, ShieldCheck, Wrench, Truck,
   ArrowLeftRight,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
@@ -53,9 +53,9 @@ const roleNavLinks = {
     { href: "/dashboard/proveedores", label: "Proveedores", icon: Truck },
   ],
   tecnico: [
-    { href: "/dashboard",            label: "Reparaciones", icon: Wrench },
-    { href: "/dashboard/historial",  label: "Historial",    icon: History },
-    { href: "/dashboard/garantias",  label: "Garantías",    icon: ShieldCheck },
+    { href: "/dashboard",              label: "Resumen",      icon: LayoutDashboard },
+    { href: "/dashboard/reparaciones", label: "Reparaciones", icon: Wrench },
+    { href: "/dashboard/garantias",    label: "Garantías",    icon: ShieldCheck },
   ],
   vendedor:    vendedorNavLinks,
   propietario: propietarioNavLinks,
@@ -83,6 +83,7 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
   const navLinks = session ? (roleNavLinks[session.rol as keyof typeof roleNavLinks] ?? vendedorNavLinks) : []
   const showSalesCta = session ? ["vendedor", "propietario", "gerente"].includes(session.rol) : false
   const showComprasCta = session ? session.rol === "abastecedor" : false
+  const showReparacionCta = session ? session.rol === "tecnico" : false
   const activeNavIndex = navLinks.reduce((bestIndex, link, index) => {
     if (!matchesRoute(pathname, link.href)) return bestIndex
     if (bestIndex === -1) return index
@@ -296,6 +297,51 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
                   <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
                     <Zap className="h-4 w-4" />
                     Nueva compra
+                  </Button>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {showReparacionCta && (
+        <div className={cn("px-3 pt-4 overflow-hidden", isCollapsed && "lg:flex lg:justify-center lg:px-0")}>
+          <AnimatePresence initial={false}>
+            {isCollapsed ? (
+              <motion.div
+                key="reparacion-cta-icon"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                className="hidden lg:flex lg:justify-center"
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Link href="/dashboard/reparaciones/nueva" className="inline-flex">
+                        <Button size="icon" className="h-10 w-10 bg-lime hover:bg-[#d4f96a] text-[#020617] rounded-xl shadow-[0_0_12px_rgba(172,248,71,0.25)]">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    }
+                  />
+                  <TooltipContent side="right">Registrar equipo</TooltipContent>
+                </Tooltip>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="reparacion-cta-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Link href="/dashboard/reparaciones/nueva">
+                  <Button className="w-full gap-2.5 bg-lime hover:bg-[#d4f96a] text-[#020617] font-bold text-base py-4 h-auto rounded-xl transition-all duration-200">
+                    <Wrench className="h-4 w-4" />
+                    Registrar equipo
                   </Button>
                 </Link>
               </motion.div>

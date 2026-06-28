@@ -26,6 +26,10 @@ export class Boleta {
   @Column({ name: 'id_reparacion', type: 'int', nullable: true })
   id_reparacion: number | null;
 
+  // Cambio de producto origen. null si es boleta de venta o reparación.
+  @Column({ name: 'id_cambio', type: 'int', nullable: true })
+  id_cambio: number | null;
+
   // Total final post-descuento (precision 12,2).
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   total: number;

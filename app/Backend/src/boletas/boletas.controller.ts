@@ -18,6 +18,15 @@ export class BoletasController {
     return this.boletasService.renderPreviewMock();
   }
 
+  @Get('cambio/preview')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ApiOperation({
+    summary: 'Preview HTML de boleta de cambio con datos mock (dev, sin auth)',
+  })
+  previewCambioMock(): string {
+    return this.boletasService.renderPreviewMockCambio();
+  }
+
   // Renderiza HTML del comprobante con datos reales de una venta (sin PDF ni R2).
   @Get(':id/preview')
   @Header('Content-Type', 'text/html; charset=utf-8')

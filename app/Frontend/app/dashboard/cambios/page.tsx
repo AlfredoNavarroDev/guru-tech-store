@@ -96,7 +96,7 @@ export default function CambiosPage() {
           </div>
           <button
             onClick={() => router.push("/dashboard/cambios/nuevo")}
-            className="shrink-0 flex items-center gap-2 rounded-xl bg-[#020617] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0f172a]"
+            className="shrink-0 flex items-center justify-center gap-2 rounded-xl bg-[#020617] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0f172a]"
           >
             <Plus className="h-4 w-4" />
             Nuevo cambio
