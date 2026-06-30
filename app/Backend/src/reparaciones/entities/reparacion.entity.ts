@@ -103,6 +103,9 @@ export class Reparacion {
   @Column({ name: 'fotos', type: 'jsonb', nullable: true })
   fotos: { url: string; etapa: string; created_at: string }[] | null;
 
+  @Column({ name: 'id_garantia_reclamada', nullable: true, type: 'int' })
+  id_garantia_reclamada: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   created_at: Date;
 

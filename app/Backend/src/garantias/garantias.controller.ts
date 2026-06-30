@@ -16,6 +16,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 import { GarantiasService } from './garantias.service';
 import { CreateGarantiaReparacionDto } from './dto/create-garantia-reparacion.dto';
+import { CreateReclamoGarantiaDto } from './dto/create-reclamo-garantia.dto';
 import { QueryGarantiasDto } from './dto/query-garantias.dto';
 
 @ApiTags('garantias')
@@ -33,6 +34,18 @@ export class GarantiasController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.garantiasService.create(dto, user);
+  }
+
+  @Post(':id/reclamos')
+  @ApiOperation({
+    summary: 'Crear reclamo de garantía de servicio técnico (solo tecnico)',
+  })
+  crearReclamo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateReclamoGarantiaDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.garantiasService.crearReclamo(id, dto, user);
   }
 
   @Get()

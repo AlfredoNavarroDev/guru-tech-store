@@ -31,13 +31,20 @@ interface ItemRow {
   updated_at: Date | null;
   categorias_str: string;
   imagen_url: string | null;
+  stock_disponible: string | number;
 }
 
-const ITEM_SELECT = `
+// stockParamIdx: posición del parámetro $N con el id_sede (o null) para la subconsulta de stock.
+const itemSelect = (stockParamIdx: number) => `
   SELECT i.id_item, i.tipo, i.sku, i.nombre, i.id_marca, m.nombre AS marca,
          i.modelo, i.calidad, i.especificaciones, i.imagen_url,
          i.precio_compra_actual, i.precio_venta_actual, i.created_at, i.updated_at,
-         COALESCE(STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria), '') AS categorias_str
+         COALESCE(STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria), '') AS categorias_str,
+         COALESCE(
+           (SELECT inv.cantidad_actual FROM inventario_sedes inv
+            WHERE inv.id_item = i.id_item AND inv.id_sede = $${stockParamIdx}),
+           0
+         ) AS stock_disponible
   FROM items i
   LEFT JOIN marcas m ON m.id_marca = i.id_marca
   LEFT JOIN item_categorias ic ON ic.id_item = i.id_item
@@ -113,8 +120,9 @@ export class ItemsService {
     idSede?: number,
   ): Promise<PaginatedResult<ItemResponseDto>> {
     const conditions: string[] = [];
-    const params: unknown[] = [];
-    let idx = 1;
+    // $1 reservado para id_sede (subconsulta de stock y filtro con_stock).
+    const params: unknown[] = [idSede ?? null];
+    let idx = 2;
 
     if (query.tipo) {
       conditions.push(`i.tipo = $${idx++}`);
@@ -140,9 +148,8 @@ export class ItemsService {
     }
     if (query.con_stock && idSede) {
       conditions.push(
-        `EXISTS (SELECT 1 FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = $${idx++} AND inv.cantidad_actual > 0)`,
+        `EXISTS (SELECT 1 FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = $1 AND inv.cantidad_actual > 0)`,
       );
-      params.push(idSede);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -153,7 +160,7 @@ export class ItemsService {
         params,
       ),
       this.dataSource.query<ItemRow[]>(
-        `${ITEM_SELECT} ${where}
+        `${itemSelect(1)} ${where}
          GROUP BY i.id_item, m.nombre
          ORDER BY i.nombre
          LIMIT $${idx} OFFSET $${idx + 1}`,
@@ -172,8 +179,8 @@ export class ItemsService {
 
   async findOne(id: number): Promise<ItemResponseDto> {
     const [row] = await this.dataSource.query<ItemRow[]>(
-      `${ITEM_SELECT} WHERE i.id_item = $1 GROUP BY i.id_item, m.nombre`,
-      [id],
+      `${itemSelect(2)} WHERE i.id_item = $1 GROUP BY i.id_item, m.nombre`,
+      [id, null],
     );
     if (!row) throw new ItemNotFoundException(id);
     return this.toResponse(row);
@@ -325,6 +332,7 @@ export class ItemsService {
       imagen_url: row.imagen_url ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at ?? null,
+      stock_disponible: Number(row.stock_disponible ?? 0),
     };
   }
 }

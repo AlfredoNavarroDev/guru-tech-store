@@ -20,3 +20,23 @@ export class GarantiaYaExisteException extends AppException {
     );
   }
 }
+
+export class GarantiaNoActivaException extends AppException {
+  constructor(id: number) {
+    super(
+      'GARANTIA_NO_ACTIVA',
+      `Garantía ${id} no está activa, no se puede reclamar`,
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class GarantiaTipoInvalidoException extends AppException {
+  constructor(id: number) {
+    super(
+      'GARANTIA_TIPO_INVALIDO',
+      `Garantía ${id} no es de reparación, no se puede reclamar como servicio técnico`,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}

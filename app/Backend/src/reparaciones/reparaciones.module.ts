@@ -15,5 +15,6 @@ import { BoletasModule } from '../boletas/boletas.module';
   ],
   controllers: [ReparacionesController],
   providers: [ReparacionesService],
+  exports: [ReparacionesService],
 })
 export class ReparacionesModule {}

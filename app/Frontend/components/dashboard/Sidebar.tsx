@@ -55,6 +55,7 @@ const roleNavLinks = {
   tecnico: [
     { href: "/dashboard",              label: "Resumen",      icon: LayoutDashboard },
     { href: "/dashboard/reparaciones", label: "Reparaciones", icon: Wrench },
+    { href: "/dashboard/clientes",     label: "Clientes",     icon: UserRound },
     { href: "/dashboard/garantias",    label: "Garantías",    icon: ShieldCheck },
   ],
   vendedor:    vendedorNavLinks,

@@ -19,10 +19,10 @@ export class CreatePagoReparacionDto {
   @IsIn(['efectivo', 'tarjeta', 'transferencia', 'yape', 'plin', 'otro'])
   metodo_pago: string;
 
-  @ApiProperty({ example: 100.0, description: 'Monto del pago (> 0)' })
+  @ApiProperty({ example: 100.0, description: 'Monto del pago (mínimo S/1.00)' })
   @Type(() => Number)
   @IsNumber()
-  @Min(0.01)
+  @Min(1)
   monto: number;
 
   @ApiPropertyOptional({

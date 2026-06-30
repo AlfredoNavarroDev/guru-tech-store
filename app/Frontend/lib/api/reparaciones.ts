@@ -48,6 +48,7 @@ export interface ReparacionResponse {
   total_pagado?: number
   saldo_pendiente?: number
   fotos: { url: string; etapa: string; created_at: string }[] | null
+  id_garantia_reclamada: number | null
 }
 
 export interface PaginatedReparaciones {
@@ -139,6 +140,7 @@ export interface UpdateEstadoInput {
   diagnostico_tecnico?: string
   monto_cotizado?: number
   fecha_estimada?: string
+  dias_garantia?: number
 }
 
 export function updateEstadoReparacion(

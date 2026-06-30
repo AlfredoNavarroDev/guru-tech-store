@@ -287,6 +287,37 @@ describe('ReparacionesService', () => {
         expect.arrayContaining([1, 6]),
       );
     });
+
+    it('no crea garantia automatica si la reparacion es un reclamo de garantia', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([
+          {
+            ...mockReparacionRow,
+            es_final: false,
+            estado: 'listo',
+            id_garantia_reclamada: 99,
+          },
+        ]) // assertAccess
+        .mockResolvedValueOnce([mockEstadoEntregado]) // estado nuevo
+        .mockResolvedValueOnce([{ orden: 3 }]) // estado actual orden
+        .mockResolvedValueOnce(undefined) // UPDATE reparaciones
+        .mockResolvedValueOnce([mockReparacionRow]) // findOne: reparacion
+        .mockResolvedValueOnce([]) // findOne: repuestos
+        .mockResolvedValueOnce([]); // findOne: pagos
+
+      await service.updateEstado(
+        1,
+        { id_estado: mockEstadoEntregado.id_estado },
+        mockUser,
+      );
+
+      const queriedSql = dataSource.query.mock.calls.map(
+        (call: unknown[]) => call[0] as string,
+      );
+      expect(
+        queriedSql.some((sql) => sql.includes('INSERT INTO garantias')),
+      ).toBe(false);
+    });
   });
 
   // ── addRepuesto ────────────────────────────────────────────────────────

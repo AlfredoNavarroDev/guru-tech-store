@@ -26,12 +26,10 @@ import { EstadoBadge, ESTADO_LABEL } from "@/components/tecnico/EstadoBadge"
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const FILTROS = [
-  { label: "Todos",               db: null },
-  { label: "Pendiente",           db: "pendiente" },
-  { label: "En diagnóstico",      db: "diagnostico" },
-  { label: "En reparación",       db: "reparacion" },
-  { label: "Esperando repuestos", db: "esperando repuestos" },
-  { label: "Listo para entrega",  db: "listo" },
+  { label: "Todos",              db: null },
+  { label: "Pendiente",          db: "pendiente" },
+  { label: "En reparación",      db: "reparacion" },
+  { label: "Listo para entrega", db: "listo" },
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -74,16 +72,16 @@ export function TecnicoDashboard() {
 
   useEffect(() => { void load() }, [load])
 
-  const activas     = reparaciones.filter((r) => r.estado !== "entregado").length
-  const diagnostico = reparaciones.filter((r) => r.estado === "diagnostico").length
-  const listos      = reparaciones.filter((r) => r.estado === "listo").length
-  const entregados  = reparaciones.filter((r) => r.estado === "entregado").length
+  const activas    = reparaciones.filter((r) => r.estado !== "entregado").length
+  const reparando  = reparaciones.filter((r) => r.estado === "reparacion").length
+  const listos     = reparaciones.filter((r) => r.estado === "listo").length
+  const entregados = reparaciones.filter((r) => r.estado === "entregado").length
 
   const STAT_CARDS = [
-    { label: "Reparaciones activas", value: activas,     icon: Wrench,       sub: "en proceso",            dark: true  },
-    { label: "En diagnóstico",       value: diagnostico, icon: Timer,        sub: "esperando evaluación",  dark: false },
-    { label: "Listos para entrega",  value: listos,      icon: CheckCheck,   sub: "aguardando al cliente", dark: false },
-    { label: "Entregados",           value: entregados,  icon: CheckCircle2, sub: "completados",           dark: false },
+    { label: "Reparaciones activas", value: activas,    icon: Wrench,       sub: "en proceso",            dark: true  },
+    { label: "En reparación",        value: reparando,  icon: Timer,        sub: "trabajando",            dark: false },
+    { label: "Listos para entrega",  value: listos,     icon: CheckCheck,   sub: "aguardando al cliente", dark: false },
+    { label: "Entregados",           value: entregados, icon: CheckCircle2, sub: "completados",           dark: false },
   ]
 
   const filtered = useMemo(() => {
@@ -286,7 +284,7 @@ export function TecnicoDashboard() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03, duration: 0.2 }}
                         onClick={() => router.push(`/dashboard/reparaciones/${r.id_reparacion}`)}
-                        className="cursor-pointer hover:bg-gray-50/70 transition-colors"
+                        className="cursor-pointer hover:bg-blue-50/60 transition-colors"
                       >
                         <td className="px-4 py-3 font-mono text-xs text-text-muted whitespace-nowrap">
                           {repId(r.id_reparacion)}

@@ -1,4 +1,5 @@
 import { authRequest } from './client'
+import type { ReparacionResponse } from './reparaciones'
 
 export interface GarantiaResponse {
   id_garantia: number
@@ -61,4 +62,24 @@ export function createGarantia(dto: {
 
 export function getReparacionPreview(id: number): Promise<ReparacionPreview> {
   return authRequest<ReparacionPreview>(`reparaciones/${id}`)
+}
+
+export interface CreateReclamoGarantiaInput {
+  marca?: string
+  modelo?: string
+  imei?: string
+  esta_encendido?: boolean
+  checklist_estado?: Record<string, unknown>
+  diagnostico_tecnico?: string
+  fecha_estimada?: string
+}
+
+export function crearReclamoGarantia(
+  idGarantia: number,
+  dto: CreateReclamoGarantiaInput = {},
+): Promise<ReparacionResponse> {
+  return authRequest<ReparacionResponse>(`garantias/${idGarantia}/reclamos`, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  })
 }

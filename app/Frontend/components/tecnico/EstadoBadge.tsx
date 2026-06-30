@@ -1,21 +1,24 @@
 import { cn } from "@/lib/utils"
 
 export const ESTADO_LABEL: Record<string, string> = {
-  pendiente:             "Pendiente",
-  diagnostico:           "En diagnóstico",
-  reparacion:            "En reparación",
-  "esperando repuestos": "Esperando repuestos",
-  listo:                 "Listo para entrega",
-  entregado:             "Entregado",
+  pendiente:  "Pendiente",
+  reparacion: "En reparación",
+  listo:      "Listo para entrega",
+  entregado:  "Entregado",
+}
+
+export const ESTADO_DESC: Record<string, string> = {
+  pendiente:  "El equipo fue recibido y está en cola de atención",
+  reparacion: "Se está trabajando en la reparación",
+  listo:      "¡Listo! El equipo está reparado, se puede recoger",
+  entregado:  "El cliente ya recogió su equipo",
 }
 
 export const ESTADO_STYLE: Record<string, { bg: string; text: string; dot: string }> = {
-  pendiente:             { bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-400" },
-  diagnostico:           { bg: "bg-blue-50",   text: "text-blue-700",   dot: "bg-blue-500" },
-  reparacion:            { bg: "bg-indigo-50", text: "text-indigo-700", dot: "bg-indigo-500" },
-  "esperando repuestos": { bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-400" },
-  listo:                 { bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500" },
-  entregado:             { bg: "bg-gray-100",  text: "text-gray-500",   dot: "bg-gray-400" },
+  pendiente:  { bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-400" },
+  reparacion: { bg: "bg-indigo-50", text: "text-indigo-700", dot: "bg-indigo-500" },
+  listo:      { bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500" },
+  entregado:  { bg: "bg-gray-100",  text: "text-gray-500",   dot: "bg-gray-400" },
 }
 
 export function EstadoBadge({

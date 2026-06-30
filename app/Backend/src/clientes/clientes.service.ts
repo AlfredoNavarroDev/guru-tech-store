@@ -21,6 +21,8 @@ interface ClienteVista {
   es_extranjero: boolean;
   total_compras: number;
   ultima_compra: Date | null;
+  total_reparaciones: number;
+  ultima_reparacion: Date | null;
 }
 
 // Servicio de clientes. Lectura desde vista, escritura con TypeORM + validación de unicidad.

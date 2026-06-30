@@ -16,6 +16,7 @@ import {
   X,
   Loader2,
   ShoppingBag,
+  Wrench,
   Calendar,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
@@ -33,6 +34,7 @@ import {
   type CreateClienteInput,
   type QueryClientes,
 } from "@/lib/api/clientes"
+import { getSession } from "@/lib/api/auth"
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -325,7 +327,15 @@ function CreateForm({ onSuccess, onCancel }: CreateFormProps) {
 
 // ─── client row ───────────────────────────────────────────────────────────────
 
-function ClientRow({ cliente, delay }: { cliente: ClienteVista; delay: number }) {
+function ClientRow({ cliente, delay, isTecnico }: { cliente: ClienteVista; delay: number; isTecnico: boolean }) {
+  const count = isTecnico ? cliente.total_reparaciones : cliente.total_compras
+  const lastDate = isTecnico ? cliente.ultima_reparacion : cliente.ultima_compra
+  const countLabel = isTecnico
+    ? (count === 1 ? "reparación" : "reparaciones")
+    : (count === 1 ? "compra" : "compras")
+  const lastLabel = isTecnico ? "última reparación" : "última compra"
+  const emptyLabel = isTecnico ? "Sin reparaciones" : "Sin compras"
+  const CountIcon = isTecnico ? Wrench : ShoppingBag
   return (
     <BlurFade delay={delay} duration={0.35}>
       <div
@@ -376,54 +386,54 @@ function ClientRow({ cliente, delay }: { cliente: ClienteVista; delay: number })
           )}
         </div>
 
-        {/* Última compra */}
+        {/* Última actividad */}
         <div className={cn(
           "hidden lg:flex shrink-0 flex-col items-center justify-center rounded-xl px-4 py-2.5 min-w-[120px] gap-0.5",
-          cliente.ultima_compra
+          lastDate
             ? "bg-blue-50 ring-1 ring-blue-200"
             : "bg-gray-50 ring-1 ring-gray-200",
         )}>
-          <Calendar className={cn("h-4 w-4 mb-0.5", cliente.ultima_compra ? "text-blue-400" : "text-gray-300")} />
-          {cliente.ultima_compra ? (
+          <Calendar className={cn("h-4 w-4 mb-0.5", lastDate ? "text-blue-400" : "text-gray-300")} />
+          {lastDate ? (
             <p className="text-xs font-semibold text-blue-700 text-center leading-tight">
-              {formatDate(cliente.ultima_compra)}
+              {formatDate(lastDate)}
             </p>
           ) : (
-            <p className="text-xs text-gray-400">Sin compras</p>
+            <p className="text-xs text-gray-400">{emptyLabel}</p>
           )}
-          <p className={cn("text-[10px] font-medium", cliente.ultima_compra ? "text-blue-500" : "text-gray-300")}>
-            última compra
+          <p className={cn("text-[10px] font-medium", lastDate ? "text-blue-500" : "text-gray-300")}>
+            {lastLabel}
           </p>
         </div>
 
-        {/* Compras realizadas */}
+        {/* Count */}
         <div
           className={cn(
             "shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[72px]",
-            cliente.total_compras > 0
+            count > 0
               ? "bg-emerald-50 ring-1 ring-emerald-200"
               : "bg-gray-50 ring-1 ring-gray-200",
           )}
         >
-          <ShoppingBag
+          <CountIcon
             className={cn(
               "h-3.5 w-3.5 mb-0.5",
-              cliente.total_compras > 0 ? "text-emerald-500" : "text-gray-300",
+              count > 0 ? "text-emerald-500" : "text-gray-300",
             )}
           />
           <NumberTicker
-            value={cliente.total_compras}
+            value={count}
             delay={delay}
             className={cn(
               "text-xl font-bold tabular-nums leading-none",
-              cliente.total_compras > 0 ? "text-emerald-700" : "text-gray-400",
+              count > 0 ? "text-emerald-700" : "text-gray-400",
             )}
           />
           <p className={cn(
             "mt-0.5 text-[10px] font-medium",
-            cliente.total_compras > 0 ? "text-emerald-600" : "text-gray-400",
+            count > 0 ? "text-emerald-600" : "text-gray-400",
           )}>
-            {cliente.total_compras === 1 ? "compra" : "compras"}
+            {countLabel}
           </p>
         </div>
       </div>
@@ -441,6 +451,7 @@ export default function ClientesPage() {
   const [query, setQuery] = useState("")
   const [searching, setSearching] = useState(false)
 
+  const isTecnico = getSession()?.rol === "tecnico"
   const [showForm, setShowForm] = useState(false)
   const [clientesPage, setClientesPage] = useState(1)
   const CLIENTES_LIMIT = 12
@@ -678,7 +689,7 @@ export default function ClientesPage() {
           aria-label="Lista de clientes"
         >
           {paginatedClientes.map((cliente, i) => (
-            <ClientRow key={cliente.id_cliente} cliente={cliente} delay={Math.min(i * 0.04, 0.3)} />
+            <ClientRow key={cliente.id_cliente} cliente={cliente} delay={Math.min(i * 0.04, 0.3)} isTecnico={isTecnico} />
           ))}
         </div>
       )}

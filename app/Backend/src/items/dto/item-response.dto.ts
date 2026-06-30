@@ -18,4 +18,5 @@ export class ItemResponseDto {
     | null;
   @ApiProperty() created_at: Date;
   @ApiPropertyOptional() updated_at: Date | null;
+  @ApiProperty() stock_disponible: number;
 }

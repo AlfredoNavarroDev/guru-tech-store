@@ -7,6 +7,8 @@ import { CreatePagoReparacionDto } from './dto/create-pago-reparacion.dto';
 import {
   ReparacionNotFoundException,
   VentaNotFoundException,
+  PagoExcedeSaldoException,
+  PagoSinPrecioException,
 } from '../common/exceptions';
 import type { JwtPayload } from '../common/types';
 
@@ -53,6 +55,53 @@ export class PagosService {
     user: JwtPayload,
   ): Promise<Pago> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
+
+    const [rep] = await this.dataSource.query<
+      { monto_cotizado: string | null; monto_descuento: string; tipo_descuento: string | null }[]
+    >(
+      `SELECT monto_cotizado, monto_descuento, tipo_descuento FROM reparaciones WHERE id_reparacion = $1`,
+      [idReparacion],
+    );
+
+    const [{ repuestos_cost }] = await this.dataSource.query<
+      { repuestos_cost: string }[]
+    >(
+      `SELECT COALESCE(SUM(cantidad * precio_cobrado), 0) AS repuestos_cost
+       FROM reparacion_repuestos_usados WHERE id_reparacion = $1`,
+      [idReparacion],
+    );
+
+    // monto_cotizado = mano de obra/servicio; el total a cobrar suma repuestos.
+    const montoCotizado =
+      (rep?.monto_cotizado !== null && rep?.monto_cotizado !== undefined
+        ? parseFloat(rep.monto_cotizado)
+        : 0) + parseFloat(repuestos_cost);
+
+    if (!rep || montoCotizado === 0) {
+      throw new PagoSinPrecioException(idReparacion);
+    }
+
+    const montoDesc = parseFloat(rep.monto_descuento);
+    let totalCobrar: number;
+    if (rep.tipo_descuento === 'porcentaje') {
+      totalCobrar = montoCotizado * (1 - montoDesc / 100);
+    } else if (rep.tipo_descuento === 'monto_fijo') {
+      totalCobrar = montoCotizado - montoDesc;
+    } else {
+      totalCobrar = montoCotizado;
+    }
+
+    const [{ total_pagado }] = await this.dataSource.query<{ total_pagado: string }[]>(
+      `SELECT COALESCE(SUM(monto), 0) AS total_pagado FROM pagos WHERE id_reparacion = $1`,
+      [idReparacion],
+    );
+
+    const saldo = totalCobrar - parseFloat(total_pagado);
+
+    if (dto.monto > saldo + 0.005) {
+      throw new PagoExcedeSaldoException(dto.monto, Math.max(0, saldo));
+    }
+
     const pago = this.pagoRepo.create({
       id_reparacion: idReparacion,
       id_venta: null,

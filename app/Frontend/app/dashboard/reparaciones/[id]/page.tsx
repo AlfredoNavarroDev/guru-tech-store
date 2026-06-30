@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Wrench, AlertCircle,
   CreditCard, FolderOpen, PackageCheck, FileText, Loader2,
+  ShieldCheck, X,
 } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -19,18 +21,20 @@ import {
   type ReparacionResponse,
   type BoletaReparacion,
 } from "@/lib/api/reparaciones"
-import { getGarantias, type GarantiaResponse } from "@/lib/api/garantias"
-import { EstadoBadge } from "@/components/tecnico/EstadoBadge"
+import { getGarantias, getGarantia, type GarantiaResponse } from "@/lib/api/garantias"
+import { EstadoBadge, ESTADO_DESC } from "@/components/tecnico/EstadoBadge"
 import { TabServicio } from "./_tabs/TabServicio"
+import { TabRepuestos } from "./_tabs/TabRepuestos"
 import { TabPagos } from "./_tabs/TabPagos"
 import { TabDocs } from "./_tabs/TabDocs"
 
-type TabId = "servicio" | "pagos" | "docs"
+type TabId = "servicio" | "repuestos" | "pagos" | "docs"
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: "servicio", label: "Servicio",  icon: Wrench },
-  { id: "pagos",    label: "Pagos",     icon: CreditCard },
-  { id: "docs",     label: "Archivos",  icon: FolderOpen },
+  { id: "servicio",   label: "Estado",      icon: Wrench },
+  { id: "repuestos",  label: "Repuestos",   icon: PackageCheck },
+  { id: "pagos",      label: "Cobros",      icon: CreditCard },
+  { id: "docs",       label: "Documentos",  icon: FolderOpen },
 ]
 
 function fmtFechaLarga(iso: string | null | undefined) {
@@ -60,18 +64,23 @@ export default function ReparacionDetailPage({
   const [error, setError]                 = useState<string | null>(null)
   const [boleta, setBoleta]               = useState<BoletaReparacion | null>(null)
   const [garantia, setGarantia]           = useState<GarantiaResponse | null>(null)
+  const [garantiaReclamada, setGarantiaReclamada] = useState<GarantiaResponse | null>(null)
   const [activeTab, setActiveTab]         = useState<TabId>("servicio")
   const [showSticky, setShowSticky]       = useState(false)
   const [savingEntrega, setSavingEntrega] = useState(false)
+  const [showEntregaModal, setShowEntregaModal] = useState(false)
+  const [diasGarantia, setDiasGarantia]         = useState(30)
   const headerCardRef                     = useRef<HTMLDivElement>(null)
 
   const loadDetail = useCallback(async () => {
     if (isNaN(repId_n)) { setError("ID inválido"); setLoading(false); return }
+    let detail: ReparacionResponse
     try {
-      const [detail, boletaData] = await Promise.all([
+      const [detailData, boletaData] = await Promise.all([
         getReparacion(repId_n),
         getBoletaReparacion(repId_n),
       ])
+      detail = detailData
       setRep(detail)
       setBoleta(boletaData)
     } catch (e) {
@@ -82,6 +91,9 @@ export default function ReparacionDetailPage({
     try {
       const garantiasData = await getGarantias({ id_reparacion: repId_n, limit: 1 })
       setGarantia(garantiasData.items[0] ?? null)
+      if (detail.id_garantia_reclamada) {
+        setGarantiaReclamada(await getGarantia(detail.id_garantia_reclamada))
+      }
     } catch {
       // garantía is optional
     } finally {
@@ -102,19 +114,27 @@ export default function ReparacionDetailPage({
     return () => obs.disconnect()
   }, [loading])
 
-  const handleMarkEntregadoFast = useCallback(async () => {
+  const handleConfirmEntrega = useCallback(async () => {
     if (!rep) return
     setSavingEntrega(true)
     try {
-      const updated = await updateEstadoReparacion(rep.id_reparacion, { id_estado: 6 })
+      const updated = await updateEstadoReparacion(rep.id_reparacion, {
+        id_estado: 4,
+        dias_garantia: diasGarantia,
+      })
       setRep(updated)
-      toast.success("Equipo marcado como entregado")
+      setShowEntregaModal(false)
+      toast.success("Equipo entregado al cliente")
+      try {
+        const garantiasData = await getGarantias({ id_reparacion: repId_n, limit: 1 })
+        setGarantia(garantiasData.items[0] ?? null)
+      } catch { /* optional */ }
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Error al marcar entregado")
     } finally {
       setSavingEntrega(false)
     }
-  }, [rep])
+  }, [rep, diasGarantia, repId_n])
 
   const estadoEsFinal = rep?.estado === "entregado"
 
@@ -234,6 +254,12 @@ export default function ReparacionDetailPage({
                     <h1 className="text-xl font-bold text-text-heading">
                       {repId(rep.id_reparacion)}
                     </h1>
+                    {garantiaReclamada && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                        <ShieldCheck className="h-3 w-3" />
+                        Reclamo de garantía #{garantiaReclamada.id_garantia}
+                      </span>
+                    )}
                   </div>
                   <div className="ml-10.5 space-y-0.5">
                     <p className="text-sm font-medium text-text-heading">
@@ -258,26 +284,26 @@ export default function ReparacionDetailPage({
                       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
                         {rep.monto_cotizado != null && (
                           <span className="text-xs text-gray-500">
+                            Precio:&nbsp;
                             <span className="font-medium text-gray-700">
                               S/{formatNum(rep.monto_cotizado)}
-                            </span>{" "}
-                            cotizado
+                            </span>
                           </span>
                         )}
                         {rep.total_pagado != null && rep.total_pagado > 0 && (
                           <span className="text-xs text-green-600">
+                            Pagado:&nbsp;
                             <span className="font-medium">
                               S/{formatNum(rep.total_pagado)}
-                            </span>{" "}
-                            pagado
+                            </span>
                           </span>
                         )}
                         {rep.saldo_pendiente != null && rep.saldo_pendiente > 0 && (
-                          <span className="text-xs text-amber-600">
-                            <span className="font-medium">
+                          <span className="text-xs font-medium text-amber-600">
+                            Falta:&nbsp;
+                            <span className="font-semibold">
                               S/{formatNum(rep.saldo_pendiente)}
-                            </span>{" "}
-                            pendiente
+                            </span>
                           </span>
                         )}
                       </div>
@@ -286,12 +312,15 @@ export default function ReparacionDetailPage({
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <EstadoBadge estado={rep.estado} size="md" />
+                  <p className="text-[11px] text-gray-500 max-w-[180px] text-right leading-snug">
+                    {ESTADO_DESC[rep.estado ?? ""] ?? ""}
+                  </p>
                   <p className="text-xs text-gray-400">
                     Ingresó {fmtFechaLarga(rep.fecha_ingreso)}
                   </p>
                   {rep.fecha_estimada && (
                     <p className="text-xs text-gray-400">
-                      Entrega est. {fmtFechaLarga(rep.fecha_estimada)}
+                      Listo aprox. {fmtFechaLarga(rep.fecha_estimada)}
                     </p>
                   )}
                 </div>
@@ -302,28 +331,23 @@ export default function ReparacionDetailPage({
                 <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
                   {rep.estado === "listo" && (
                     <Button
-                      onClick={handleMarkEntregadoFast}
-                      disabled={savingEntrega}
+                      onClick={() => setShowEntregaModal(true)}
                       size="sm"
-                      className="h-8 rounded-xl bg-green-700 text-xs text-white hover:bg-green-800"
+                      className="h-9 rounded-xl bg-green-700 text-xs text-white hover:bg-green-800"
                     >
-                      {savingEntrega ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <span className="flex items-center gap-1.5">
-                          <PackageCheck className="h-3.5 w-3.5" />
-                          Marcar entregado
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1.5">
+                        <PackageCheck className="h-3.5 w-3.5" />
+                        Entregar al cliente
+                      </span>
                     </Button>
                   )}
                   {!boleta && (
                     <button
                       onClick={() => setActiveTab("docs")}
-                      className="flex h-8 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                      className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
                     >
                       <FileText className="h-3.5 w-3.5" />
-                      Emitir boleta
+                      Generar comprobante
                     </button>
                   )}
                 </div>
@@ -332,7 +356,7 @@ export default function ReparacionDetailPage({
               {rep.checklist_estado && Object.keys(rep.checklist_estado).length > 0 && (
                 <div className="mt-4 border-t border-gray-100 pt-4">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    Estado físico al ingreso
+                    ¿Cómo llegó el equipo?
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(rep.checklist_estado).map(([k, v]) => (
@@ -382,39 +406,179 @@ export default function ReparacionDetailPage({
                       <span className="sr-only">Boleta pendiente</span>
                     </span>
                   )}
+                  {tab.id === "servicio" && rep.estado !== "entregado" && !(rep.fotos ?? []).some(f => f.etapa === rep.estado) && (
+                    <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-amber-400 animate-pulse">
+                      <span className="sr-only">Foto pendiente para esta etapa</span>
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
 
             {/* Active tab panel */}
-            {activeTab === "servicio" && (
-              <div role="tabpanel" id="panel-servicio" aria-labelledby="tab-servicio">
-                <TabServicio
-                  rep={rep}
-                  estadoEsFinal={estadoEsFinal}
-                  onRepUpdated={setRep}
-                />
-              </div>
-            )}
-            {activeTab === "pagos" && (
-              <div role="tabpanel" id="panel-pagos" aria-labelledby="tab-pagos">
-                <TabPagos rep={rep} onRepUpdated={setRep} />
-              </div>
-            )}
-            {activeTab === "docs" && (
-              <div role="tabpanel" id="panel-docs" aria-labelledby="tab-docs">
-                <TabDocs
-                  rep={rep}
-                  boleta={boleta}
-                  garantia={garantia}
-                  onBoletaEmitida={setBoleta}
-                  onRepUpdated={setRep}
-                />
-              </div>
-            )}
+            <AnimatePresence mode="wait">
+              {activeTab === "servicio" && (
+                <motion.div
+                  key="servicio"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  role="tabpanel" id="panel-servicio" aria-labelledby="tab-servicio"
+                >
+                  <TabServicio
+                    rep={rep}
+                    estadoEsFinal={estadoEsFinal}
+                    onRepUpdated={setRep}
+                    onEntregarClick={() => setShowEntregaModal(true)}
+                  />
+                </motion.div>
+              )}
+              {activeTab === "repuestos" && (
+                <motion.div
+                  key="repuestos"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  role="tabpanel" id="panel-repuestos" aria-labelledby="tab-repuestos"
+                >
+                  <TabRepuestos
+                    rep={rep}
+                    estadoEsFinal={estadoEsFinal}
+                    onRepUpdated={setRep}
+                  />
+                </motion.div>
+              )}
+              {activeTab === "pagos" && (
+                <motion.div
+                  key="pagos"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  role="tabpanel" id="panel-pagos" aria-labelledby="tab-pagos"
+                >
+                  <TabPagos rep={rep} onRepUpdated={setRep} />
+                </motion.div>
+              )}
+              {activeTab === "docs" && (
+                <motion.div
+                  key="docs"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  role="tabpanel" id="panel-docs" aria-labelledby="tab-docs"
+                >
+                  <TabDocs
+                    rep={rep}
+                    boleta={boleta}
+                    garantia={garantia}
+                    onBoletaEmitida={setBoleta}
+                    onRepUpdated={setRep}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </BlurFade>
         </div>
       </div>
+
+      {/* Modal de entrega con garantía */}
+      {showEntregaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !savingEntrega && setShowEntregaModal(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+            <button
+              onClick={() => setShowEntregaModal(false)}
+              disabled={savingEntrega}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 disabled:opacity-40"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
+                <PackageCheck className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-heading">Entregar equipo</h3>
+                <p className="text-xs text-gray-500">{rep.cliente} · {repId(rep.id_reparacion)}</p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck className="h-4 w-4 text-indigo-500" />
+                <label className="text-sm font-semibold text-text-heading">
+                  Días de garantía
+                </label>
+              </div>
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                {[0, 15, 30, 60, 90].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDiasGarantia(d)}
+                    className={cn(
+                      "rounded-xl border py-2 text-sm font-semibold transition-colors",
+                      diasGarantia === d
+                        ? d === 0
+                          ? "border-red-300 bg-red-50 text-red-700"
+                          : "border-indigo-300 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 text-gray-600 hover:bg-gray-50",
+                    )}
+                  >
+                    {d === 0 ? "Sin" : d}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={365}
+                  value={diasGarantia}
+                  onChange={(e) => setDiasGarantia(Math.max(0, Math.min(365, parseInt(e.target.value) || 0)))}
+                  className="w-20 rounded-xl border border-gray-200 px-3 py-2 text-sm text-center focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <span className="text-sm text-gray-500">días</span>
+                {diasGarantia === 0 && (
+                  <span className="text-xs text-amber-600">Sin garantía</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowEntregaModal(false)}
+                disabled={savingEntrega}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <Button
+                onClick={handleConfirmEntrega}
+                disabled={savingEntrega}
+                className="flex-1 rounded-xl bg-green-700 text-sm text-white hover:bg-green-800"
+              >
+                {savingEntrega ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <PackageCheck className="h-4 w-4" />
+                    Confirmar entrega
+                  </span>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

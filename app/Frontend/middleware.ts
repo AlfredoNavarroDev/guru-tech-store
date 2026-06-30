@@ -23,7 +23,7 @@ const ROUTE_ROLES: [string, string[]][] = [
   ['/dashboard/stock',       ['abastecedor']],
   ['/dashboard/items',       ['abastecedor']],
   ['/dashboard/ventas',      ['vendedor', 'propietario', 'gerente']],
-  ['/dashboard/clientes',    ['vendedor', 'propietario', 'gerente']],
+  ['/dashboard/clientes',    ['vendedor', 'propietario', 'gerente', 'tecnico']],
   ['/dashboard/catalogo',    ['vendedor', 'propietario', 'gerente']],
 ]
 

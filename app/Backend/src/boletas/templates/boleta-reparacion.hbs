@@ -338,16 +338,10 @@
       </div>
 
       <div class="totals-panel">
-        {{#if tieneLaborCost}}
+        {{#if tienePrecio}}
         <div class="total-row">
-          <span class="t-label">Mano de obra</span>
-          <span class="t-value">S/ {{laborCost}}</span>
-        </div>
-        {{/if}}
-        {{#if tieneSubtotalSeparado}}
-        <div class="total-row">
-          <span class="t-label">Subtotal</span>
-          <span class="t-value">S/ {{subtotal}}</span>
+          <span class="t-label">Precio del servicio</span>
+          <span class="t-value">S/ {{precioServicio}}</span>
         </div>
         {{/if}}
         {{#if tieneDescuento}}

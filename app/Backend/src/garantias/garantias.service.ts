@@ -7,13 +7,18 @@ import { DataSource } from 'typeorm';
 import type { JwtPayload } from '../common/types';
 import type { PaginatedResult } from '../common/dto/pagination.dto';
 import {
+  GarantiaNoActivaException,
   GarantiaNotFoundException,
+  GarantiaTipoInvalidoException,
   GarantiaYaExisteException,
   ReparacionNotFoundException,
 } from '../common/exceptions';
 import type { CreateGarantiaReparacionDto } from './dto/create-garantia-reparacion.dto';
+import type { CreateReclamoGarantiaDto } from './dto/create-reclamo-garantia.dto';
 import type { QueryGarantiasDto } from './dto/query-garantias.dto';
 import type { GarantiaResponseDto } from './dto/garantia-response.dto';
+import type { ReparacionResponseDto } from '../reparaciones/dto/reparacion-response.dto';
+import { ReparacionesService } from '../reparaciones/reparaciones.service';
 
 interface GarantiaRow {
   id_garantia: number;
@@ -28,6 +33,18 @@ interface GarantiaRow {
 
 interface CountRow {
   total: string;
+}
+
+interface ReclamoGarantiaRow {
+  id_garantia: number;
+  id_venta: number | null;
+  id_reparacion: number | null;
+  estado: string;
+  id_sede: number | null;
+  id_cliente: number | null;
+  marca: string | null;
+  modelo: string | null;
+  imei: string | null;
 }
 
 function mapToDto(row: GarantiaRow): GarantiaResponseDto {
@@ -52,7 +69,10 @@ function mapToDto(row: GarantiaRow): GarantiaResponseDto {
 
 @Injectable()
 export class GarantiasService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly reparacionesService: ReparacionesService,
+  ) {}
 
   async create(
     dto: CreateGarantiaReparacionDto,
@@ -89,6 +109,80 @@ export class GarantiasService {
       [dto.id_reparacion, dto.fecha_inicio, dto.fecha_fin],
     );
     return mapToDto(rows[0]);
+  }
+
+  // Reclamo de garantía de servicio técnico: crea reparación nueva ligada a la
+  // garantía y la consume (invalidada) en la misma operación.
+  async crearReclamo(
+    idGarantia: number,
+    dto: CreateReclamoGarantiaDto,
+    user: JwtPayload,
+  ): Promise<ReparacionResponseDto> {
+    if (user.rol !== 'tecnico') throw new ForbiddenException();
+
+    const [garantia] = await this.dataSource.query<ReclamoGarantiaRow[]>(
+      `SELECT g.id_garantia, g.id_venta, g.id_reparacion, g.estado,
+              r.id_sede, r.id_cliente, r.marca, r.modelo, r.imei
+       FROM garantias g
+       LEFT JOIN reparaciones r ON r.id_reparacion = g.id_reparacion
+       WHERE g.id_garantia = $1`,
+      [idGarantia],
+    );
+    // Tipo check runs before sede check: venta garantías have no
+    // id_reparacion, so there's no r.id_sede to compare against.
+    if (!garantia) throw new GarantiaNotFoundException(idGarantia);
+    if (garantia.id_venta !== null) {
+      throw new GarantiaTipoInvalidoException(idGarantia);
+    }
+    if (garantia.id_sede !== user.id_sede) {
+      throw new GarantiaNotFoundException(idGarantia);
+    }
+    if (garantia.estado !== 'activa') {
+      throw new GarantiaNoActivaException(idGarantia);
+    }
+
+    const [estadoInicial] = await this.dataSource.query<
+      { id_estado: number }[]
+    >(`SELECT id_estado FROM estados_reparacion ORDER BY orden ASC LIMIT 1`);
+
+    let nuevaReparacionId!: number;
+    await this.dataSource.transaction(async (manager) => {
+      const [inserted] = await manager.query<{ id_reparacion: number }[]>(
+        `INSERT INTO reparaciones
+           (id_cliente, id_tecnico, id_sede, marca, modelo, imei,
+            esta_encendido, checklist_estado, diagnostico_tecnico,
+            fecha_estimada, id_estado, id_garantia_reclamada)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         RETURNING id_reparacion`,
+        [
+          garantia.id_cliente,
+          user.sub,
+          user.id_sede,
+          dto.marca ?? garantia.marca,
+          dto.modelo ?? garantia.modelo,
+          dto.imei ?? garantia.imei,
+          dto.esta_encendido ?? null,
+          dto.checklist_estado ?? null,
+          dto.diagnostico_tecnico ?? null,
+          dto.fecha_estimada ?? null,
+          estadoInicial.id_estado,
+          idGarantia,
+        ],
+      );
+      nuevaReparacionId = inserted.id_reparacion;
+
+      await manager.query(
+        `UPDATE garantias
+         SET estado = 'invalidada', motivo_invalidacion = $2, updated_at = now()
+         WHERE id_garantia = $1`,
+        [
+          idGarantia,
+          `Reclamo de garantía utilizado (reparación #${nuevaReparacionId})`,
+        ],
+      );
+    });
+
+    return this.reparacionesService.findOne(nuevaReparacionId, user);
   }
 
   async findAll(

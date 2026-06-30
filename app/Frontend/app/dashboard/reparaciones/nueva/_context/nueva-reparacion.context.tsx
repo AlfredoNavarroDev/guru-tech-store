@@ -21,6 +21,7 @@ export type RepuestoSeleccionado = {
   precio_compra_actual: number
   cantidad: number
   precio_cobrado: number
+  stock_disponible: number
 }
 
 export type MetodoPago = "efectivo" | "tarjeta" | "transferencia" | "yape" | "plin" | "otro"

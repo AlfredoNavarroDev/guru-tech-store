@@ -16,6 +16,7 @@ export interface Item {
   imagen_url: string | null
   created_at: string
   updated_at: string | null
+  stock_disponible: number
 }
 
 export interface ItemsResponse {

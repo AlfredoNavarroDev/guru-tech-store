@@ -10,6 +10,8 @@ export interface ClienteVista {
   es_extranjero: boolean
   total_compras: number
   ultima_compra: string | null
+  total_reparaciones: number
+  ultima_reparacion: string | null
 }
 
 export interface CreateClienteInput {

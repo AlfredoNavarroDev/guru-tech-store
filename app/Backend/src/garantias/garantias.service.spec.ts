@@ -3,10 +3,13 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { GarantiasService } from './garantias.service';
 import {
+  GarantiaNoActivaException,
   GarantiaNotFoundException,
+  GarantiaTipoInvalidoException,
   GarantiaYaExisteException,
   ReparacionNotFoundException,
 } from '../common/exceptions';
+import { ReparacionesService } from '../reparaciones/reparaciones.service';
 import type { JwtPayload } from '../common/types';
 import type { QueryGarantiasDto } from './dto/query-garantias.dto';
 
@@ -37,15 +40,18 @@ const garantiaRow = {
 
 describe('GarantiasService', () => {
   let service: GarantiasService;
-  let dataSource: { query: jest.Mock };
+  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let reparacionesService: { findOne: jest.Mock };
 
   beforeEach(async () => {
-    dataSource = { query: jest.fn() };
+    dataSource = { query: jest.fn(), transaction: jest.fn() };
+    reparacionesService = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GarantiasService,
         { provide: DataSource, useValue: dataSource },
+        { provide: ReparacionesService, useValue: reparacionesService },
       ],
     }).compile();
 
@@ -164,6 +170,104 @@ describe('GarantiasService', () => {
       await expect(service.findOne(999, mockTecnico)).rejects.toThrow(
         GarantiaNotFoundException,
       );
+    });
+  });
+
+  // ── crearReclamo ─────────────────────────────────────────────────────────
+
+  describe('crearReclamo', () => {
+    const garantiaReclamableRow = {
+      id_garantia: 1,
+      id_venta: null,
+      id_reparacion: 7,
+      estado: 'activa',
+      id_sede: 2,
+      id_cliente: 3,
+      marca: 'Samsung',
+      modelo: 'Galaxy S21',
+      imei: '012345678901234',
+    };
+
+    it('crea reparacion-reclamo, invalida garantia y devuelve la reparacion nueva', async () => {
+      dataSource.query
+        .mockResolvedValueOnce([garantiaReclamableRow]) // SELECT garantia + reparacion
+        .mockResolvedValueOnce([{ id_estado: 1 }]); // SELECT primer estado
+      dataSource.transaction.mockImplementation(
+        async (cb: (m: unknown) => Promise<void>) => {
+          const manager = {
+            query: jest
+              .fn()
+              .mockResolvedValueOnce([{ id_reparacion: 55 }]) // INSERT reparacion
+              .mockResolvedValueOnce(undefined), // UPDATE garantia
+          };
+          await cb(manager);
+        },
+      );
+      reparacionesService.findOne.mockResolvedValueOnce({
+        id_reparacion: 55,
+        id_garantia_reclamada: 1,
+      });
+
+      const result = await service.crearReclamo(1, {}, mockTecnico);
+
+      expect(result.id_reparacion).toBe(55);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(reparacionesService.findOne).toHaveBeenCalledWith(55, mockTecnico);
+    });
+
+    it('lanza ForbiddenException si rol=vendedor', async () => {
+      await expect(
+        service.crearReclamo(1, {}, mockVendedor),
+      ).rejects.toThrow(ForbiddenException);
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('lanza GarantiaNotFoundException si no existe', async () => {
+      dataSource.query.mockResolvedValueOnce([]);
+
+      await expect(
+        service.crearReclamo(999, {}, mockTecnico),
+      ).rejects.toThrow(GarantiaNotFoundException);
+    });
+
+    it('lanza GarantiaNotFoundException si la reparacion es de otra sede', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { ...garantiaReclamableRow, id_sede: 99 },
+      ]);
+
+      await expect(
+        service.crearReclamo(1, {}, mockTecnico),
+      ).rejects.toThrow(GarantiaNotFoundException);
+    });
+
+    it('lanza GarantiaTipoInvalidoException si la garantia es de venta', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { ...garantiaReclamableRow, id_venta: 42, id_reparacion: null, id_sede: null },
+      ]);
+
+      await expect(
+        service.crearReclamo(1, {}, mockTecnico),
+      ).rejects.toThrow(GarantiaTipoInvalidoException);
+    });
+
+    it('lanza GarantiaNoActivaException si la garantia esta vencida', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { ...garantiaReclamableRow, estado: 'vencida' },
+      ]);
+
+      await expect(
+        service.crearReclamo(1, {}, mockTecnico),
+      ).rejects.toThrow(GarantiaNoActivaException);
+    });
+
+    it('lanza GarantiaNoActivaException si la garantia ya esta invalidada', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { ...garantiaReclamableRow, estado: 'invalidada' },
+      ]);
+
+      await expect(
+        service.crearReclamo(1, {}, mockTecnico),
+      ).rejects.toThrow(GarantiaNoActivaException);
     });
   });
 });

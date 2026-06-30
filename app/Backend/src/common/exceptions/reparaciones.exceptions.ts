@@ -40,3 +40,33 @@ export class ReparacionEntregadaException extends AppException {
     );
   }
 }
+
+export class EstadoSaltoInvalidoException extends AppException {
+  constructor(actual: string, destino: string) {
+    super(
+      'ESTADO_SALTO_INVALIDO',
+      `No se puede saltar de "${actual}" a "${destino}". Los estados deben avanzar en orden`,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class PagoExcedeSaldoException extends AppException {
+  constructor(monto: number, saldo: number) {
+    super(
+      'PAGO_EXCEDE_SALDO',
+      `El monto S/${monto.toFixed(2)} excede el saldo pendiente de S/${saldo.toFixed(2)}`,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class PagoSinPrecioException extends AppException {
+  constructor(id: number) {
+    super(
+      'PAGO_SIN_PRECIO',
+      `Reparación ${id} no tiene precio definido. Defina el precio antes de registrar pagos`,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}

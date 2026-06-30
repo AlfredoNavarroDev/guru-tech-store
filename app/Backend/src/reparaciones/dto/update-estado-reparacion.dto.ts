@@ -44,4 +44,14 @@ export class UpdateEstadoReparacionDto {
     message: 'fecha_estimada debe tener formato YYYY-MM-DD',
   })
   fecha_estimada?: string;
+
+  @ApiPropertyOptional({
+    example: 30,
+    description: 'Días de garantía al marcar como entregado (por defecto 30)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  dias_garantia?: number;
 }

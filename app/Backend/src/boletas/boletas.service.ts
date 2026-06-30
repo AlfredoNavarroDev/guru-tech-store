@@ -175,9 +175,8 @@ interface BoletaReparacionTemplateData {
   fechaEstimada: string | null;
   tieneRepuestos: boolean;
   repuestosSinPrecio: { nombre: string; cantidad: number }[];
-  tieneLaborCost: boolean;
-  laborCost: string;
-  tieneSubtotalSeparado: boolean;
+  tienePrecio: boolean;
+  precioServicio: string;
   subtotal: string;
   tieneDescuento: boolean;
   descuento: string;
@@ -727,11 +726,12 @@ WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
     );
 
     const head = rows[0];
-    // Si hay repuestos, subtotal = suma de importes; si no, usar monto_cotizado.
-    const subtotal =
-      head.importe !== null
-        ? rows.reduce((s, r) => s + Number(r.importe), 0)
-        : Number(head.monto_cotizado ?? 0);
+    // monto_cotizado = mano de obra/servicio; subtotal suma repuestos usados.
+    const repuestosCost = rows.reduce(
+      (s, r) => s + (r.importe !== null ? Number(r.importe) : 0),
+      0,
+    );
+    const subtotal = Number(head.monto_cotizado ?? 0) + repuestosCost;
 
     const descuento = Number(head.monto_descuento);
     const tipo = head.tipo_descuento;
@@ -778,9 +778,7 @@ WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
       ? rows.map((r) => ({ nombre: r.producto!, cantidad: r.cantidad! }))
       : [];
 
-    const laborCost = Number(head.monto_cotizado ?? 0);
-    const tieneLaborCost = laborCost > 0;
-    const tieneSubtotalSeparado = tieneRepuestos && tieneLaborCost;
+    const tienePrecio = subtotal > 0;
 
     return {
       logoBase64: this.logoBase64,
@@ -818,9 +816,8 @@ WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
         : null,
       tieneRepuestos,
       repuestosSinPrecio,
-      tieneLaborCost,
-      laborCost: this.fmtMoney(laborCost),
-      tieneSubtotalSeparado,
+      tienePrecio,
+      precioServicio: this.fmtMoney(subtotal),
       subtotal: this.fmtMoney(subtotal),
       tieneDescuento: descuento > 0,
       descuento: this.fmtMoney(descuentoSoles),

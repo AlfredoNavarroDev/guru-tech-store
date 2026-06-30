@@ -9,12 +9,15 @@ import {
   FileX,
   ChevronLeft,
   ChevronRight,
+  Wrench,
+  Loader2,
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSession } from "@/lib/api/auth"
-import { getGarantias, type GarantiaResponse } from "@/lib/api/garantias"
+import { getGarantias, crearReclamoGarantia, type GarantiaResponse } from "@/lib/api/garantias"
 import { ApiError } from "@/lib/api/client"
+import { toast } from "sonner"
 
 const PAGE_SIZE = 20
 
@@ -68,6 +71,21 @@ export default function GarantiasPage() {
   const [error, setError] = useState<string | null>(null)
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("")
   const rol = getSession()?.rol ?? ""
+
+  const [reclamando, setReclamando] = useState<number | null>(null)
+
+  const handleUsarGarantia = async (idGarantia: number) => {
+    setReclamando(idGarantia)
+    try {
+      const nueva = await crearReclamoGarantia(idGarantia)
+      toast.success("Reclamo creado, reparación lista para trabajar")
+      router.push(`/dashboard/reparaciones/${nueva.id_reparacion}`)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Error creando reclamo")
+    } finally {
+      setReclamando(null)
+    }
+  }
 
   const load = useCallback(
     async (p: number, estado: EstadoFilter) => {
@@ -212,6 +230,18 @@ export default function GarantiasPage() {
                       {fmtDate(g.fecha_inicio)} → {fmtDate(g.fecha_fin)}
                     </p>
                   </div>
+                  {rol === "tecnico" && g.tipo === "reparacion" && g.estado === "activa" && (
+                    <button
+                      onClick={() => handleUsarGarantia(g.id_garantia)}
+                      disabled={reclamando === g.id_garantia}
+                      className="shrink-0 flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+                    >
+                      {reclamando === g.id_garantia
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Wrench className="h-3.5 w-3.5" />}
+                      Usar garantía
+                    </button>
+                  )}
                   <div className="shrink-0">
                     <EstadoBadge estado={g.estado} />
                   </div>

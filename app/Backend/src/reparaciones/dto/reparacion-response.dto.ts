@@ -52,4 +52,5 @@ export class ReparacionResponseDto {
   @ApiPropertyOptional() saldo_pendiente?: number;
   @ApiPropertyOptional()
   fotos: { url: string; etapa: string; created_at: string }[] | null;
+  @ApiPropertyOptional() id_garantia_reclamada: number | null;
 }

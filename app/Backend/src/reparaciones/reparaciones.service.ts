@@ -19,6 +19,7 @@ import type { PaginatedResult } from '../common/dto/pagination.dto';
 import type { JwtPayload } from '../common/types';
 import {
   EstadoReparacionNotFoundException,
+  EstadoSaltoInvalidoException,
   ReparacionEntregadaException,
   ReparacionNotFoundException,
   RepuestoUsadoNotFoundException,
@@ -53,6 +54,7 @@ interface ReparacionRow {
   created_at: Date;
   updated_at: Date | null;
   fotos: { url: string; etapa: string; created_at: string }[] | null;
+  id_garantia_reclamada: number | null;
 }
 
 interface RepuestoRow {
@@ -81,6 +83,7 @@ interface EstadoRow {
   id_estado: number;
   nombre: string;
   es_final: boolean;
+  orden: number;
 }
 
 // Servicio de reparaciones. Gestiona ingreso de equipos, estados, repuestos y pagos asociados.
@@ -195,7 +198,7 @@ export class ReparacionesService {
            r.fecha_estimada, r.fecha_terminado, r.fecha_entrega_cliente,
            r.monto_cotizado, r.monto_descuento,
            r.tipo_descuento, r.justificacion_descuento, r.tipo_servicio,
-           r.created_at, r.updated_at, r.fotos
+           r.created_at, r.updated_at, r.fotos, r.id_garantia_reclamada
          FROM reparaciones r
          LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN empleados e ON e.id_empleado = r.id_tecnico
@@ -231,7 +234,7 @@ export class ReparacionesService {
            r.fecha_estimada, r.fecha_terminado, r.fecha_entrega_cliente,
            r.monto_cotizado, r.monto_descuento,
            r.tipo_descuento, r.justificacion_descuento, r.tipo_servicio,
-           r.created_at, r.updated_at, r.fotos
+           r.created_at, r.updated_at, r.fotos, r.id_garantia_reclamada
          FROM reparaciones r
          LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
          LEFT JOIN empleados e ON e.id_empleado = r.id_tecnico
@@ -261,14 +264,14 @@ export class ReparacionesService {
       pagos.reduce((s, p) => s + parseFloat(String(p.monto)), 0).toFixed(2),
     );
 
-    // Base para calcular saldo: monto_cotizado si existe, o suma de precio_cobrado de repuestos.
+    // Base para calcular saldo: monto_cotizado (mano de obra) + suma de precio_cobrado de repuestos.
+    const repuestosCost = repuestos.reduce(
+      (s, r) => s + parseFloat(String(r.precio_cobrado)) * r.cantidad,
+      0,
+    );
     const montoCotizado =
-      row.monto_cotizado !== null
-        ? parseFloat(String(row.monto_cotizado))
-        : repuestos.reduce(
-            (s, r) => s + parseFloat(String(r.precio_cobrado)) * r.cantidad,
-            0,
-          );
+      (row.monto_cotizado !== null ? parseFloat(String(row.monto_cotizado)) : 0) +
+      repuestosCost;
     const montoDesc = parseFloat(String(row.monto_descuento));
     let totalCobrar: number;
     if (row.tipo_descuento === 'porcentaje') {
@@ -304,11 +307,23 @@ export class ReparacionesService {
     }
 
     const [estadoNuevo] = await this.dataSource.query<EstadoRow[]>(
-      `SELECT id_estado, nombre, es_final FROM estados_reparacion WHERE id_estado = $1`,
+      `SELECT id_estado, nombre, es_final, orden FROM estados_reparacion WHERE id_estado = $1`,
       [dto.id_estado],
     );
     if (!estadoNuevo)
       throw new EstadoReparacionNotFoundException(dto.id_estado);
+
+    const [estadoActual] = await this.dataSource.query<{ orden: number }[]>(
+      `SELECT orden FROM estados_reparacion WHERE id_estado = $1`,
+      [reparacion.raw.id_estado],
+    );
+
+    if (estadoActual && estadoNuevo.orden > estadoActual.orden + 1) {
+      throw new EstadoSaltoInvalidoException(
+        reparacion.estado ?? 'desconocido',
+        estadoNuevo.nombre,
+      );
+    }
 
     const updates: Partial<Reparacion> = { id_estado: dto.id_estado };
 
@@ -363,6 +378,27 @@ export class ReparacionesService {
       `UPDATE reparaciones SET ${setClauses.join(', ')} WHERE id_reparacion = $1`,
       params,
     );
+
+    // Auto-create garantía when delivered, if none exists yet.
+    // Reclamo de garantía (id_garantia_reclamada set) never gets a new one.
+    if (
+      estadoNuevo.nombre === 'entregado' &&
+      !reparacion.raw.id_garantia_reclamada
+    ) {
+      const dias = dto.dias_garantia ?? 30;
+      const existing = await this.dataSource.query<{ id_garantia: number }[]>(
+        `SELECT id_garantia FROM garantias WHERE id_reparacion = $1`,
+        [id],
+      );
+      if (!existing.length && dias > 0) {
+        await this.dataSource.query(
+          `INSERT INTO garantias (id_reparacion, fecha_inicio, fecha_fin, estado)
+           VALUES ($1, CURRENT_DATE, CURRENT_DATE + $2 * INTERVAL '1 day', 'activa')`,
+          [id, dias],
+        );
+      }
+    }
+
     return this.findOne(id, user);
   }
 
@@ -529,6 +565,7 @@ export class ReparacionesService {
       created_at: row.created_at,
       updated_at: row.updated_at ?? null,
       fotos: row.fotos ?? null,
+      id_garantia_reclamada: row.id_garantia_reclamada ?? null,
     };
   }
 
