@@ -91,6 +91,7 @@ describe('AuthService', () => {
         rol: 'vendedor',
         id_sede: 2,
         sede: 'Sede Central',
+        id_empleado: 1,
       });
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: 1,
@@ -198,6 +199,7 @@ describe('AuthService', () => {
         rol: 'vendedor',
         id_sede: 2,
         sede: 'Sede Central',
+        id_empleado: 1,
       });
       expect(jwtService.verify).not.toHaveBeenCalled();
       expect(result.refresh_token).toMatch(

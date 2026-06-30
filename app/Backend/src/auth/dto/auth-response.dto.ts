@@ -24,4 +24,8 @@ export class AuthResponseDto {
   // Nombre legible de la sede para UI.
   @ApiProperty({ description: 'Nombre de la sede del empleado' })
   sede: string;
+
+  // ID numérico del empleado, usado por el frontend para identificar "mis reparaciones".
+  @ApiProperty({ description: 'ID del empleado' })
+  id_empleado: number;
 }

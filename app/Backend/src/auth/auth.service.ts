@@ -66,6 +66,7 @@ export class AuthService {
       rol,
       id_sede: empleado.id_sede ?? null,
       sede: sedeNombre,
+      id_empleado: empleado.id_empleado,
     };
   }
 
@@ -108,6 +109,7 @@ export class AuthService {
       rol,
       id_sede: empleado.id_sede ?? null,
       sede: sedeNombre,
+      id_empleado: empleado.id_empleado,
     };
   }
 
