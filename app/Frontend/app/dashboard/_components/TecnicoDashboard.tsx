@@ -243,7 +243,7 @@ export function TecnicoDashboard() {
                 {!loading && !error && (
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
-                      {["ID", "Cliente", "Equipo", "Estado", "Ingreso", "Total S/", ""].map((h) => (
+                      {["ID", "Cliente", "Equipo", "Técnico", "Estado", "Ingreso", "Total S/", ""].map((h) => (
                         <th
                           key={h}
                           className={cn(
@@ -264,6 +264,7 @@ export function TecnicoDashboard() {
                         <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                         <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
                         <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                        <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                         <td className="px-4 py-3"><Skeleton className="h-6 w-28 rounded-full" /></td>
                         <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                         <td className="px-4 py-3"><Skeleton className="h-4 w-14 ml-auto" /></td>
@@ -272,28 +273,30 @@ export function TecnicoDashboard() {
                     ))
                   ) : !error && filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">
+                      <td colSpan={8} className="px-6 py-12 text-center text-sm text-text-muted">
                         Sin resultados
                       </td>
                     </tr>
                   ) : !error ? (
-                    filtered.map((r, i) => (
+                    filtered.map((r, i) => {
+                      const esMiReparacion = r.id_tecnico === session?.id_empleado
+                      return (
                       <motion.tr
                         key={r.id_reparacion}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03, duration: 0.2 }}
                         onClick={() => router.push(`/dashboard/reparaciones/${r.id_reparacion}`)}
-                        className="cursor-pointer hover:bg-blue-50/60 transition-colors"
+                        className={cn(
+                          "cursor-pointer transition-colors hover:bg-blue-50/60",
+                          esMiReparacion && "border-l-2 border-indigo-400 bg-indigo-50/40",
+                        )}
                       >
                         <td className="px-4 py-3 font-mono text-xs text-text-muted whitespace-nowrap">
                           {repId(r.id_reparacion)}
                         </td>
                         <td className="px-4 py-3 min-w-[130px]">
                           <div className="font-semibold text-text-heading">{r.cliente ?? "—"}</div>
-                          {r.tecnico && (
-                            <div className="text-xs text-text-muted">Téc: {r.tecnico}</div>
-                          )}
                         </td>
                         <td className="px-4 py-3 min-w-[120px]">
                           <div className="font-medium text-text-heading">
@@ -302,6 +305,9 @@ export function TecnicoDashboard() {
                           {r.imei && (
                             <div className="font-mono text-[10px] text-gray-400">{r.imei}</div>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-text-muted whitespace-nowrap">
+                          {r.tecnico ?? "—"}
                         </td>
                         <td className="px-4 py-3">
                           <EstadoBadge estado={r.estado} />
@@ -321,7 +327,8 @@ export function TecnicoDashboard() {
                           <ChevronRight className="h-4 w-4 text-gray-300 ml-auto" />
                         </td>
                       </motion.tr>
-                    ))
+                      )
+                    })
                   ) : null}
                 </tbody>
               </table>
