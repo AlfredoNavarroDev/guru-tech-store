@@ -4,6 +4,7 @@ export interface AuthSession {
   rol: string
   id_sede: number
   sede: string
+  id_empleado: number
 }
 
 type BaseSession = Omit<AuthSession, 'rol'>
@@ -30,5 +31,6 @@ export function normalizeSession(session: StoredSession): AuthSession {
     rol: role,
     id_sede: session.id_sede,
     sede: session.sede,
+    id_empleado: session.id_empleado,
   }
 }

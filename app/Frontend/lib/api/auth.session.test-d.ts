@@ -6,6 +6,7 @@ const backendSession = normalizeSession({
   rol: 'administrador',
   id_sede: 1,
   sede: 'Principal',
+  id_empleado: 1,
 })
 
 const legacySession = normalizeSession({
@@ -14,6 +15,7 @@ const legacySession = normalizeSession({
   roles: ['vendedor'],
   id_sede: 1,
   sede: 'Principal',
+  id_empleado: 2,
 })
 
 backendSession satisfies {
