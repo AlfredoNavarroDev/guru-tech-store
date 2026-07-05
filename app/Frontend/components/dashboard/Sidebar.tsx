@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
   Boxes, ClipboardList, ShieldCheck, Wrench, Truck,
-  ArrowLeftRight,
+  ArrowLeftRight, History,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
@@ -55,6 +55,7 @@ const roleNavLinks = {
   tecnico: [
     { href: "/dashboard",              label: "Resumen",      icon: LayoutDashboard },
     { href: "/dashboard/reparaciones", label: "Reparaciones", icon: Wrench },
+    { href: "/dashboard/historial",    label: "Historial",    icon: History },
     { href: "/dashboard/clientes",     label: "Clientes",     icon: UserRound },
     { href: "/dashboard/garantias",    label: "Garantías",    icon: ShieldCheck },
   ],

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle2, AlertCircle, FileX,
-  ChevronLeft, ChevronRight, Search, User, Wrench,
+  ChevronLeft, ChevronRight, Search, User, Wrench, X,
 } from "lucide-react"
 import { motion } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
@@ -35,18 +35,28 @@ function initials(name: string) {
 
 export default function HistorialPage() {
   const router = useRouter()
-  const [items, setItems]     = useState<ReparacionResponse[]>([])
-  const [total, setTotal]     = useState(0)
-  const [page, setPage]       = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
-  const [search, setSearch]   = useState("")
+  const [items, setItems]         = useState<ReparacionResponse[]>([])
+  const [total, setTotal]         = useState(0)
+  const [page, setPage]           = useState(1)
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
+  const [search, setSearch]       = useState("")
+  const [fechaDesde, setFechaDesde] = useState("")
+  const [fechaHasta, setFechaHasta] = useState("")
 
-  const load = useCallback(async (p: number) => {
+  const hasDateFilter = fechaDesde !== "" || fechaHasta !== ""
+
+  const load = useCallback(async (p: number, desde: string, hasta: string) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await getReparaciones({ id_estado: 4, page: p, limit: PAGE_SIZE })
+      const res = await getReparaciones({
+        id_estado: 4,
+        page: p,
+        limit: PAGE_SIZE,
+        ...(desde && { fecha_desde: desde }),
+        ...(hasta && { fecha_hasta: hasta }),
+      })
       setItems(res.items)
       setTotal(res.total)
     } catch (e) {
@@ -57,8 +67,24 @@ export default function HistorialPage() {
   }, [])
 
   useEffect(() => {
-    void load(page)
-  }, [load, page])
+    void load(page, fechaDesde, fechaHasta)
+  }, [load, page, fechaDesde, fechaHasta])
+
+  function handleFechaDesde(v: string) {
+    setFechaDesde(v)
+    setPage(1)
+  }
+
+  function handleFechaHasta(v: string) {
+    setFechaHasta(v)
+    setPage(1)
+  }
+
+  function clearDates() {
+    setFechaDesde("")
+    setFechaHasta("")
+    setPage(1)
+  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -132,16 +158,44 @@ export default function HistorialPage() {
         </div>
       </BlurFade>
 
-      {/* Search */}
+      {/* Search + Fecha filters */}
       <BlurFade delay={0.06} duration={0.4}>
-        <div className="relative mb-5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar cliente, equipo, ID..."
-            className="pl-9 bg-white"
-          />
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente, equipo, ID..."
+              className="pl-9 bg-white"
+            />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <input
+              type="date"
+              value={fechaDesde}
+              onChange={(e) => handleFechaDesde(e.target.value)}
+              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              title="Desde"
+            />
+            <span className="text-xs text-gray-400">—</span>
+            <input
+              type="date"
+              value={fechaHasta}
+              onChange={(e) => handleFechaHasta(e.target.value)}
+              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              title="Hasta"
+            />
+            {hasDateFilter && (
+              <button
+                onClick={clearDates}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                title="Limpiar fechas"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </BlurFade>
 
@@ -179,7 +233,7 @@ export default function HistorialPage() {
             </div>
             <p className="text-sm font-medium text-red-600">{error}</p>
             <button
-              onClick={() => load(page)}
+              onClick={() => load(page, fechaDesde, fechaHasta)}
               className="rounded-xl border border-red-200 bg-white px-4 py-2 text-xs text-red-600 hover:bg-red-50"
             >
               Reintentar
