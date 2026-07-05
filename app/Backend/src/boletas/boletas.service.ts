@@ -513,20 +513,7 @@ export class BoletasService implements OnModuleInit {
     await this.assertCambioInSede(idCambio, user.id_sede!);
 
     const [cambioRow] = await this.dataSource.query<CambioBolRow[]>(
-      `SELECT cp.id_cambio, cp.id_sede, cp.id_empleado,
-              cp.cantidad, cp.precio_devuelto, cp.precio_entregado,
-              cp.diferencia_cobrada, cp.metodo_pago_dif,
-              cp.motivo, cp.detalle, cp.fecha_cambio, cp.id_venta_origen,
-              idev.nombre AS nombre_item_devuelto, idev.sku AS sku_devuelto,
-              ient.nombre AS nombre_item_entregado, ient.sku AS sku_entregado,
-              s.nombre AS sede_nombre, s.direccion AS sede_direccion, s.telefono AS sede_telefono,
-              e.nombre_completo AS vendedor
-       FROM cambios_producto cp
-       JOIN items idev ON idev.id_item = cp.id_item_devuelto
-       JOIN items ient ON ient.id_item = cp.id_item_entregado
-       JOIN sedes s ON s.id_sede = cp.id_sede
-       JOIN empleados e ON e.id_empleado = cp.id_empleado
-       WHERE cp.id_cambio = $1 AND cp.id_sede = $2`,
+      `SELECT * FROM v_boleta_cambio WHERE id_cambio = $1 AND id_sede = $2`,
       [idCambio, user.id_sede!],
     );
     if (!cambioRow)
@@ -697,24 +684,7 @@ export class BoletasService implements OnModuleInit {
     subtotal: number;
   }> {
     const rows = await this.dataSource.query<BolReparacionRow[]>(
-      `SELECT
-  r.id_reparacion, r.id_sede,
-  s.nombre AS sede_nombre, s.direccion AS sede_direccion, s.telefono AS sede_telefono,
-  e.nombre_completo AS tecnico,
-  r.fecha_ingreso, r.monto_cotizado, r.monto_descuento, r.tipo_descuento,
-  r.id_cliente, c.nombre_completo AS cliente_nombre,
-  c.tipo_documento AS cliente_tipo_doc, c.nro_documento AS cliente_nro_doc,
-  r.marca, r.modelo, r.tipo_servicio, r.diagnostico_tecnico, r.fecha_estimada,
-  i.nombre AS producto, i.sku,
-  rru.cantidad, rru.precio_cobrado,
-  (rru.cantidad * rru.precio_cobrado) AS importe
-FROM reparaciones r
-JOIN sedes s ON s.id_sede = r.id_sede
-JOIN empleados e ON e.id_empleado = r.id_tecnico
-LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
-LEFT JOIN reparacion_repuestos_usados rru ON rru.id_reparacion = r.id_reparacion
-LEFT JOIN items i ON i.id_item = rru.id_item
-WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
+      `SELECT * FROM v_boleta_reparacion WHERE id_reparacion = $1 AND id_sede = $2`,
       [idReparacion, idSede],
     );
     if (!rows.length)
@@ -808,11 +778,14 @@ WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
         year: 'numeric',
       }),
       fechaEstimada: head.fecha_estimada
-        ? new Date(head.fecha_estimada + 'T00:00:00').toLocaleDateString('es-PE', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          })
+        ? new Date(head.fecha_estimada + 'T00:00:00').toLocaleDateString(
+            'es-PE',
+            {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            },
+          )
         : null,
       tieneRepuestos,
       repuestosSinPrecio,
@@ -824,8 +797,7 @@ WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
       descuentoLabel: tipo === 'porcentaje' ? `${descuento}%` : '',
       total: this.fmtMoney(total),
       pagos: pagosRows.map((p) => ({
-        metodo:
-          p.metodo_pago.charAt(0).toUpperCase() + p.metodo_pago.slice(1),
+        metodo: p.metodo_pago.charAt(0).toUpperCase() + p.metodo_pago.slice(1),
         monto: this.fmtMoney(Number(p.monto)),
       })),
     };

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SimplifyEstadosReparacion1782600000001
-  implements MigrationInterface
-{
+export class SimplifyEstadosReparacion1782600000001 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     // Remap existing reparaciones to the new 4-state IDs:
     //   old 1 (pendiente)           → new 1 (pendiente)

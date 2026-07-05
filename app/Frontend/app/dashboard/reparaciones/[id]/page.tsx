@@ -114,6 +114,11 @@ export default function ReparacionDetailPage({
     return () => obs.disconnect()
   }, [loading])
 
+  const handleTabChange = useCallback((tab: TabId) => {
+    setActiveTab(tab)
+    document.querySelector("main")?.scrollTo({ top: 0, behavior: "instant" })
+  }, [])
+
   const handleConfirmEntrega = useCallback(async () => {
     if (!rep) return
     setSavingEntrega(true)
@@ -140,7 +145,7 @@ export default function ReparacionDetailPage({
 
   if (loading) {
     return (
-      <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
+      <div className="bg-bg-main p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-3xl space-y-4">
           <Skeleton className="h-5 w-16 rounded-md" />
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -184,7 +189,7 @@ export default function ReparacionDetailPage({
 
   if (error || !rep) {
     return (
-      <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
+      <div className="bg-bg-main p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-3xl">
           <button
             onClick={() => router.back()}
@@ -202,12 +207,12 @@ export default function ReparacionDetailPage({
   }
 
   return (
-    <div className="min-h-full bg-bg-main">
+    <div className="bg-bg-main">
       {/* Sticky mini-header */}
       <div
         className={cn(
           "sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm transition-all duration-200",
-          showSticky ? "opacity-100" : "opacity-0 pointer-events-none",
+          showSticky ? "opacity-100 h-12" : "opacity-0 pointer-events-none h-0 overflow-hidden",
         )}
       >
         <div className="mx-auto max-w-3xl flex items-center justify-between h-12 px-4 sm:px-6 lg:px-8">
@@ -280,9 +285,16 @@ export default function ReparacionDetailPage({
                       </p>
                     )}
                     {/* Financial snapshot */}
-                    {(rep.monto_cotizado != null || rep.total_pagado != null) && (
+                    {(rep.monto_total != null || rep.monto_cotizado != null || rep.total_pagado != null) && (
                       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                        {rep.monto_cotizado != null && (
+                        {rep.monto_total != null && rep.monto_total > 0 ? (
+                          <span className="text-xs text-gray-500">
+                            Total:&nbsp;
+                            <span className="font-medium text-gray-700">
+                              S/{formatNum(rep.monto_total)}
+                            </span>
+                          </span>
+                        ) : rep.monto_cotizado != null && (
                           <span className="text-xs text-gray-500">
                             Precio:&nbsp;
                             <span className="font-medium text-gray-700">
@@ -343,10 +355,10 @@ export default function ReparacionDetailPage({
                   )}
                   {!boleta && (
                     <button
-                      onClick={() => setActiveTab("docs")}
-                      className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                      onClick={() => handleTabChange("docs")}
+                      className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100 sm:w-auto sm:justify-start"
                     >
-                      <FileText className="h-3.5 w-3.5" />
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
                       Generar comprobante
                     </button>
                   )}
@@ -391,23 +403,23 @@ export default function ReparacionDetailPage({
                   aria-selected={activeTab === tab.id}
                   aria-controls={`panel-${tab.id}`}
                   id={`tab-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
-                    "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-colors",
+                    "relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[11px] font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:py-2.5 sm:text-sm",
                     activeTab === tab.id
                       ? "bg-[#020617] text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-800",
                   )}
                 >
-                  <tab.icon className="h-3.5 w-3.5" />
-                  {tab.label}
+                  <tab.icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span>{tab.label}</span>
                   {tab.id === "docs" && !boleta && (
-                    <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-amber-400">
+                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400">
                       <span className="sr-only">Boleta pendiente</span>
                     </span>
                   )}
                   {tab.id === "servicio" && rep.estado !== "entregado" && !(rep.fotos ?? []).some(f => f.etapa === rep.estado) && (
-                    <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-amber-400 animate-pulse">
+                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 animate-pulse">
                       <span className="sr-only">Foto pendiente para esta etapa</span>
                     </span>
                   )}

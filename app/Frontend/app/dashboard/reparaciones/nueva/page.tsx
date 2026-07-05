@@ -134,7 +134,7 @@ function WizardContent() {
           await uploadFotoReparacion(id, {
             imagen_base64: fotoBase64,
             content_type: fotoContentType,
-            estado: "Pendiente",
+            estado: "pendiente",
           })
         } catch {
           toast.warning("No se pudo subir la foto. Agrégala desde el detalle.")
@@ -276,8 +276,8 @@ function WizardContent() {
         {/* Content */}
         <div className="min-w-0 flex-1">
           <BlurFade key={step} delay={0} duration={0.25}>
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-              <div className="border-b border-gray-100 px-6 py-5">
+            <div className="rounded-2xl border border-gray-200 bg-white">
+              <div className="rounded-t-2xl border-b border-gray-100 px-6 py-5">
                 <h1 className="text-base font-semibold text-gray-900">
                   {ALL_STEPS.find((s) => s.id === step)?.label}
                 </h1>

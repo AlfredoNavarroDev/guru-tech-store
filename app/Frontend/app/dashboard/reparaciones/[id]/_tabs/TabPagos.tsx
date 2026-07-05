@@ -141,6 +141,24 @@ export function TabPagos({ rep, onRepUpdated }: TabPagosProps) {
               </span>
             </div>
           )}
+          {rep.repuestos != null && rep.repuestos.length > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-text-muted">Repuestos ({rep.repuestos.length})</span>
+              <span className="font-semibold text-text-heading">
+                S/{formatNum(
+                  rep.repuestos.reduce((s, r) => s + r.precio_cobrado * r.cantidad, 0),
+                )}
+              </span>
+            </div>
+          )}
+          {rep.monto_total != null && (
+            <div className="border-t border-gray-200 pt-2 flex justify-between text-sm">
+              <span className="font-semibold text-text-heading">Total a cobrar</span>
+              <span className="font-bold text-text-heading">
+                S/{formatNum(rep.monto_total)}
+              </span>
+            </div>
+          )}
           {rep.total_pagado != null && (
             <div className="flex justify-between text-sm">
               <span className="text-text-muted">Ya pagado</span>
@@ -157,12 +175,12 @@ export function TabPagos({ rep, onRepUpdated }: TabPagosProps) {
                   S/{formatNum(rep.saldo_pendiente)}
                 </span>
               </div>
-              {rep.monto_cotizado != null && rep.monto_cotizado > 0 && (
+              {rep.monto_total != null && rep.monto_total > 0 && (
                 <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                   <div
                     className="h-full rounded-full bg-green-500 transition-[width] duration-300"
                     style={{
-                      width: `${Math.min(100, ((rep.total_pagado ?? 0) / rep.monto_cotizado) * 100)}%`,
+                      width: `${Math.min(100, ((rep.total_pagado ?? 0) / rep.monto_total) * 100)}%`,
                     }}
                   />
                 </div>

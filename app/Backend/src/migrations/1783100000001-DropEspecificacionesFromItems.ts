@@ -1,11 +1,38 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSpecsFieldsToCatalogoView1781600000001 implements MigrationInterface {
-  name = 'AddSpecsFieldsToCatalogoView1781600000001';
+export class DropEspecificacionesFromItems1783100000001
+  implements MigrationInterface
+{
+  name = 'DropEspecificacionesFromItems1783100000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // v_tecnico_repuestos_disponibles also selects especificaciones — must DROP+CREATE (can't drop cols via REPLACE)
+    await queryRunner.query(`DROP VIEW IF EXISTS v_tecnico_repuestos_disponibles`);
     await queryRunner.query(`
-      CREATE OR REPLACE VIEW v_vendedor_catalogo AS
+      CREATE VIEW v_tecnico_repuestos_disponibles AS
+      SELECT
+          i.id_item,
+          i.sku,
+          i.nombre              AS repuesto,
+          m.nombre              AS marca,
+          i.modelo,
+          i.calidad,
+          inv.id_sede,
+          s.nombre              AS sede,
+          inv.cantidad_actual   AS stock_disponible,
+          i.precio_venta_actual
+      FROM Items i
+      JOIN  Inventario_Sedes inv ON inv.id_item  = i.id_item
+      JOIN  Sedes s              ON s.id_sede    = inv.id_sede
+      LEFT JOIN Marcas m         ON m.id_marca   = i.id_marca
+      WHERE i.tipo = 'repuesto'
+        AND inv.cantidad_actual > 0
+    `);
+
+    // v_vendedor_catalogo same issue — DROP+CREATE
+    await queryRunner.query(`DROP VIEW IF EXISTS v_vendedor_catalogo`);
+    await queryRunner.query(`
+      CREATE VIEW v_vendedor_catalogo AS
       WITH promo_vigente AS (
           SELECT
               COALESCE(pr.id_item_afectado, ic.id_item) AS id_item,
@@ -56,11 +83,43 @@ export class AddSpecsFieldsToCatalogoView1781600000001 implements MigrationInter
       LEFT JOIN promo_vigente pv   ON pv.id_item  = i.id_item
       WHERE i.tipo = 'producto'
     `);
+
+    await queryRunner.query(
+      `ALTER TABLE items DROP COLUMN IF EXISTS especificaciones`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE items ADD COLUMN IF NOT EXISTS especificaciones jsonb`,
+    );
+
+    await queryRunner.query(`DROP VIEW IF EXISTS v_tecnico_repuestos_disponibles`);
     await queryRunner.query(`
-      CREATE OR REPLACE VIEW v_vendedor_catalogo AS
+      CREATE VIEW v_tecnico_repuestos_disponibles AS
+      SELECT
+          i.id_item,
+          i.sku,
+          i.nombre              AS repuesto,
+          m.nombre              AS marca,
+          i.modelo,
+          i.calidad,
+          i.especificaciones,
+          inv.id_sede,
+          s.nombre              AS sede,
+          inv.cantidad_actual   AS stock_disponible,
+          i.precio_venta_actual
+      FROM Items i
+      JOIN  Inventario_Sedes inv ON inv.id_item  = i.id_item
+      JOIN  Sedes s              ON s.id_sede    = inv.id_sede
+      LEFT JOIN Marcas m         ON m.id_marca   = i.id_marca
+      WHERE i.tipo = 'repuesto'
+        AND inv.cantidad_actual > 0
+    `);
+
+    await queryRunner.query(`DROP VIEW IF EXISTS v_vendedor_catalogo`);
+    await queryRunner.query(`
+      CREATE VIEW v_vendedor_catalogo AS
       WITH promo_vigente AS (
           SELECT
               COALESCE(pr.id_item_afectado, ic.id_item) AS id_item,
@@ -101,7 +160,9 @@ export class AddSpecsFieldsToCatalogoView1781600000001 implements MigrationInter
               WHEN pv.promo_tipo = 'monto_fijo'
                   THEN GREATEST(i.precio_venta_actual - pv.promo_valor, 0)
               ELSE i.precio_venta_actual
-          END                       AS precio_con_descuento
+          END                       AS precio_con_descuento,
+          i.calidad,
+          i.especificaciones
       FROM Items i
       JOIN  Inventario_Sedes inv   ON inv.id_item = i.id_item
       JOIN  Sedes s                ON s.id_sede   = inv.id_sede

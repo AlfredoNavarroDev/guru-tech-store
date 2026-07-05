@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddIdGarantiaReclamadaToReparaciones1782800000001
-  implements MigrationInterface
-{
+export class AddIdGarantiaReclamadaToReparaciones1782800000001 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE reparaciones

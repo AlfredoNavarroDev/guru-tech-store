@@ -38,11 +38,10 @@ export class CambiosController {
   ) {}
 
   @Get('ventas')
-  @ApiOperation({ summary: 'Listar ventas de la sede (filtrable por fecha, máx 20)' })
-  findVentas(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: QueryVentasDto,
-  ) {
+  @ApiOperation({
+    summary: 'Listar ventas de la sede (filtrable por fecha, máx 20)',
+  })
+  findVentas(@CurrentUser() user: JwtPayload, @Query() query: QueryVentasDto) {
     return this.cambiosService.findVentas(user, query.fecha);
   }
 

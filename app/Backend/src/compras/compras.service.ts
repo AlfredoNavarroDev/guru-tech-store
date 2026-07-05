@@ -80,32 +80,22 @@ export class ComprasService {
     const proveedorFilter = query.proveedor ?? null;
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
-        `SELECT COUNT(*) AS total
-         FROM compras_refill c
-         JOIN proveedores p ON p.id_proveedor = c.id_proveedor
-         WHERE c.id_sede_destino = $1
-           AND ($2::text IS NULL OR p.razon_social ILIKE '%' || $2 || '%')`,
+        `SELECT COUNT(*) AS total FROM v_compra_cabecera
+         WHERE id_sede_destino = $1
+           AND ($2::text IS NULL OR proveedor ILIKE '%' || $2 || '%')`,
         [user.id_sede!, proveedorFilter],
       ),
       this.dataSource.query<CompraRow[]>(
-        `SELECT c.id_compra, c.id_empleado_refiller, e.nombre_completo AS empleado,
-                c.id_sede_destino, c.id_proveedor, p.razon_social AS proveedor,
-                c.fecha_compra,
-                COALESCE(SUM(d.cantidad_comprada * d.costo_unidad), 0) AS costo_total
-         FROM compras_refill c
-         JOIN empleados e ON e.id_empleado = c.id_empleado_refiller
-         JOIN proveedores p ON p.id_proveedor = c.id_proveedor
-         LEFT JOIN detalle_compra_refill d ON d.id_compra = c.id_compra
-         WHERE c.id_sede_destino = $1
-           AND ($4::text IS NULL OR p.razon_social ILIKE '%' || $4 || '%')
-         GROUP BY c.id_compra, e.nombre_completo, p.razon_social
-         ORDER BY c.fecha_compra DESC
-         LIMIT $2 OFFSET $3`,
+        `SELECT * FROM v_compra_cabecera
+         WHERE id_sede_destino = $1
+           AND ($2::text IS NULL OR proveedor ILIKE '%' || $2 || '%')
+         ORDER BY fecha_compra DESC
+         LIMIT $3 OFFSET $4`,
         [
           user.id_sede!,
+          proveedorFilter,
           query.limit,
           (query.page - 1) * query.limit,
-          proveedorFilter,
         ],
       ),
     ]);
@@ -122,16 +112,7 @@ export class ComprasService {
   async findOne(id: number, idSede: number): Promise<CompraResponseDto> {
     const [[compra], detalles] = await Promise.all([
       this.dataSource.query<CompraRow[]>(
-        `SELECT c.id_compra, c.id_empleado_refiller, e.nombre_completo AS empleado,
-                c.id_sede_destino, c.id_proveedor, p.razon_social AS proveedor,
-                c.fecha_compra,
-                COALESCE(SUM(d.cantidad_comprada * d.costo_unidad), 0) AS costo_total
-         FROM compras_refill c
-         JOIN empleados e ON e.id_empleado = c.id_empleado_refiller
-         JOIN proveedores p ON p.id_proveedor = c.id_proveedor
-         LEFT JOIN detalle_compra_refill d ON d.id_compra = c.id_compra
-         WHERE c.id_compra = $1 AND c.id_sede_destino = $2
-         GROUP BY c.id_compra, e.nombre_completo, p.razon_social`,
+        `SELECT * FROM v_compra_cabecera WHERE id_compra = $1 AND id_sede_destino = $2`,
         [id, idSede],
       ),
       this.dataSource.query<DetalleRow[]>(

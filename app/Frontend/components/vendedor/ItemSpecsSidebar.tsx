@@ -21,9 +21,6 @@ function qualityBars(calidad: string | null): number {
 
 export function ItemSpecsContent({ item, onClose }: ItemSpecsSidebarProps) {
   const bars = qualityBars(item.calidad)
-  const hasSpecs =
-    item.especificaciones != null &&
-    Object.keys(item.especificaciones).length > 0
 
   return (
     <div className="flex flex-col h-full">
@@ -36,7 +33,7 @@ export function ItemSpecsContent({ item, onClose }: ItemSpecsSidebarProps) {
           type="button"
           onClick={onClose}
           className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:text-white transition-colors"
-          aria-label="Cerrar especificaciones"
+          aria-label="Cerrar detalles"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -110,40 +107,6 @@ export function ItemSpecsContent({ item, onClose }: ItemSpecsSidebarProps) {
           </table>
         </div>
 
-        {/* Especificaciones */}
-        {hasSpecs && (
-          <div>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-              Especificaciones
-            </p>
-            <table className="w-full text-xs border-collapse">
-              <tbody>
-                {Object.entries(item.especificaciones!).map(([k, v]) => (
-                  <tr key={k} className="border-b border-gray-100 last:border-0">
-                    <td className="py-1.5 text-gray-500 capitalize">{k.replace(/_/g, " ")}</td>
-                    <td className="py-1.5 text-right font-semibold text-gray-900">
-                      {Array.isArray(v) ? (
-                        <span className="flex flex-col items-end gap-0.5">
-                          {v.map((item, i) => <span key={i}>{String(item)}</span>)}
-                        </span>
-                      ) : typeof v === "object" && v !== null ? (
-                        <span className="flex flex-col items-end gap-0.5">
-                          {Object.entries(v).map(([sk, sv]) => (
-                            <span key={sk}>{sk.replace(/_/g, "-")}: {String(sv)}</span>
-                          ))}
-                        </span>
-                      ) : typeof v === "boolean" ? (
-                        v ? "Sí" : "No"
-                      ) : (
-                        String(v)
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   )

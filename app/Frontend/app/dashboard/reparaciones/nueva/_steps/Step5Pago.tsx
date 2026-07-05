@@ -199,8 +199,8 @@ export function Step5Pago() {
 
         <div className="flex flex-col gap-2">
           {pagos.map((pago, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <div className="relative w-36 shrink-0">
+            <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:w-36 sm:shrink-0">
                 <select
                   value={pago.metodo}
                   onChange={(e) => updatePago(idx, "metodo", e.target.value)}
@@ -214,39 +214,41 @@ export function Step5Pago() {
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               </div>
-              <div className="relative flex-1">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                  S/
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={pago.monto}
-                  onChange={(e) => updatePago(idx, "monto", e.target.value)}
-                  placeholder={fmt(restante > 0 ? restante : 0)}
-                  className="h-9 w-full rounded-xl border border-gray-300 bg-white pl-9 pr-3 text-sm tabular-nums text-gray-900 placeholder-gray-400 focus:border-[#020617]/50 focus:outline-none focus:ring-2 focus:ring-[#020617]/10"
-                />
+              <div className="flex flex-1 items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                    S/
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pago.monto}
+                    onChange={(e) => updatePago(idx, "monto", e.target.value)}
+                    placeholder={fmt(restante > 0 ? restante : 0)}
+                    className="h-9 w-full rounded-xl border border-gray-300 bg-white pl-9 pr-3 text-sm tabular-nums text-gray-900 placeholder-gray-400 focus:border-[#020617]/50 focus:outline-none focus:ring-2 focus:ring-[#020617]/10"
+                  />
+                </div>
+                {restante > 0.01 && !pago.monto && (
+                  <button
+                    type="button"
+                    onClick={() => fillRestante(idx)}
+                    className="shrink-0 rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-400 hover:border-[#020617]/40 hover:text-[#020617] transition-colors whitespace-nowrap"
+                  >
+                    +{fmt(restante)}
+                  </button>
+                )}
+                {pagos.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePago(idx)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    aria-label="Quitar pago"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-              {restante > 0.01 && !pago.monto && (
-                <button
-                  type="button"
-                  onClick={() => fillRestante(idx)}
-                  className="shrink-0 rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-400 hover:border-[#020617]/40 hover:text-[#020617] transition-colors whitespace-nowrap"
-                >
-                  +{fmt(restante)}
-                </button>
-              )}
-              {pagos.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removePago(idx)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                  aria-label="Quitar pago"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
             </div>
           ))}
         </div>

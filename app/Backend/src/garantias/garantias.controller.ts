@@ -50,10 +50,7 @@ export class GarantiasController {
 
   @Get()
   @ApiOperation({ summary: 'Listar garantías (paginado, scoped por rol)' })
-  findAll(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: QueryGarantiasDto,
-  ) {
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: QueryGarantiasDto) {
     return this.garantiasService.findAll(user, query);
   }
 

@@ -31,9 +31,6 @@ export class Item {
   @Column('varchar', { name: 'calidad', length: 30, nullable: true })
   calidad: string | null;
 
-  @Column({ name: 'especificaciones', type: 'jsonb', nullable: true })
-  especificaciones: Record<string, unknown> | null;
-
   @Column({
     name: 'precio_compra_actual',
     type: 'decimal',

@@ -140,11 +140,10 @@ describe('CatalogoService', () => {
       expect(params).toContain('%mouse%');
     });
 
-    it('base query includes calidad and especificaciones', async () => {
+    it('base query includes calidad', async () => {
       await service.findAll(1, {});
       const [sql] = dataSource.query.mock.calls[0];
       expect(sql).toContain('calidad');
-      expect(sql).toContain('especificaciones');
     });
 
     it('base query includes imagen_url', async () => {

@@ -24,7 +24,6 @@ interface ItemRow {
   marca: string | null;
   modelo: string | null;
   calidad: string | null;
-  especificaciones: Record<string, unknown> | null;
   precio_compra_actual: string;
   precio_venta_actual: string;
   created_at: Date;
@@ -37,7 +36,7 @@ interface ItemRow {
 // stockParamIdx: posición del parámetro $N con el id_sede (o null) para la subconsulta de stock.
 const itemSelect = (stockParamIdx: number) => `
   SELECT i.id_item, i.tipo, i.sku, i.nombre, i.id_marca, m.nombre AS marca,
-         i.modelo, i.calidad, i.especificaciones, i.imagen_url,
+         i.modelo, i.calidad, i.imagen_url,
          i.precio_compra_actual, i.precio_venta_actual, i.created_at, i.updated_at,
          COALESCE(STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria), '') AS categorias_str,
          COALESCE(
@@ -72,8 +71,8 @@ export class ItemsService {
     const id = await this.dataSource.transaction(
       async (manager: EntityManager) => {
         const [row] = await manager.query<[{ id_item: number }]>(
-          `INSERT INTO items (tipo, sku, nombre, id_marca, modelo, calidad, especificaciones, precio_compra_actual, precio_venta_actual)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
+          `INSERT INTO items (tipo, sku, nombre, id_marca, modelo, calidad, precio_compra_actual, precio_venta_actual)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id_item`,
           [
             dto.tipo,
@@ -82,7 +81,6 @@ export class ItemsService {
             dto.id_marca ?? null,
             dto.modelo ?? null,
             dto.calidad ?? null,
-            dto.especificaciones ? JSON.stringify(dto.especificaciones) : null,
             dto.precio_compra_actual,
             dto.precio_venta_actual,
           ],
@@ -120,9 +118,8 @@ export class ItemsService {
     idSede?: number,
   ): Promise<PaginatedResult<ItemResponseDto>> {
     const conditions: string[] = [];
-    // $1 reservado para id_sede (subconsulta de stock y filtro con_stock).
-    const params: unknown[] = [idSede ?? null];
-    let idx = 2;
+    const params: unknown[] = [];
+    let idx = 1;
 
     if (query.tipo) {
       conditions.push(`i.tipo = $${idx++}`);
@@ -146,25 +143,36 @@ export class ItemsService {
       );
       params.push(query.categoria_id);
     }
+
+    // id_sede: usado en filtro con_stock y en subconsulta stock_disponible (solo rows query).
+    // Postgres no puede inferir el tipo de un parámetro que no aparece en la query,
+    // así que solo se incluye en cada query cuando realmente se referencia.
+    const sedeParamIdx = idx++;
     if (query.con_stock && idSede) {
       conditions.push(
-        `EXISTS (SELECT 1 FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = $1 AND inv.cantidad_actual > 0)`,
+        `EXISTS (SELECT 1 FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = $${sedeParamIdx} AND inv.cantidad_actual > 0)`,
       );
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const usesSedeParam = where.includes(`$${sedeParamIdx}`);
+
+    const countParams = usesSedeParam ? [...params, idSede ?? null] : params;
+    const rowsParams = [...params, idSede ?? null];
+    const limitIdx = rowsParams.length + 1;
+    const offsetIdx = limitIdx + 1;
 
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
         `SELECT COUNT(*) AS total FROM items i ${where}`,
-        params,
+        countParams,
       ),
       this.dataSource.query<ItemRow[]>(
-        `${itemSelect(1)} ${where}
+        `${itemSelect(sedeParamIdx)} ${where}
          GROUP BY i.id_item, m.nombre
          ORDER BY i.nombre
-         LIMIT $${idx} OFFSET $${idx + 1}`,
-        [...params, query.limit, (query.page - 1) * query.limit],
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        [...rowsParams, query.limit, (query.page - 1) * query.limit],
       ),
     ]);
 
@@ -221,10 +229,6 @@ export class ItemsService {
           sets.push(`${col} = $${setIdx++}`);
           params.push(dto[key]);
         }
-      }
-      if (dto.especificaciones !== undefined) {
-        sets.push(`especificaciones = $${setIdx++}::jsonb`);
-        params.push(JSON.stringify(dto.especificaciones));
       }
       if (sets.length) {
         params.push(id);
@@ -325,7 +329,6 @@ export class ItemsService {
       marca: row.marca ?? null,
       modelo: row.modelo ?? null,
       calidad: row.calidad ?? null,
-      especificaciones: row.especificaciones ?? null,
       precio_compra_actual: parseFloat(String(row.precio_compra_actual)),
       precio_venta_actual: parseFloat(String(row.precio_venta_actual)),
       categorias: row.categorias_str ? row.categorias_str.split(', ') : [],

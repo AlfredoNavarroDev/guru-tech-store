@@ -172,8 +172,8 @@ export function ClientePicker({ onSelect }: { onSelect: (c: ClienteVista | null)
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-              <div className="flex gap-2">
-                <div className="relative w-28 shrink-0">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative w-full shrink-0 sm:w-28">
                   <select
                     value={newTipoDoc}
                     onChange={(e) => setNewTipoDoc(e.target.value as typeof newTipoDoc)}
@@ -190,7 +190,7 @@ export function ClientePicker({ onSelect }: { onSelect: (c: ClienteVista | null)
                   placeholder="Nro. documento *"
                   value={newNroDoc}
                   onChange={(e) => setNewNroDoc(e.target.value)}
-                  className="h-9 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-9 min-w-0 w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <input
@@ -200,20 +200,20 @@ export function ClientePicker({ onSelect }: { onSelect: (c: ClienteVista | null)
                 onChange={(e) => setNewNombre(e.target.value)}
                 className="h-9 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="tel"
                   placeholder="Teléfono"
                   value={newTelefono}
                   onChange={(e) => setNewTelefono(e.target.value)}
-                  className="h-9 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-9 min-w-0 w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="text"
                   placeholder="Dirección"
                   value={newDireccion}
                   onChange={(e) => setNewDireccion(e.target.value)}
-                  className="h-9 flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-9 min-w-0 w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <Button

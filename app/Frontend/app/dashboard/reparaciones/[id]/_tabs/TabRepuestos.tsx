@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Plus, Trash2, X, AlertTriangle } from "lucide-react"
+import { Loader2, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatNum } from "@/lib/utils"
@@ -11,7 +11,6 @@ import {
   addRepuesto,
   removeRepuesto,
   getReparacion,
-  updateEstadoReparacion,
   type ReparacionResponse,
 } from "@/lib/api/reparaciones"
 import { getItems, type Item } from "@/lib/api/items"
@@ -33,44 +32,25 @@ export function TabRepuestos({ rep, estadoEsFinal, onRepUpdated }: TabRepuestosP
   const [cantidad, setCantidad] = useState(1)
   const [precio, setPrecio]     = useState("")
   const [searching, setSearching] = useState(false)
-
-  const [updatingPrecio, setUpdatingPrecio] = useState(false)
+  const [focused, setFocused]   = useState(false)
 
   const totalRepuestos = (rep.repuestos ?? []).reduce(
     (s, r) => s + r.precio_cobrado * r.cantidad,
     0,
   )
 
-  const excedesCotizacion = rep.monto_cotizado != null && rep.monto_cotizado > 0 && totalRepuestos > rep.monto_cotizado
-
-  const handleUpdatePrecio = async () => {
-    setUpdatingPrecio(true)
-    try {
-      const updated = await updateEstadoReparacion(rep.id_reparacion, {
-        id_estado: rep.id_estado,
-        monto_cotizado: totalRepuestos,
-      })
-      onRepUpdated(updated)
-      toast.success(`Precio actualizado a S/${formatNum(totalRepuestos)}`)
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Error actualizando precio")
-    } finally {
-      setUpdatingPrecio(false)
-    }
-  }
-
   useEffect(() => {
-    if (selected || !query.trim()) { setResults([]); return }
+    if (selected) { setResults([]); return }
     const t = setTimeout(async () => {
       setSearching(true)
       try {
-        setResults((await getItems({ tipo: "repuesto", nombre: query, limit: 8 })).items)
+        setResults((await getItems({ tipo: "repuesto", nombre: query.trim() || undefined, limit: 20 })).items)
       } catch {
         setResults([])
       } finally {
         setSearching(false)
       }
-    }, 300)
+    }, query.trim() ? 300 : 0)
     return () => clearTimeout(t)
   }, [query, selected])
 
@@ -145,13 +125,15 @@ export function TabRepuestos({ rep, estadoEsFinal, onRepUpdated }: TabRepuestosP
               <Input
                 value={query}
                 onChange={(e) => { setSelected(null); setQuery(e.target.value) }}
-                placeholder="Escribe el nombre de la pieza..."
+                onFocus={() => setFocused(true)}
+                onBlur={() => setTimeout(() => setFocused(false), 150)}
+                placeholder="Escribe el nombre de la pieza o haz clic para ver todas..."
                 className="rounded-xl"
               />
               {searching && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-gray-400" />
               )}
-              {results.length > 0 && (
+              {focused && results.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
                   {results.map((item) => (
                     <button
@@ -269,49 +251,6 @@ export function TabRepuestos({ rep, estadoEsFinal, onRepUpdated }: TabRepuestosP
                   S/{formatNum(totalRepuestos)}
                 </span>
               </div>
-            )}
-            {rep.monto_cotizado != null && rep.monto_cotizado > 0 && (
-              excedesCotizacion ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
-                    <p className="text-sm font-semibold text-red-700">
-                      Repuestos exceden el precio cotizado
-                    </p>
-                  </div>
-                  <p className="text-xs text-red-600">
-                    Piezas: S/{formatNum(totalRepuestos)} — Cotizado: S/{formatNum(rep.monto_cotizado)} — Exceso: S/{formatNum(totalRepuestos - rep.monto_cotizado)}
-                  </p>
-                  {!estadoEsFinal && (
-                    <button
-                      onClick={handleUpdatePrecio}
-                      disabled={updatingPrecio}
-                      className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
-                    >
-                      {updatingPrecio ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <>Actualizar precio a S/{formatNum(totalRepuestos)}</>
-                      )}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="pt-2">
-                  <div className="mb-1 flex justify-between text-[11px] text-gray-500">
-                    <span>Piezas vs precio estimado</span>
-                    <span>S/{formatNum(totalRepuestos)} de S/{formatNum(rep.monto_cotizado)}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-indigo-400 transition-[width] duration-300"
-                      style={{
-                        width: `${Math.min(100, (totalRepuestos / rep.monto_cotizado) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )
             )}
           </div>
         )}

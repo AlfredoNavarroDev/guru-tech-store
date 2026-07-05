@@ -9,7 +9,6 @@ export class ItemResponseDto {
   @ApiPropertyOptional() marca: string | null;
   @ApiPropertyOptional() modelo: string | null;
   @ApiPropertyOptional() calidad: string | null;
-  @ApiPropertyOptional() especificaciones: Record<string, unknown> | null;
   @ApiProperty() precio_compra_actual: number;
   @ApiProperty() precio_venta_actual: number;
   @ApiProperty({ type: [String] }) categorias: string[];

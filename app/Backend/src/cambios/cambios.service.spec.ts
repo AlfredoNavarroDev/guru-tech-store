@@ -219,8 +219,18 @@ describe('CambiosService', () => {
   describe('findVentas', () => {
     it('sin fecha → devuelve todas las ventas de la sede (límite 20)', async () => {
       dataSource.query.mockResolvedValueOnce([
-        { id_venta: 1042, fecha_emision: new Date('2026-06-23'), cliente: 'Ana', total_items: '3' },
-        { id_venta: 1041, fecha_emision: new Date('2026-06-22'), cliente: null, total_items: '1' },
+        {
+          id_venta: 1042,
+          fecha_emision: new Date('2026-06-23'),
+          cliente: 'Ana',
+          total_items: '3',
+        },
+        {
+          id_venta: 1041,
+          fecha_emision: new Date('2026-06-22'),
+          cliente: null,
+          total_items: '1',
+        },
       ]);
 
       const result = await service.findVentas(mockUser);
@@ -237,7 +247,12 @@ describe('CambiosService', () => {
 
     it('con fecha → filtra por día completo', async () => {
       dataSource.query.mockResolvedValueOnce([
-        { id_venta: 1042, fecha_emision: new Date('2026-06-23'), cliente: 'Ana', total_items: '2' },
+        {
+          id_venta: 1042,
+          fecha_emision: new Date('2026-06-23'),
+          cliente: 'Ana',
+          total_items: '2',
+        },
       ]);
 
       const result = await service.findVentas(mockUser, '2026-06-23');

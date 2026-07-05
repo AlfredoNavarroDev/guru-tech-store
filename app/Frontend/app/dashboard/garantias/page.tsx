@@ -70,7 +70,11 @@ export default function GarantiasPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [estadoFilter, setEstadoFilter] = useState<EstadoFilter>("")
-  const rol = getSession()?.rol ?? ""
+  const [rol, setRol] = useState("")
+
+  useEffect(() => {
+    setRol(getSession()?.rol ?? "")
+  }, [])
 
   const [reclamando, setReclamando] = useState<number | null>(null)
 

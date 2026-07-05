@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class UpdateFotosJsonbStructure1782500000002
-  implements MigrationInterface
-{
+export class UpdateFotosJsonbStructure1782500000002 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     // Convierte cada elemento string[] a {url, etapa, created_at}
     await queryRunner.query(`

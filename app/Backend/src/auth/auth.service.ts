@@ -197,11 +197,7 @@ export class AuthService {
     const rows = await this.dataSource.query<
       { nombre_rol: string; nombre_sede: string }[]
     >(
-      `SELECT r.nombre_rol, COALESCE(s.nombre, 'Sin sede') AS nombre_sede
-       FROM Empleados e
-       JOIN  Roles r  ON r.id_rol  = e.id_rol
-       LEFT JOIN Sedes s ON s.id_sede = e.id_sede
-       WHERE e.id_empleado = $1`,
+      `SELECT nombre_rol, nombre_sede FROM v_empleado_sesion WHERE id_empleado = $1`,
       [id_empleado],
     );
     if (!rows.length) return { rol: 'desconocido', sede: 'Sin sede' };

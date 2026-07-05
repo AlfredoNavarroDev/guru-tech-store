@@ -298,6 +298,9 @@ export default function ReparacionesPage() {
                               {[r.marca, r.modelo].filter(Boolean).join(" ") || "Equipo sin especificar"}
                             </span>
                             <EstadoBadge estado={r.estado} size="sm" />
+                            {r.tecnico && (
+                              <span className="text-xs text-gray-400">· Téc: {r.tecnico}</span>
+                            )}
                           </div>
                         </div>
 
@@ -312,9 +315,9 @@ export default function ReparacionesPage() {
 
                         {/* Total */}
                         <div className="shrink-0 text-right">
-                          {r.monto_cotizado != null ? (
+                          {r.monto_total != null && r.monto_total > 0 ? (
                             <p className="font-mono text-sm font-semibold tabular-nums text-gray-900">
-                              S/ {formatNum(r.monto_cotizado)}
+                              S/ {formatNum(r.monto_total)}
                             </p>
                           ) : (
                             <p className="text-xs text-gray-300">Sin precio</p>

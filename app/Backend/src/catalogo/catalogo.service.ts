@@ -12,7 +12,7 @@ export class CatalogoService {
     let sql = `SELECT id_item, sku, producto, marca, categoria, modelo,
                       precio_venta_actual, imagen_url, stock_disponible,
                       promo_nombre, promo_tipo, promo_valor, precio_con_descuento,
-                      calidad, especificaciones
+                      calidad
                FROM v_vendedor_catalogo
                WHERE id_sede = $1`;
 

@@ -54,13 +54,7 @@ function buildForm(item: Item | null | undefined, categorias: Categoria[]): Crea
     categoria_ids: catIds,
     modelo: item.modelo ?? undefined,
     calidad: item.calidad ?? undefined,
-    especificaciones: item.especificaciones ?? undefined,
   }
-}
-
-function especsToEntries(espec: Record<string, unknown> | null | undefined): { key: string; value: string }[] {
-  if (!espec) return []
-  return Object.entries(espec).map(([k, v]) => ({ key: k, value: String(v) }))
 }
 
 export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
@@ -92,7 +86,6 @@ interface ItemDrawerFormProps extends ItemDrawerProps {
 
 function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: ItemDrawerFormProps) {
   const [form, setForm] = useState<CreateItemPayload>(() => buildForm(item, categorias))
-  const [specs, setSpecs] = useState<{ key: string; value: string }[]>(() => especsToEntries(item?.especificaciones))
   const [saving, setSaving] = useState(false)
 
   function set<K extends keyof CreateItemPayload>(key: K, value: CreateItemPayload[K]) {
@@ -117,19 +110,14 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
       toast.error("Los productos deben tener al menos una categoría")
       return
     }
-    const validSpecs = specs.filter(s => s.key.trim())
-    const especificaciones = validSpecs.length
-      ? Object.fromEntries(validSpecs.map(s => [s.key.trim(), s.value]))
-      : undefined
-    const payload = { ...form, especificaciones }
     setSaving(true)
     try {
       if (item) {
-        await updateItem(item.id_item, payload)
+        await updateItem(item.id_item, form)
         toast.success("Ítem actualizado")
         onSaved()
       } else {
-        const created = await createItem(payload)
+        const created = await createItem(form)
         toast.success("Ítem creado")
         onSaved(created)
       }
@@ -293,45 +281,6 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
             </div>
           )}
 
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className={labelCls}>Características adicionales (opcional)</label>
-              <button
-                type="button"
-                onClick={() => setSpecs(s => [...s, { key: '', value: '' }])}
-                className="text-xs text-blue-600 hover:text-blue-500 transition-colors"
-              >
-                + Agregar
-              </button>
-            </div>
-            {specs.length > 0 && (
-              <div className="space-y-2">
-                {specs.map((spec, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <input
-                      className={`${inputCls} flex-1`}
-                      placeholder="Característica (ej: RAM)"
-                      value={spec.key}
-                      onChange={e => setSpecs(s => s.map((x, j) => j === i ? { ...x, key: e.target.value } : x))}
-                    />
-                    <input
-                      className={`${inputCls} flex-1`}
-                      placeholder="Valor (ej: 8GB)"
-                      value={spec.value}
-                      onChange={e => setSpecs(s => s.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSpecs(s => s.filter((_, j) => j !== i))}
-                      className="shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:bg-gray-100 hover:text-red-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">

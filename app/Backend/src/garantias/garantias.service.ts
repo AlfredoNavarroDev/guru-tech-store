@@ -98,8 +98,7 @@ export class GarantiasService {
        WHERE id_reparacion = $1 AND estado = 'activa'`,
       [dto.id_reparacion],
     );
-    if (existing.length)
-      throw new GarantiaYaExisteException(dto.id_reparacion);
+    if (existing.length) throw new GarantiaYaExisteException(dto.id_reparacion);
 
     const rows = await this.dataSource.query<GarantiaRow[]>(
       `INSERT INTO garantias (id_reparacion, fecha_inicio, fecha_fin, estado)
@@ -121,11 +120,7 @@ export class GarantiasService {
     if (user.rol !== 'tecnico') throw new ForbiddenException();
 
     const [garantia] = await this.dataSource.query<ReclamoGarantiaRow[]>(
-      `SELECT g.id_garantia, g.id_venta, g.id_reparacion, g.estado,
-              r.id_sede, r.id_cliente, r.marca, r.modelo, r.imei
-       FROM garantias g
-       LEFT JOIN reparaciones r ON r.id_reparacion = g.id_reparacion
-       WHERE g.id_garantia = $1`,
+      `SELECT * FROM v_garantia_reclamo WHERE id_garantia = $1`,
       [idGarantia],
     );
     // Tipo check runs before sede check: venta garantías have no

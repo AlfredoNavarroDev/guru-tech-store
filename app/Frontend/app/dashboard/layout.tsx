@@ -183,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="flex-1 overflow-auto"
+            className="flex-1 overflow-y-auto overscroll-y-none"
           >
             {children}
           </motion.main>

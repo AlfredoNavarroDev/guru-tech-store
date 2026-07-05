@@ -183,7 +183,7 @@ describe('ReparacionesService', () => {
       expect(result.repuestos![0].item_nombre).toBe('Pantalla AMOLED');
       expect(result.pagos).toHaveLength(1);
       expect(result.total_pagado).toBe(50);
-      expect(result.saldo_pendiente).toBe(70); // monto_cotizado=120 - total_pagado=50
+      expect(result.saldo_pendiente).toBe(115); // (monto_cotizado=120 + repuestos=45) - total_pagado=50
     });
 
     it('lanza ReparacionNotFoundException si no existe o no pertenece a sede', async () => {
@@ -420,7 +420,9 @@ describe('ReparacionesService', () => {
   describe('uploadFoto', () => {
     it('almacena objeto {url, etapa, created_at} en fotos JSONB', async () => {
       dataSource.query
-        .mockResolvedValueOnce([{ ...mockReparacionRow, es_final: false, estado: 'pendiente' }]) // assertAccess
+        .mockResolvedValueOnce([
+          { ...mockReparacionRow, es_final: false, estado: 'pendiente' },
+        ]) // assertAccess
         .mockResolvedValueOnce([]); // UPDATE fotos
 
       const result = await service.uploadFoto(
@@ -438,10 +440,14 @@ describe('ReparacionesService', () => {
 
       // Verificar que dataSource.query fue llamado con objeto estructurado
       const queryCall = dataSource.query.mock.calls.find(
-        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('SET fotos'),
+        (call: unknown[]) =>
+          typeof call[0] === 'string' &&
+          (call[0] as string).includes('SET fotos'),
       );
       expect(queryCall).toBeDefined();
-      const storedArray = JSON.parse((queryCall as unknown[][])[1][1] as string);
+      const storedArray = JSON.parse(
+        (queryCall as unknown[][])[1][1] as string,
+      );
       expect(storedArray).toHaveLength(1);
       expect(storedArray[0]).toMatchObject({
         url: expect.any(String),

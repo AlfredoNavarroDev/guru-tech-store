@@ -91,10 +91,7 @@ export class CambiosService {
     };
   }
 
-  async findVentas(
-    user: JwtPayload,
-    fecha?: string,
-  ): Promise<VentaListItem[]> {
+  async findVentas(user: JwtPayload, fecha?: string): Promise<VentaListItem[]> {
     let where = `v.id_sede = $1`;
     const params: unknown[] = [user.id_sede!];
     let idx = 2;
@@ -225,37 +222,28 @@ export class CambiosService {
     user: JwtPayload,
     query: QueryCambiosDto,
   ): Promise<PaginatedResult<CambioResponseDto>> {
-    let where = `cp.id_sede = $1`;
+    let where = `id_sede = $1`;
     const params: unknown[] = [user.id_sede!];
     let idx = 2;
 
     if (query.fecha_desde) {
-      where += ` AND cp.fecha_cambio >= $${idx++}`;
+      where += ` AND fecha_cambio >= $${idx++}`;
       params.push(query.fecha_desde);
     }
     if (query.fecha_hasta) {
-      where += ` AND cp.fecha_cambio <= $${idx++}`;
+      where += ` AND fecha_cambio <= $${idx++}`;
       params.push(`${query.fecha_hasta} 23:59:59`);
     }
 
-    const baseFrom = `
-      FROM cambios_producto cp
-      JOIN items idev ON idev.id_item = cp.id_item_devuelto
-      JOIN items ient ON ient.id_item = cp.id_item_entregado
-      WHERE ${where}
-    `;
-
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
-        `SELECT COUNT(*) AS total ${baseFrom}`,
+        `SELECT COUNT(*) AS total FROM v_cambio_detalle WHERE ${where}`,
         params,
       ),
       this.dataSource.query<CambioRow[]>(
-        `SELECT cp.*,
-                idev.nombre AS nombre_item_devuelto,
-                ient.nombre AS nombre_item_entregado
-         ${baseFrom}
-         ORDER BY cp.fecha_cambio DESC
+        `SELECT * FROM v_cambio_detalle
+         WHERE ${where}
+         ORDER BY fecha_cambio DESC
          LIMIT $${idx} OFFSET $${idx + 1}`,
         [...params, query.limit, (query.page - 1) * query.limit],
       ),
@@ -272,13 +260,7 @@ export class CambiosService {
 
   async findOne(id: number, user: JwtPayload): Promise<CambioResponseDto> {
     const [row] = await this.dataSource.query<CambioRow[]>(
-      `SELECT cp.*,
-              idev.nombre AS nombre_item_devuelto,
-              ient.nombre AS nombre_item_entregado
-       FROM cambios_producto cp
-       JOIN items idev ON idev.id_item = cp.id_item_devuelto
-       JOIN items ient ON ient.id_item = cp.id_item_entregado
-       WHERE cp.id_cambio = $1 AND cp.id_sede = $2`,
+      `SELECT * FROM v_cambio_detalle WHERE id_cambio = $1 AND id_sede = $2`,
       [id, user.id_sede!],
     );
     if (!row) throw new CambioNotFoundException(id);

@@ -57,7 +57,11 @@ export class PagosService {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
 
     const [rep] = await this.dataSource.query<
-      { monto_cotizado: string | null; monto_descuento: string; tipo_descuento: string | null }[]
+      {
+        monto_cotizado: string | null;
+        monto_descuento: string;
+        tipo_descuento: string | null;
+      }[]
     >(
       `SELECT monto_cotizado, monto_descuento, tipo_descuento FROM reparaciones WHERE id_reparacion = $1`,
       [idReparacion],
@@ -91,7 +95,9 @@ export class PagosService {
       totalCobrar = montoCotizado;
     }
 
-    const [{ total_pagado }] = await this.dataSource.query<{ total_pagado: string }[]>(
+    const [{ total_pagado }] = await this.dataSource.query<
+      { total_pagado: string }[]
+    >(
       `SELECT COALESCE(SUM(monto), 0) AS total_pagado FROM pagos WHERE id_reparacion = $1`,
       [idReparacion],
     );

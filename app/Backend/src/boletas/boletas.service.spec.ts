@@ -398,23 +398,28 @@ describe('BoletasService', () => {
     }
 
     function mockReparacionTransaction() {
-      return mockTransaction({ id_boleta: 2, id_reparacion: 5, id_venta: null, total: 230 });
+      return mockTransaction({
+        id_boleta: 2,
+        id_reparacion: 5,
+        id_venta: null,
+        total: 230,
+      });
     }
 
     it('reparacion de otra sede → NotFoundException', async () => {
       mockReparacionQueries({ inSede: false });
-      await expect(service.emitirParaReparacion(5, mockUser)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.emitirParaReparacion(5, mockUser),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(boletaRepo.findOne).not.toHaveBeenCalled();
     });
 
     it('reparacion ya tiene boleta → ConflictException', async () => {
       dataSource.query.mockResolvedValueOnce([{ id_reparacion: 5 }]);
       boletaRepo.findOne.mockResolvedValue({ id_boleta: 1, id_reparacion: 5 });
-      await expect(service.emitirParaReparacion(5, mockUser)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.emitirParaReparacion(5, mockUser),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('emite boleta, sube a R2 en ruta reparaciones/, devuelve boleta', async () => {

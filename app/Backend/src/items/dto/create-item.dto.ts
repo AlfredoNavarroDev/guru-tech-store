@@ -6,7 +6,6 @@ import {
   IsInt,
   IsNotEmpty,
   IsNumber,
-  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -51,11 +50,6 @@ export class CreateItemDto {
   @IsString()
   @MaxLength(30)
   calidad?: string;
-
-  @ApiPropertyOptional({ example: { ram: '8GB' } })
-  @IsOptional()
-  @IsObject()
-  especificaciones?: Record<string, unknown>;
 
   @ApiProperty({ example: 10.0 })
   @Type(() => Number)

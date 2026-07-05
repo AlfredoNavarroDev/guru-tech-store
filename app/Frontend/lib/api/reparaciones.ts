@@ -47,6 +47,7 @@ export interface ReparacionResponse {
   pagos?: PagoReparacionResponse[]
   total_pagado?: number
   saldo_pendiente?: number
+  monto_total?: number
   fotos: { url: string; etapa: string; created_at: string }[] | null
   id_garantia_reclamada: number | null
 }

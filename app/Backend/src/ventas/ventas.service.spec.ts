@@ -65,7 +65,10 @@ describe('VentasService', () => {
       create: jest.fn().mockReturnValue({}),
       save: jest
         .fn()
-        .mockResolvedValueOnce({ id_venta: 1, fecha_emision: new Date('2026-01-01') })
+        .mockResolvedValueOnce({
+          id_venta: 1,
+          fecha_emision: new Date('2026-01-01'),
+        })
         .mockResolvedValueOnce({}),
       query: jest.fn().mockResolvedValue([]),
     });

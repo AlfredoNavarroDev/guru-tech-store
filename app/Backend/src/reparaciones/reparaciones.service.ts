@@ -51,6 +51,7 @@ interface ReparacionRow {
   tipo_descuento: string | null;
   justificacion_descuento: string | null;
   tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
+  repuestos_cost?: string;
   created_at: Date;
   updated_at: Date | null;
   fotos: { url: string; etapa: string; created_at: string }[] | null;
@@ -146,36 +147,36 @@ export class ReparacionesService {
     user: JwtPayload,
     query: QueryReparacionesDto,
   ): Promise<PaginatedResult<ReparacionResponseDto>> {
-    const conditions: string[] = [`r.id_sede = $1`];
+    const conditions: string[] = [`id_sede = $1`];
     const params: (string | number | boolean)[] = [user.id_sede!];
     let idx = 2;
 
     if (query.id_cliente !== undefined) {
-      conditions.push(`r.id_cliente = $${idx++}`);
+      conditions.push(`id_cliente = $${idx++}`);
       params.push(query.id_cliente);
     }
     if (query.id_estado !== undefined) {
-      conditions.push(`r.id_estado = $${idx++}`);
+      conditions.push(`id_estado = $${idx++}`);
       params.push(query.id_estado);
     }
     if (query.fecha_desde) {
-      conditions.push(`r.fecha_ingreso >= $${idx++}`);
+      conditions.push(`fecha_ingreso >= $${idx++}`);
       params.push(query.fecha_desde);
     }
     if (query.fecha_hasta) {
-      conditions.push(`r.fecha_ingreso <= $${idx++}`);
+      conditions.push(`fecha_ingreso <= $${idx++}`);
       params.push(`${query.fecha_hasta} 23:59:59`);
     }
     if (query.marca) {
-      conditions.push(`r.marca ILIKE $${idx++}`);
+      conditions.push(`marca ILIKE $${idx++}`);
       params.push(`%${query.marca}%`);
     }
     if (query.modelo) {
-      conditions.push(`r.modelo ILIKE $${idx++}`);
+      conditions.push(`modelo ILIKE $${idx++}`);
       params.push(`%${query.modelo}%`);
     }
     if (query.imei) {
-      conditions.push(`r.imei ILIKE $${idx++}`);
+      conditions.push(`imei ILIKE $${idx++}`);
       params.push(`%${query.imei}%`);
     }
 
@@ -183,28 +184,13 @@ export class ReparacionesService {
 
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<CountRow[]>(
-        `SELECT COUNT(*) AS total FROM reparaciones r WHERE ${where}`,
+        `SELECT COUNT(*) AS total FROM v_reparacion_lista WHERE ${where}`,
         params,
       ),
       this.dataSource.query<ReparacionRow[]>(
-        `SELECT
-           r.id_reparacion, r.fecha_ingreso, r.id_cliente,
-           c.nombre_completo AS cliente,
-           r.id_tecnico,
-           e.nombre_completo AS tecnico,
-           r.id_sede, r.marca, r.modelo, r.imei,
-           r.esta_encendido, r.checklist_estado, r.diagnostico_tecnico,
-           r.id_estado, er.nombre AS estado, er.es_final,
-           r.fecha_estimada, r.fecha_terminado, r.fecha_entrega_cliente,
-           r.monto_cotizado, r.monto_descuento,
-           r.tipo_descuento, r.justificacion_descuento, r.tipo_servicio,
-           r.created_at, r.updated_at, r.fotos, r.id_garantia_reclamada
-         FROM reparaciones r
-         LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
-         LEFT JOIN empleados e ON e.id_empleado = r.id_tecnico
-         LEFT JOIN estados_reparacion er ON er.id_estado = r.id_estado
+        `SELECT * FROM v_reparacion_lista
          WHERE ${where}
-         ORDER BY r.fecha_ingreso DESC
+         ORDER BY fecha_ingreso DESC
          LIMIT $${idx} OFFSET $${idx + 1}`,
         [...params, query.limit, (query.page - 1) * query.limit],
       ),
@@ -223,23 +209,7 @@ export class ReparacionesService {
   async findOne(id: number, user: JwtPayload): Promise<ReparacionResponseDto> {
     const [[row], repuestos, pagos] = await Promise.all([
       this.dataSource.query<ReparacionRow[]>(
-        `SELECT
-           r.id_reparacion, r.fecha_ingreso, r.id_cliente,
-           c.nombre_completo AS cliente,
-           r.id_tecnico,
-           e.nombre_completo AS tecnico,
-           r.id_sede, r.marca, r.modelo, r.imei,
-           r.esta_encendido, r.checklist_estado, r.diagnostico_tecnico,
-           r.id_estado, er.nombre AS estado, er.es_final,
-           r.fecha_estimada, r.fecha_terminado, r.fecha_entrega_cliente,
-           r.monto_cotizado, r.monto_descuento,
-           r.tipo_descuento, r.justificacion_descuento, r.tipo_servicio,
-           r.created_at, r.updated_at, r.fotos, r.id_garantia_reclamada
-         FROM reparaciones r
-         LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
-         LEFT JOIN empleados e ON e.id_empleado = r.id_tecnico
-         LEFT JOIN estados_reparacion er ON er.id_estado = r.id_estado
-         WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
+        `SELECT * FROM v_reparacion_lista WHERE id_reparacion = $1 AND id_sede = $2`,
         [id, user.id_sede!],
       ),
       this.dataSource.query<RepuestoRow[]>(
@@ -270,8 +240,9 @@ export class ReparacionesService {
       0,
     );
     const montoCotizado =
-      (row.monto_cotizado !== null ? parseFloat(String(row.monto_cotizado)) : 0) +
-      repuestosCost;
+      (row.monto_cotizado !== null
+        ? parseFloat(String(row.monto_cotizado))
+        : 0) + repuestosCost;
     const montoDesc = parseFloat(String(row.monto_descuento));
     let totalCobrar: number;
     if (row.tipo_descuento === 'porcentaje') {
@@ -291,6 +262,7 @@ export class ReparacionesService {
       pagos: pagos.map(this.toPagoResponse),
       total_pagado: totalPagado,
       saldo_pendiente: saldoPendiente,
+      monto_total: parseFloat(totalCobrar.toFixed(2)),
     };
   }
 
@@ -474,7 +446,8 @@ export class ReparacionesService {
       'image/webp': 'webp',
     };
     const ext = extMap[dto.content_type] ?? 'jpg';
-    const estadoSlug = dto.estado.replace(/ /g, '-');
+    const estadoNorm = dto.estado.toLowerCase();
+    const estadoSlug = estadoNorm.replace(/ /g, '-');
     const key = `fotos/reparaciones/${id}/${estadoSlug}-${Date.now()}.${ext}`;
 
     const r2Config = this.getR2Config();
@@ -492,7 +465,12 @@ export class ReparacionesService {
       `UPDATE reparaciones
        SET fotos = COALESCE(fotos, '[]'::jsonb) || $2::jsonb
        WHERE id_reparacion = $1`,
-      [id, JSON.stringify([{ url, etapa: dto.estado, created_at: new Date().toISOString() }])],
+      [
+        id,
+        JSON.stringify([
+          { url, etapa: estadoNorm, created_at: new Date().toISOString() },
+        ]),
+      ],
     );
 
     return { url };
@@ -535,7 +513,24 @@ export class ReparacionesService {
   }
 
   private toResponse(row: ReparacionRow): ReparacionResponseDto {
+    let montoTotal: number | undefined;
+    if (row.repuestos_cost !== undefined) {
+      const montoCotizado =
+        (row.monto_cotizado !== null
+          ? parseFloat(String(row.monto_cotizado))
+          : 0) + parseFloat(row.repuestos_cost);
+      const montoDesc = parseFloat(String(row.monto_descuento));
+      if (row.tipo_descuento === 'porcentaje') {
+        montoTotal = montoCotizado * (1 - montoDesc / 100);
+      } else if (row.tipo_descuento === 'monto_fijo') {
+        montoTotal = montoCotizado - montoDesc;
+      } else {
+        montoTotal = montoCotizado;
+      }
+      montoTotal = Math.max(0, parseFloat(montoTotal.toFixed(2)));
+    }
     return {
+      ...(montoTotal !== undefined ? { monto_total: montoTotal } : {}),
       id_reparacion: row.id_reparacion,
       fecha_ingreso: row.fecha_ingreso,
       id_cliente: row.id_cliente,

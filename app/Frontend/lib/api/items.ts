@@ -9,7 +9,6 @@ export interface Item {
   marca: string | null
   modelo: string | null
   calidad: string | null
-  especificaciones: Record<string, unknown> | null
   precio_compra_actual: number
   precio_venta_actual: number
   categorias: string[]
@@ -47,7 +46,6 @@ export interface CreateItemPayload {
   categoria_ids?: number[]
   modelo?: string
   calidad?: string
-  especificaciones?: Record<string, unknown>
   stock_minimo?: number
   cantidad_inicial?: number
 }

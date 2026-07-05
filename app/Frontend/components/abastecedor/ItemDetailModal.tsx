@@ -107,21 +107,6 @@ export function ItemDetailModal({ item, open, onClose }: ItemDetailModalProps) {
               </div>
             </dl>
 
-            {/* Especificaciones — only if non-empty */}
-            {item.especificaciones &&
-              Object.keys(item.especificaciones).length > 0 && (
-                <div>
-                  <p className="mb-1 text-xs text-gray-500">Especificaciones</p>
-                  <div className="rounded-lg bg-gray-50 p-3 space-y-1">
-                    {Object.entries(item.especificaciones).map(([k, v]) => (
-                      <div key={k} className="flex gap-2 text-xs">
-                        <span className="shrink-0 text-gray-500">{k}:</span>
-                        <span className="font-mono text-gray-900">{String(v)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
           </div>
         </div>
       </DialogContent>

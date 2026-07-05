@@ -18,7 +18,6 @@ const mockItemRow = {
   marca: 'Anker',
   modelo: null,
   calidad: null,
-  especificaciones: null,
   precio_compra_actual: '8.50',
   precio_venta_actual: '25.00',
   created_at: new Date('2026-01-01'),
@@ -235,7 +234,7 @@ describe('ItemsService', () => {
       await service.findAll({ page: 1, limit: 20, tipo: 'repuesto' }, 1);
 
       const firstCallArgs = ds.query.mock.calls[0] as [string, unknown[]];
-      expect(firstCallArgs[0]).toContain('i.tipo = $2');
+      expect(firstCallArgs[0]).toContain('i.tipo = $1');
       expect(firstCallArgs[1]).toContain('repuesto');
     });
 
@@ -247,7 +246,7 @@ describe('ItemsService', () => {
       await service.findAll({ page: 1, limit: 20, id_marca: 3 }, 1);
 
       const firstCallArgs = ds.query.mock.calls[0] as [string, unknown[]];
-      expect(firstCallArgs[0]).toContain('i.id_marca = $2');
+      expect(firstCallArgs[0]).toContain('i.id_marca = $1');
       expect(firstCallArgs[1]).toContain(3);
     });
   });
