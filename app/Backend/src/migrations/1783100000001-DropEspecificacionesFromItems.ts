@@ -1,13 +1,13 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class DropEspecificacionesFromItems1783100000001
-  implements MigrationInterface
-{
+export class DropEspecificacionesFromItems1783100000001 implements MigrationInterface {
   name = 'DropEspecificacionesFromItems1783100000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // v_tecnico_repuestos_disponibles also selects especificaciones — must DROP+CREATE (can't drop cols via REPLACE)
-    await queryRunner.query(`DROP VIEW IF EXISTS v_tecnico_repuestos_disponibles`);
+    await queryRunner.query(
+      `DROP VIEW IF EXISTS v_tecnico_repuestos_disponibles`,
+    );
     await queryRunner.query(`
       CREATE VIEW v_tecnico_repuestos_disponibles AS
       SELECT
@@ -94,7 +94,9 @@ export class DropEspecificacionesFromItems1783100000001
       `ALTER TABLE items ADD COLUMN IF NOT EXISTS especificaciones jsonb`,
     );
 
-    await queryRunner.query(`DROP VIEW IF EXISTS v_tecnico_repuestos_disponibles`);
+    await queryRunner.query(
+      `DROP VIEW IF EXISTS v_tecnico_repuestos_disponibles`,
+    );
     await queryRunner.query(`
       CREATE VIEW v_tecnico_repuestos_disponibles AS
       SELECT

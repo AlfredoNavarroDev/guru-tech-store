@@ -54,4 +54,10 @@ export const envValidationSchema = Joi.object({
   R2_SECRET_ACCESS_KEY: Joi.string().optional(),
   R2_BUCKET_NAME: Joi.string().optional(),
   R2_PUBLIC_URL: Joi.string().optional(),
+
+  // API key de OpenAI para el chatbot IA.
+  OPENAI_API_KEY: Joi.string().required(),
+
+  // Máximo de requests por minuto por usuario. Default 20.
+  CHATBOT_MAX_REQUESTS_PER_MINUTE: Joi.number().optional(),
 });

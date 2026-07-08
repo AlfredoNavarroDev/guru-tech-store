@@ -36,6 +36,16 @@ export function setAuthCookie(token: string): void {
 }
 
 export function clearSession(): void {
+  // read id_empleado from current session before clearing
+  const raw = localStorage.getItem('guru_auth')
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as { id_empleado?: number }
+      if (parsed.id_empleado) {
+        localStorage.removeItem(`guru_chat_${parsed.id_empleado}`)
+      }
+    } catch { /* ignorar */ }
+  }
   localStorage.removeItem('guru_auth')
   localStorage.removeItem('guru_refresh_token')
   document.cookie = 'guru_token=; path=/; max-age=0'

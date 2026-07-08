@@ -20,6 +20,7 @@ import { ComprasModule } from './compras/compras.module';
 import { ReparacionesModule } from './reparaciones/reparaciones.module';
 import { CambiosModule } from './cambios/cambios.module';
 import { GarantiasModule } from './garantias/garantias.module';
+import { ChatbotModule } from './chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { GarantiasModule } from './garantias/garantias.module';
 
     // Módulos del Sprint 4.
     CambiosModule,
+    ChatbotModule,
 
     // Módulos del Sprint 5.
     GarantiasModule,

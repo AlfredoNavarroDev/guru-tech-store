@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
+import { ChatbotFAB } from "@/components/chatbot/ChatbotFAB"
 import { getSession, clearSession, setAuthCookie, type AuthSession } from "@/lib/api/auth"
 
 const SEGMENT_TITLES: Record<string, string> = {
@@ -189,6 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </motion.main>
         </AnimatePresence>
       </div>
+      <ChatbotFAB />
     </div>
   )
 }
