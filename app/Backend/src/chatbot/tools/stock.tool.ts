@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta de consulta puntual de stock por SKU; devuelve disponibilidad e indicador de reposición
 export const consultarStockTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:

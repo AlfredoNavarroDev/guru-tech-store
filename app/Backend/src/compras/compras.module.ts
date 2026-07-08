@@ -5,6 +5,7 @@ import { ComprasService } from './compras.service';
 import { CompraRefill } from './entities/compra-refill.entity';
 import { DetalleCompraRefill } from './entities/detalle-compra-refill.entity';
 
+// Módulo de compras: registra las entidades ORM y expone el controlador REST.
 @Module({
   imports: [TypeOrmModule.forFeature([CompraRefill, DetalleCompraRefill])],
   controllers: [ComprasController],

@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que muestra la productividad de los empleados activos de la sede en un periodo dado
 export const consultarRendimientoEmpleadosTool = (
   dataSource: DataSource,
   idSede: number,
@@ -22,6 +23,7 @@ export const consultarRendimientoEmpleadosTool = (
     }),
     execute: async ({ rol_filtro, periodo }) => {
       try {
+        // Calcula la fecha de inicio del periodo; "mes" toma el primer día del mes en curso
         let desde: string;
         const now = new Date();
         if (periodo === 'hoy') {
@@ -37,6 +39,7 @@ export const consultarRendimientoEmpleadosTool = (
         }
         const hasta = now.toISOString().slice(0, 10);
 
+        // Cláusula opcional que restringe el resultado a un rol concreto
         const rolCondition =
           rol_filtro === 'todos'
             ? ''

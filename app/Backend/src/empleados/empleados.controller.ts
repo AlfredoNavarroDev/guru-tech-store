@@ -34,6 +34,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 
+// Controlador de empleados (HU-05). Solo accesible por administradores.
 @ApiTags('empleados')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,6 +43,7 @@ import type { JwtPayload } from '../common/types';
 export class EmpleadosController {
   constructor(private readonly empleadosService: EmpleadosService) {}
 
+  // Registra un nuevo empleado en la sede del administrador autenticado.
   @Post()
   @ApiOperation({ summary: 'HU-05 — Registrar nuevo empleado en la sede' })
   @ApiCreatedResponse({ type: EmpleadoResponseDto })
@@ -52,6 +54,7 @@ export class EmpleadosController {
     return this.empleadosService.create(dto, user);
   }
 
+  // Lista empleados de la sede con paginación y filtros opcionales por rol y estado.
   @Get()
   @ApiOperation({ summary: 'HU-05 — Listar empleados de la sede (paginado)' })
   @ApiOkResponse({ description: 'Lista paginada de empleados' })
@@ -59,6 +62,7 @@ export class EmpleadosController {
     return this.empleadosService.findAll(user, query);
   }
 
+  // Devuelve el detalle de un empleado (scoped a la sede del admin).
   @Get(':id')
   @ApiOperation({ summary: 'HU-05 — Detalle de un empleado' })
   @ApiOkResponse({ type: EmpleadoResponseDto })
@@ -70,6 +74,7 @@ export class EmpleadosController {
     return this.empleadosService.findOne(id, user);
   }
 
+  // Actualiza datos del empleado (PATCH parcial, sin cambiar documento ni contraseña aquí).
   @Patch(':id')
   @ApiOperation({ summary: 'HU-05 — Actualizar datos del empleado' })
   @ApiOkResponse({ type: EmpleadoResponseDto })
@@ -82,6 +87,7 @@ export class EmpleadosController {
     return this.empleadosService.update(id, dto, user);
   }
 
+  // Cambia la contraseña de un empleado. Responde 204 sin cuerpo.
   @Patch(':id/password')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'HU-05 — Cambiar contraseña de un empleado' })
@@ -95,6 +101,7 @@ export class EmpleadosController {
     return this.empleadosService.updatePassword(id, dto, user);
   }
 
+  // Activa o desactiva un empleado. Al desactivar revoca sus refresh tokens (HU-24).
   @Patch(':id/estado')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

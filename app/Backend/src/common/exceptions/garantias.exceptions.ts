@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
+/** 404 — Garantía no encontrada. */
 export class GarantiaNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -11,6 +12,7 @@ export class GarantiaNotFoundException extends AppException {
   }
 }
 
+/** 409 — La reparación ya tiene una garantía activa, no se puede crear otra. */
 export class GarantiaYaExisteException extends AppException {
   constructor(idReparacion: number) {
     super(
@@ -21,6 +23,7 @@ export class GarantiaYaExisteException extends AppException {
   }
 }
 
+/** 409 — Solo se puede reclamar una garantía que esté en estado activo. */
 export class GarantiaNoActivaException extends AppException {
   constructor(id: number) {
     super(
@@ -31,6 +34,7 @@ export class GarantiaNoActivaException extends AppException {
   }
 }
 
+/** 400 — El reclamo como servicio técnico exige que la garantía sea de tipo reparación. */
 export class GarantiaTipoInvalidoException extends AppException {
   constructor(id: number) {
     super(

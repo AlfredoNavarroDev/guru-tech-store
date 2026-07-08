@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
+/** 404 — Empleado no encontrado en la base de datos. */
 export class EmpleadoNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -11,6 +12,7 @@ export class EmpleadoNotFoundException extends AppException {
   }
 }
 
+/** 409 — Tipo y número de documento ya están asignados a otro empleado. */
 export class EmpleadoDocumentoDuplicadoException extends AppException {
   constructor() {
     super(
@@ -21,6 +23,7 @@ export class EmpleadoDocumentoDuplicadoException extends AppException {
   }
 }
 
+/** 403 — Un empleado no puede desactivar su propia cuenta. */
 export class EmpleadoSelfDeactivateException extends AppException {
   constructor() {
     super(
@@ -31,6 +34,7 @@ export class EmpleadoSelfDeactivateException extends AppException {
   }
 }
 
+/** 400 — El id de rol enviado no existe en la tabla de roles. */
 export class RolNotFoundException extends AppException {
   constructor(id: number) {
     super(

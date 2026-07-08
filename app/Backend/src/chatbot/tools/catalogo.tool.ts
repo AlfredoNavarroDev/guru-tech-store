@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que busca productos en el catálogo de la sede con precio, stock y promociones vigentes
 export const buscarProductosTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:
@@ -14,6 +15,7 @@ export const buscarProductosTool = (dataSource: DataSource, idSede: number) =>
     }),
     execute: async ({ query }) => {
       try {
+        // Escapa los metacaracteres LIKE para evitar búsquedas no intencionales
         const safeTerm = query.replace(/%/g, '\\%').replace(/_/g, '\\_');
         const rows = await dataSource.query<object[]>(
           `SELECT sku, producto, marca, modelo, categoria,

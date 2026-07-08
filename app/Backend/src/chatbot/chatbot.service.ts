@@ -1,3 +1,4 @@
+// Servicio central del chatbot: orquesta el LLM, registra las herramientas disponibles y genera sugerencias/resúmenes por rol
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -14,6 +15,7 @@ import { buscarClientesTool } from './tools/clientes.tool';
 import { consultarPagosTool } from './tools/pagos.tool';
 import { consultarGarantiasTool } from './tools/garantias.tool';
 import { consultarVentasTool } from './tools/ventas.tool';
+import { consultarDetalleVentasTool } from './tools/detalle_ventas.tool';
 import { cotizarReparacionTool } from './tools/cotizar.tool';
 import { consultarRendimientoEmpleadosTool } from './tools/empleados.tool';
 import { consultarReposicionTool } from './tools/reposicion.tool';
@@ -27,6 +29,7 @@ export class ChatbotService {
     private readonly config: ConfigService,
   ) {}
 
+  // Inicia el stream de texto hacia el cliente usando GPT-4o con herramientas de negocio
   async streamChat(
     dto: ChatMessageDto,
     user: JwtPayload,
@@ -39,6 +42,7 @@ export class ChatbotService {
     const isPropietario = user.rol === 'propietario';
     const idSede = user.id_sede;
 
+    // Herramientas disponibles solo si el usuario pertenece a una sede concreta
     const sedeTools =
       idSede != null
         ? {
@@ -57,6 +61,7 @@ export class ChatbotService {
               idSede,
             ),
             consultar_ventas: consultarVentasTool(this.dataSource, idSede),
+            consultar_detalle_ventas: consultarDetalleVentasTool(this.dataSource, idSede),
             cotizar_reparacion: cotizarReparacionTool(this.dataSource, idSede),
             consultar_rendimiento_empleados: consultarRendimientoEmpleadosTool(
               this.dataSource,
@@ -73,6 +78,7 @@ export class ChatbotService {
           }
         : {};
 
+    // Solo el propietario tiene acceso a la vista global de todas las sedes
     const globalTools = isPropietario
       ? {
           consultar_resumen_global: consultarResumenGlobalTool(this.dataSource),
@@ -85,6 +91,7 @@ export class ChatbotService {
       messages: dto.messages,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tools: { ...sedeTools, ...globalTools } as any,
+      // Permite hasta 5 rondas de tool-calling antes de devolver la respuesta final
       maxSteps: 5,
       maxTokens: 1024,
     });
@@ -98,6 +105,7 @@ export class ChatbotService {
     }
   }
 
+  // Devuelve 4 sugerencias contextuales consultando métricas reales según el rol del usuario
   async getSuggestions(user: JwtPayload): Promise<string[]> {
     try {
       if (user.rol === 'propietario') {
@@ -120,6 +128,7 @@ export class ChatbotService {
       if (user.id_sede == null) return [];
 
       if (user.rol === 'tecnico') {
+        // Cuenta las reparaciones activas asignadas a este técnico para personalizar la sugerencia
         const [rep] = await this.dataSource.query<{ activas: string }[]>(
           `SELECT COUNT(*)::text AS activas
            FROM reparaciones r
@@ -139,6 +148,7 @@ export class ChatbotService {
       }
 
       if (user.rol === 'vendedor') {
+        // Obtiene el total de ventas del día en la sede para contextualizar la sugerencia
         const [ventas] = await this.dataSource.query<
           { total: string; ingresos: string }[]
         >(
@@ -161,6 +171,7 @@ export class ChatbotService {
       }
 
       if (user.rol === 'abastecedor') {
+        // Cuenta ítems en estado crítico o sin stock para mostrar una alerta en la sugerencia
         const [stock] = await this.dataSource.query<
           { critico: string; sin_stock: string }[]
         >(
@@ -202,6 +213,7 @@ export class ChatbotService {
         '¿Qué productos tienen mayor disponibilidad?',
       ];
     } catch {
+      // Si falla la BD se devuelven sugerencias genéricas para no bloquear la UI
       return [
         '¿Qué puedes hacer?',
         '¿Cuál es el stock actual?',
@@ -211,6 +223,7 @@ export class ChatbotService {
     }
   }
 
+  // Genera el texto de bienvenida con métricas del día adaptado al rol del usuario
   async getResumenDiario(user: JwtPayload): Promise<string> {
     const fechaLabel = new Date().toLocaleDateString('es-PE', {
       weekday: 'long',
@@ -235,6 +248,7 @@ export class ChatbotService {
            FROM v_propietario_resumen_sedes
            ORDER BY sede`,
         );
+        // Acumula totales globales sumando los valores de cada sede
         const totalVentas = sedes.reduce(
           (s, r) => s + parseInt(r.total_ventas ?? '0', 10),
           0,
@@ -270,6 +284,7 @@ export class ChatbotService {
         return `Bienvenido, ${user.nombre}. ¿En qué puedo ayudarte hoy?`;
 
       if (user.rol === 'tecnico') {
+        // Distingue entre todas las activas en la sede y las asignadas al técnico en sesión
         const [rep] = await this.dataSource.query<
           {
             activas: string;
@@ -343,7 +358,7 @@ export class ChatbotService {
         );
       }
 
-      // admin / default
+      // admin / default: combina reparaciones activas y ventas del día en una sola query
       const [r] = await this.dataSource.query<
         {
           rep_activas: string;
@@ -375,6 +390,7 @@ export class ChatbotService {
     }
   }
 
+  // Construye el system prompt del LLM con identidad, permisos y herramientas según el rol
   private buildSystemPrompt(user: JwtPayload, contextPage?: string): string {
     const rolDescripcion: Record<string, string> = {
       tecnico: 'técnico',
@@ -386,6 +402,7 @@ export class ChatbotService {
     const rolLabel = rolDescripcion[user.rol] ?? user.rol;
     const isPropietario = user.rol === 'propietario';
 
+    // Sanitiza la página activa para evitar inyección en el prompt
     const safeContext = contextPage
       ? contextPage.replace(/["\n\r]/g, '').slice(0, 100)
       : undefined;
@@ -398,6 +415,7 @@ export class ChatbotService {
       ? 'Tienes acceso global a todas las sedes del negocio.'
       : 'Todos los datos que consultes pertenecen exclusivamente a su sede.';
 
+    // El bloque de herramientas varía según si es propietario (global) o empleado de sede
     const herramientas = isPropietario
       ? `HERRAMIENTAS DISPONIBLES:
 - consultar_resumen_global: muestra resumen de todas las sedes — ventas, reparaciones, ingresos y empleados activos. Con incluir_empleados=true lista empleados por sede. Úsalo para comparar sedes, ver el estado general del negocio o preguntas sobre rendimiento global.`
@@ -408,7 +426,8 @@ export class ChatbotService {
 - buscar_clientes: busca clientes por nombre o documento. Devuelve datos personales, teléfono, dirección, fecha de registro y resumen de reparaciones. Úsalo cuando pidan "datos del cliente", "información de X", "quién es X", etc.
 - consultar_pagos: consulta pagos de reparaciones filtrado por nombre de cliente y/o modelo de dispositivo. Devuelve monto pagado, método, si es adelanto y total acumulado. Úsalo cuando pregunten cuánto ha pagado un cliente, montos de una reparación, historial de pagos.
 - consultar_garantias: consulta garantías (de reparaciones y ventas) filtrando por cliente, estado (activa/vencida/invalidada) y modelo. Úsalo cuando pregunten si un cliente tiene garantía, si está vigente, cuándo vence o por qué fue invalidada.
-- consultar_ventas: consulta ventas de la sede por periodo (hoy/semana/mes) o fechas personalizadas. Con top_productos=true devuelve ranking de productos más vendidos. Úsalo para preguntas de ingresos, cuánto se vendió hoy/semana/mes, qué productos se venden más.
+- consultar_ventas: consulta ventas de la sede por periodo (hoy/semana/mes) o fechas personalizadas. Con top_productos=true devuelve ranking de productos más vendidos. Úsalo para preguntas de ingresos totales, cuánto se vendió hoy/semana/mes, qué productos se venden más.
+- consultar_detalle_ventas: devuelve ventas individuales con cliente, productos vendidos, cantidades, precios y métodos de pago. Úsalo cuando pregunten "qué vendimos", "a quién le vendimos", "cómo pagó el cliente", "detalle de la última venta", "quién compró hoy", "cuál fue el método de pago".
 - cotizar_reparacion: genera cotización estimada buscando repuestos disponibles para un modelo y tipo de reparación. Úsalo cuando el técnico diga "cotizar", "presupuesto", "cuánto costaría arreglar".
 - consultar_rendimiento_empleados: consulta productividad de empleados activos de la sede. Muestra reparaciones activas/finalizadas (técnicos) e ingresos/ventas del periodo (vendedores). Solo relevante para admin.
 - consultar_reparaciones: consulta reparaciones de la sede. Con detalle=true devuelve checklist, diagnóstico, fotos (array con url y etapa) y garantía. Cuando el usuario pida ver fotos o imágenes de una reparación, usa detalle=true y muestra las fotos en markdown con su etapa como caption: ![etapa](url). Si no hay fotos, informa que no se han registrado fotos para esa reparación.

@@ -71,7 +71,8 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
   useEffect(() => {
     if (messages.length > 0) {
       saveHistory(idEmpleado, messages)
-      if (showSuggestions) setShowSuggestions(false)
+      const hasUserMessage = messages.some((m) => m.role === 'user')
+      if (showSuggestions && hasUserMessage) setShowSuggestions(false)
     }
   }, [messages, idEmpleado, showSuggestions])
 
@@ -182,23 +183,6 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
 
       {/* Messages */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-white p-4">
-        {messages.length === 0 && showSuggestions && (
-          <div className="flex flex-col gap-3">
-            <p className="text-center text-xs text-text-muted">¿En qué puedo ayudarte?</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleSuggestionClick(s)}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-left text-xs text-text-heading hover:border-lime hover:bg-bg-main"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {messages.map((msg) => (
           <ChatMessage
             key={msg.id}
@@ -219,6 +203,23 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
                   />
                 ))}
               </span>
+            </div>
+          </div>
+        )}
+
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-center text-xs text-text-muted">¿En qué puedo ayudarte?</p>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleSuggestionClick(s)}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-left text-xs text-text-heading hover:border-lime hover:bg-bg-main"
+                >
+                  {s}
+                </button>
+              ))}
             </div>
           </div>
         )}

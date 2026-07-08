@@ -33,6 +33,8 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
 import { ItemResponseDto } from './dto/item-response.dto';
 
+// Controlador REST para el módulo de ítems (productos y repuestos).
+// Por defecto solo el rol 'abastecedor' puede acceder; algunos endpoints amplían el acceso a 'tecnico'.
 @ApiTags('items')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,6 +43,7 @@ import { ItemResponseDto } from './dto/item-response.dto';
 export class ItemsController {
   constructor(private readonly itemsService: ItemsService) {}
 
+  // Registra un nuevo ítem en el catálogo y crea su entrada de inventario en la sede del usuario autenticado.
   @Post()
   @ApiOperation({ summary: 'HU-11 — Registrar nuevo ítem en el catálogo' })
   @ApiCreatedResponse({ type: ItemResponseDto })
@@ -51,6 +54,7 @@ export class ItemsController {
     return this.itemsService.create(dto, user.id_sede!);
   }
 
+  // Lista ítems con filtros opcionales; el stock devuelto corresponde a la sede del usuario.
   @Get()
   @Roles('abastecedor', 'tecnico')
   @ApiOperation({
@@ -62,6 +66,7 @@ export class ItemsController {
     return this.itemsService.findAll(query, user.id_sede ?? undefined);
   }
 
+  // Devuelve el catálogo de categorías para poblar selectores en el frontend.
   @Get('categorias')
   @ApiOperation({ summary: 'Listar todas las categorías disponibles' })
   @ApiOkResponse({
@@ -82,6 +87,7 @@ export class ItemsController {
     return this.itemsService.findCategorias();
   }
 
+  // Devuelve el catálogo de marcas para poblar selectores en el frontend.
   @Get('marcas')
   @ApiOperation({ summary: 'Listar todas las marcas disponibles' })
   @ApiOkResponse({
@@ -100,6 +106,7 @@ export class ItemsController {
     return this.itemsService.findMarcas();
   }
 
+  // Recupera un único ítem por su clave primaria; lanza 404 si no existe.
   @Get(':id')
   @ApiOperation({ summary: 'Obtener ítem por ID' })
   @ApiOkResponse({ type: ItemResponseDto })
@@ -108,6 +115,7 @@ export class ItemsController {
     return this.itemsService.findOne(id);
   }
 
+  // Actualiza los campos escalares y/o las categorías del ítem indicado.
   @Patch(':id')
   @ApiOperation({ summary: 'HU-11 — Actualizar ítem del catálogo' })
   @ApiOkResponse({ type: ItemResponseDto })
@@ -119,6 +127,7 @@ export class ItemsController {
     return this.itemsService.update(id, dto);
   }
 
+  // Aplica una entrada o salida de stock en la sede del usuario; responde 204 sin cuerpo.
   @Patch(':id/stock')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -134,6 +143,7 @@ export class ItemsController {
     return this.itemsService.ajusteStock(id, dto, user.id_sede!);
   }
 
+  // Elimina el ítem; falla con 409 si tiene ventas o reparaciones asociadas.
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()

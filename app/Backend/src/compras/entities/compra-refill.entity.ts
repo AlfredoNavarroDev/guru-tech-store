@@ -8,20 +8,24 @@ import {
 } from 'typeorm';
 import { DetalleCompraRefill } from './detalle-compra-refill.entity';
 
+// Cabecera de una orden de compra de reposición de inventario.
 @Entity('compras_refill')
 export class CompraRefill {
   @PrimaryGeneratedColumn({ name: 'id_compra' })
   id_compra: number;
 
+  // Empleado abastecedor que registró la compra.
   @Column({ name: 'id_empleado_refiller' })
   id_empleado_refiller: number;
 
+  // Sede que recibirá la mercancía comprada.
   @Column({ name: 'id_sede_destino' })
   id_sede_destino: number;
 
   @Column({ name: 'id_proveedor' })
   id_proveedor: number;
 
+  // Fecha efectiva de la compra; por defecto el momento de inserción.
   @Column({ name: 'fecha_compra', type: 'timestamptz', default: () => 'now()' })
   fecha_compra: Date;
 
@@ -31,6 +35,7 @@ export class CompraRefill {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz', nullable: true })
   updated_at: Date | null;
 
+  // Ítems individuales que componen esta orden; cascade permite insertar detalles junto a la cabecera.
   @OneToMany(() => DetalleCompraRefill, (d) => d.compra, { cascade: true })
   detalles: DetalleCompraRefill[];
 }

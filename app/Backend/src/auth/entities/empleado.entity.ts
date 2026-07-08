@@ -5,11 +5,13 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+// Entidad que mapea la tabla 'empleados'. Usada solo en AuthModule para autenticación.
 @Entity('empleados')
 export class Empleado {
   @PrimaryGeneratedColumn({ name: 'id_empleado' })
   id_empleado: number;
 
+  // Null para el propietario, que no está asignado a ninguna sede.
   @Column({ name: 'id_sede', type: 'int', nullable: true })
   id_sede: number | null;
 
@@ -19,15 +21,18 @@ export class Empleado {
   @Column({ name: 'tipo_documento' })
   tipo_documento: string;
 
+  // Identificador de login (DNI, CE, etc.), único en la tabla.
   @Column({ name: 'nro_documento' })
   nro_documento: string;
 
   @Column({ name: 'nombre_completo' })
   nombre_completo: string;
 
+  // Contraseña almacenada como hash bcrypt, nunca en texto claro.
   @Column({ name: 'password_hash' })
   password_hash: string;
 
+  // 'activo' | 'inactivo' — empleados inactivos no pueden iniciar sesión.
   @Column({ name: 'estado', default: 'activo' })
   estado: string;
 
@@ -52,6 +57,7 @@ export class Empleado {
   @Column({ name: 'direccion_completa', type: 'text', nullable: true })
   direccion_completa: string | null;
 
+  // Auditoría: id_empleado que registró al nuevo empleado.
   @Column({ name: 'created_by', type: 'int', nullable: true })
   created_by: number | null;
 

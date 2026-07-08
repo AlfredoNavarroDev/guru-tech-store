@@ -11,13 +11,16 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 
+// Longitudes exactas esperadas según tipo de documento.
 const DOC_EXACT: Record<string, number> = { DNI: 8, CE: 12, pasaporte: 9 };
 
+// Validador personalizado que cruza tipo_documento y nro_documento para verificar la longitud.
 @ValidatorConstraint({ name: 'documentoLength', async: false })
 class DocumentoLengthConstraint implements ValidatorConstraintInterface {
   validate(nro: string, args: ValidationArguments): boolean {
     const { tipo_documento } = args.object as CreateClienteDto;
     const expected = DOC_EXACT[tipo_documento];
+    // Si el tipo no está en el mapa (ya cubierto por @IsIn), no rechaza aquí.
     return expected == null || nro?.length === expected;
   }
 

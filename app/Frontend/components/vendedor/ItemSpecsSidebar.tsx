@@ -112,17 +112,3 @@ export function ItemSpecsContent({ item, onClose }: ItemSpecsSidebarProps) {
   )
 }
 
-export function ItemSpecsSidebar({ item, onClose }: ItemSpecsSidebarProps) {
-  return (
-    <motion.div
-      key="specs-sidebar"
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
-      transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] border-l-2 border-blue-500 bg-white overflow-hidden"
-    >
-      <ItemSpecsContent item={item} onClose={onClose} />
-    </motion.div>
-  )
-}

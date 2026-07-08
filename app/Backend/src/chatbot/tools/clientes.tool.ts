@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que busca clientes por nombre o documento e incluye su historial de reparaciones en la sede
 export const buscarClientesTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:
@@ -18,6 +19,7 @@ export const buscarClientesTool = (dataSource: DataSource, idSede: number) =>
       try {
         const safe = query.replace(/%/g, '\\%').replace(/_/g, '\\_');
 
+        // Filtra por nombre o documento; el LEFT JOIN contabiliza reparaciones solo en esta sede
         const rows = await dataSource.query<
           {
             id_cliente: number;

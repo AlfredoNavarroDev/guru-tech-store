@@ -17,7 +17,7 @@ import { QueryCatalogoDto } from './dto/query-catalogo.dto';
 export class CatalogoController {
   constructor(private readonly catalogoService: CatalogoService) {}
 
-  // HU-05: Productos con stock disponible en la sede del vendedor.
+  // Devuelve los productos con stock disponible en la sede extraída del JWT del vendedor.
   @Get()
   @ApiOperation({
     summary: 'HU-05 — Productos con stock disponible en la sede del vendedor',

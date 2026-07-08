@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
+/** 404 — Reparación no encontrada. */
 export class ReparacionNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -11,6 +12,7 @@ export class ReparacionNotFoundException extends AppException {
   }
 }
 
+/** 404 — El repuesto no está vinculado a la reparación indicada. */
 export class RepuestoUsadoNotFoundException extends AppException {
   constructor(reparacionId: number, repuestoId: number) {
     super(
@@ -21,6 +23,7 @@ export class RepuestoUsadoNotFoundException extends AppException {
   }
 }
 
+/** 400 — El id de estado no corresponde a ningún estado de reparación válido. */
 export class EstadoReparacionNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -31,6 +34,7 @@ export class EstadoReparacionNotFoundException extends AppException {
   }
 }
 
+/** 409 — Una reparación entregada es inmutable; no se puede editar ni avanzar estado. */
 export class ReparacionEntregadaException extends AppException {
   constructor(id: number) {
     super(
@@ -41,6 +45,7 @@ export class ReparacionEntregadaException extends AppException {
   }
 }
 
+/** 400 — Los estados de reparación deben avanzar secuencialmente, no se permiten saltos. */
 export class EstadoSaltoInvalidoException extends AppException {
   constructor(actual: string, destino: string) {
     super(
@@ -51,6 +56,7 @@ export class EstadoSaltoInvalidoException extends AppException {
   }
 }
 
+/** 400 — El pago registrado supera el saldo pendiente de la reparación. */
 export class PagoExcedeSaldoException extends AppException {
   constructor(monto: number, saldo: number) {
     super(
@@ -61,6 +67,7 @@ export class PagoExcedeSaldoException extends AppException {
   }
 }
 
+/** 400 — No se puede registrar un pago sin haber definido primero el precio de la reparación. */
 export class PagoSinPrecioException extends AppException {
   constructor(id: number) {
     super(

@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que consulta ventas de la sede por periodo o fechas personalizadas, con ranking opcional de productos
 export const consultarVentasTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:
@@ -46,6 +47,7 @@ export const consultarVentasTool = (dataSource: DataSource, idSede: number) =>
       top_productos,
     }) => {
       try {
+        // Calcula el rango de fechas según el periodo elegido; "mes" comienza el 1 del mes en curso
         let desde: string;
         let hasta: string;
         const now = new Date();
@@ -61,6 +63,7 @@ export const consultarVentasTool = (dataSource: DataSource, idSede: number) =>
           desde = d.toISOString().slice(0, 10);
           hasta = now.toISOString().slice(0, 10);
         } else {
+          // Modo personalizado: usa las fechas recibidas o el día de hoy como fallback
           desde = fecha_inicio ?? now.toISOString().slice(0, 10);
           hasta = fecha_fin ?? now.toISOString().slice(0, 10);
         }
@@ -112,6 +115,7 @@ export const consultarVentasTool = (dataSource: DataSource, idSede: number) =>
           total_ingresos: parseFloat(summary[0]?.total_ingresos ?? '0'),
         };
 
+        // Si se pide el ranking, ejecuta una segunda query agrupando por producto
         if (top_productos) {
           const top = await dataSource.query<
             {

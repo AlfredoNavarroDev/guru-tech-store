@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que genera una cotización estimada buscando repuestos en stock compatibles con el dispositivo
 export const cotizarReparacionTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:
@@ -26,6 +27,7 @@ export const cotizarReparacionTool = (dataSource: DataSource, idSede: number) =>
           .replace(/%/g, '\\%')
           .replace(/_/g, '\\_');
 
+        // Se construye la cláusula WHERE dinámicamente para incluir filtro de tipo si se proporcionó
         const conditions: string[] = [
           `i.tipo = 'repuesto'`,
           `(i.nombre ILIKE $2 OR i.modelo ILIKE $2)`,
@@ -74,6 +76,7 @@ export const cotizarReparacionTool = (dataSource: DataSource, idSede: number) =>
           };
         }
 
+        // El costo estimado es la suma de todos los repuestos compatibles encontrados en stock
         const costoEstimado = rows.reduce(
           (sum, r) => sum + parseFloat(r.precio_venta_actual),
           0,

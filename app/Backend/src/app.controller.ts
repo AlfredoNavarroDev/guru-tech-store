@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 
+// Controlador raíz: única ruta GET / para health check del servidor.
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}

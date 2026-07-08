@@ -8,7 +8,9 @@ import {
   MaxLength,
 } from 'class-validator';
 
+// DTO de creación de proveedor: valida los campos obligatorios y opcionales.
 export class CreateProveedorDto {
+  // RUC numérico de 8 a 15 dígitos (cubre formatos peruano y extranjero).
   @ApiProperty({
     example: '20100070970',
     description: 'RUC peruano (11 dígitos) o extranjero (max 15)',
@@ -25,6 +27,7 @@ export class CreateProveedorDto {
   @MaxLength(255)
   razon_social: string;
 
+  // Persona de contacto comercial; no es obligatoria al registrar el proveedor.
   @ApiPropertyOptional({ example: 'Juan López' })
   @IsOptional()
   @IsString()

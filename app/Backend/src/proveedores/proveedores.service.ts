@@ -11,6 +11,7 @@ import {
   ProveedorRucDuplicadoException,
 } from '../common/exceptions';
 
+// Lógica de negocio para la gestión de proveedores.
 @Injectable()
 export class ProveedoresService {
   constructor(
@@ -18,6 +19,7 @@ export class ProveedoresService {
     private readonly proveedorRepo: Repository<Proveedor>,
   ) {}
 
+  // Verifica unicidad de RUC antes de persistir el nuevo proveedor.
   async create(dto: CreateProveedorDto): Promise<ProveedorResponseDto> {
     const existing = await this.proveedorRepo.findOne({
       where: { ruc: dto.ruc },
@@ -27,12 +29,14 @@ export class ProveedoresService {
     const proveedor = this.proveedorRepo.create({
       ruc: dto.ruc,
       razon_social: dto.razon_social,
+      // Los campos opcionales se almacenan como null si no vienen en el DTO.
       contacto_nombre: dto.contacto_nombre ?? null,
       telefono: dto.telefono ?? null,
     });
     return this.toResponse(await this.proveedorRepo.save(proveedor));
   }
 
+  // Pagina los proveedores ordenados alfabéticamente por razón social.
   async findAll(
     query: PaginationDto,
   ): Promise<PaginatedResult<ProveedorResponseDto>> {
@@ -50,6 +54,7 @@ export class ProveedoresService {
     };
   }
 
+  // Lanza excepción tipada si el proveedor no existe en la base de datos.
   async findOne(id: number): Promise<ProveedorResponseDto> {
     const proveedor = await this.proveedorRepo.findOne({
       where: { id_proveedor: id },
@@ -58,6 +63,7 @@ export class ProveedoresService {
     return this.toResponse(proveedor);
   }
 
+  // Aplica cambios parciales; valida que el nuevo RUC no pertenezca a otro proveedor.
   async update(
     id: number,
     dto: UpdateProveedorDto,
@@ -67,12 +73,14 @@ export class ProveedoresService {
     });
     if (!proveedor) throw new ProveedorNotFoundException(id);
 
+    // Comprueba duplicado de RUC solo si se envía un nuevo valor distinto.
     if (dto.ruc) {
       const dup = await this.proveedorRepo.findOne({ where: { ruc: dto.ruc } });
       if (dup && dup.id_proveedor !== id)
         throw new ProveedorRucDuplicadoException(dto.ruc);
     }
 
+    // Mezcla los campos del DTO con los valores actuales (actualización parcial).
     Object.assign(proveedor, {
       ruc: dto.ruc ?? proveedor.ruc,
       razon_social: dto.razon_social ?? proveedor.razon_social,
@@ -83,6 +91,7 @@ export class ProveedoresService {
     return this.toResponse(await this.proveedorRepo.save(proveedor));
   }
 
+  // Convierte la entidad ORM al DTO de respuesta que se expone al cliente.
   private toResponse(p: Proveedor): ProveedorResponseDto {
     return {
       id_proveedor: p.id_proveedor,

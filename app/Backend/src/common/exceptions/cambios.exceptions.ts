@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
+/** 404 — Cambio/devolución no encontrado. */
 export class CambioNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -11,6 +12,7 @@ export class CambioNotFoundException extends AppException {
   }
 }
 
+/** 400 — El ítem solicitado no pertenece a la venta origen del cambio. */
 export class ItemNoEnVentaException extends AppException {
   constructor(idItem: number, idVenta: number) {
     super(
@@ -21,6 +23,7 @@ export class ItemNoEnVentaException extends AppException {
   }
 }
 
+/** 400 — Se intenta cambiar más unidades de las que se vendieron originalmente. */
 export class CantidadExcedidaException extends AppException {
   constructor(cantidad: number, maxCantidad: number) {
     super(

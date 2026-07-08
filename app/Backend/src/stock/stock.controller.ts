@@ -13,6 +13,7 @@ import type { JwtPayload } from '../common/types';
 import { StockService } from './stock.service';
 import { QueryStockDto } from './dto/query-stock.dto';
 
+// Endpoints de consulta de stock para el rol 'abastecedor' (HU-12).
 @ApiTags('stock')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -21,6 +22,7 @@ import { QueryStockDto } from './dto/query-stock.dto';
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
+  // Devuelve el stock paginado de la sede del abastecedor con filtros opcionales.
   @Get()
   @ApiOperation({
     summary: 'HU-12 — Stock actual de la sede con filtros y paginación',
@@ -32,6 +34,7 @@ export class StockController {
     return this.stockService.findAll(user.id_sede!, query);
   }
 
+  // Devuelve los ítems por debajo del stock mínimo, ordenados por urgencia descendente.
   @Get('critico')
   @ApiOperation({
     summary: 'HU-12 — Ítems bajo stock mínimo ordenados por urgencia',

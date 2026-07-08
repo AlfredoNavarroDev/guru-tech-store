@@ -88,15 +88,6 @@ export default function CatalogoPage() {
   const [cartLoaded, setCartLoaded] = useState(false)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [specItem, setSpecItem] = useState<CatalogoItem | null>(null)
-  const [isDesktop, setIsDesktop] = useState(false)
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
-    setIsDesktop(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
-  }, [])
 
   const cartSaveEnabled = useRef(false)
   const hasAutoOpenedRef = useRef(false)
@@ -1254,21 +1245,10 @@ export default function CatalogoPage() {
           )}
         </div>
 
-        {/* ══════════ RIGHT: specs sidebar OR filter sidebar (desktop) ══════════ */}
+        {/* ══════════ RIGHT: filter sidebar (desktop only) ══════════ */}
         <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 relative">
           <AnimatePresence>
-            {specItem ? (
-              <motion.div
-                key="specs"
-                className="absolute inset-0 flex flex-col bg-white border-l-2 border-blue-500 overflow-hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-              >
-                <ItemSpecsContent item={specItem} onClose={() => setSpecItem(null)} />
-              </motion.div>
-            ) : loading ? (
+            {loading ? (
               <motion.div
                 key="skeleton"
                 className="absolute inset-0 bg-gray-100 p-3 overflow-y-auto"
@@ -1311,7 +1291,7 @@ export default function CatalogoPage() {
       </div>
 
       {/* Mobile floating cart button */}
-      <div className="fixed bottom-6 right-6 lg:hidden z-30">
+      <div className="fixed bottom-24 right-6 lg:hidden z-30">
         <button
           type="button"
           onClick={() => router.push("/dashboard/catalogo/carrito")}
@@ -1327,12 +1307,12 @@ export default function CatalogoPage() {
         </button>
       </div>
 
-      {/* Mobile specs bottom sheet */}
+      {/* Product specs modal (all breakpoints) */}
       <BottomSheet
-        open={!!specItem && !isDesktop}
+        open={!!specItem}
         onClose={() => setSpecItem(null)}
       >
-        <div className="max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white">
+        <div className="max-h-[85dvh] overflow-y-auto rounded-2xl bg-white">
           {specItem && (
             <ItemSpecsContent item={specItem} onClose={() => setSpecItem(null)} />
           )}

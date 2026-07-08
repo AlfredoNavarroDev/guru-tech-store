@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que busca repuestos en stock de la sede por nombre o modelo, incluyendo precio y cantidad
 export const buscarRepuestosTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:
@@ -14,6 +15,7 @@ export const buscarRepuestosTool = (dataSource: DataSource, idSede: number) =>
       try {
         const safeTerm = query.replace(/%/g, '\\%').replace(/_/g, '\\_');
         const rows = await dataSource.query<object[]>(
+          // Solo devuelve ítems de tipo 'repuesto' con stock mayor a 0 en la sede
           `SELECT i.nombre, i.sku, i.modelo,
                   i.precio_venta_actual,
                   COALESCE(inv.cantidad_actual, 0) AS stock_disponible

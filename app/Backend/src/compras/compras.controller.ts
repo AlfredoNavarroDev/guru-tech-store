@@ -33,6 +33,8 @@ import { UpdateItemCompraDto } from './dto/update-item-compra.dto';
 import { CompraResponseDto } from './dto/compra-response.dto';
 import { ComprasQueryDto } from './dto/compras-query.dto';
 
+// Controlador REST para gestión de órdenes de compra (refill de stock).
+// Solo accesible por el rol 'abastecedor'; todas las rutas requieren JWT.
 @ApiTags('compras')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,6 +43,7 @@ import { ComprasQueryDto } from './dto/compras-query.dto';
 export class ComprasController {
   constructor(private readonly comprasService: ComprasService) {}
 
+  // Crea la cabecera de una orden de compra sin ítems aún.
   @Post()
   @ApiOperation({ summary: 'Crear orden de compra (cabecera)' })
   @ApiCreatedResponse({ type: CompraResponseDto })
@@ -51,6 +54,7 @@ export class ComprasController {
     return this.comprasService.create(dto, user);
   }
 
+  // Devuelve el historial paginado de compras filtrado por sede del empleado.
   @Get()
   @ApiOperation({ summary: 'Historial de compras de la sede' })
   @ApiOkResponse({ type: CompraResponseDto, isArray: true })
@@ -58,6 +62,7 @@ export class ComprasController {
     return this.comprasService.findAll(user, query);
   }
 
+  // Devuelve una compra con sus ítems; la sede del JWT limita el acceso.
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de compra con ítems' })
   @ApiOkResponse({ type: CompraResponseDto })
@@ -69,6 +74,7 @@ export class ComprasController {
     return this.comprasService.findOne(id, user.id_sede!);
   }
 
+  // Agrega un ítem a la compra; un trigger de BD incrementa el stock al insertar.
   @Post(':id/items')
   @ApiOperation({
     summary: 'HU-11/HU-12 — Agregar ítem a compra (trigger incrementa stock)',
@@ -85,6 +91,7 @@ export class ComprasController {
     return this.comprasService.addItem(id, dto, user);
   }
 
+  // Modifica la cantidad de un ítem; el trigger ajusta solo el delta en inventario.
   @Patch(':id/items/:itemId')
   @ApiOperation({
     summary: 'Modificar cantidad de ítem (trigger ajusta delta en stock)',
@@ -100,6 +107,7 @@ export class ComprasController {
     return this.comprasService.updateItem(id, itemId, dto, user);
   }
 
+  // Elimina un ítem de la compra; el trigger revierte las unidades en stock.
   @Delete(':id/items/:itemId')
   @ApiOperation({ summary: 'Eliminar ítem de compra (trigger revierte stock)' })
   @ApiNoContentResponse()

@@ -21,6 +21,7 @@ import {
   StockInsuficienteCompraException,
 } from '../common/exceptions';
 
+// Forma de la fila devuelta por la vista v_compra_cabecera.
 interface CompraRow {
   id_compra: number;
   id_empleado_refiller: number;
@@ -32,6 +33,7 @@ interface CompraRow {
   costo_total: string;
 }
 
+// Forma de la fila de detalle cuando se une detalle_compra_refill con items.
 interface DetalleRow {
   id_detalle: number;
   id_item: number;
@@ -42,6 +44,7 @@ interface DetalleRow {
   precio_venta_sugerido: string;
 }
 
+// Servicio de negocio para órdenes de compra; interactúa directamente con la BD via SQL y ORM.
 @Injectable()
 export class ComprasService {
   constructor(
@@ -52,6 +55,7 @@ export class ComprasService {
     private readonly dataSource: DataSource,
   ) {}
 
+  // Crea la cabecera de una compra y devuelve la representación completa desde la vista.
   async create(
     dto: CreateCompraDto,
     user: JwtPayload,
@@ -66,6 +70,7 @@ export class ComprasService {
       return this.findOne(saved.id_compra, user.id_sede!);
     } catch (err: unknown) {
       const e = err as { message?: string };
+      // Un trigger de BD lanza un error si la sede está deshabilitada.
       if (e.message?.includes('deshabilitada')) {
         throw new SedeDeshabilitadaException(e.message);
       }
@@ -73,6 +78,7 @@ export class ComprasService {
     }
   }
 
+  // Listado paginado de compras de la sede; el conteo y los datos se obtienen en paralelo.
   async findAll(
     user: JwtPayload,
     query: ComprasQueryDto,
@@ -109,6 +115,7 @@ export class ComprasService {
     };
   }
 
+  // Devuelve cabecera + detalles de una compra; verifica que pertenezca a la sede del usuario.
   async findOne(id: number, idSede: number): Promise<CompraResponseDto> {
     const [[compra], detalles] = await Promise.all([
       this.dataSource.query<CompraRow[]>(
@@ -132,6 +139,7 @@ export class ComprasService {
     };
   }
 
+  // Inserta un detalle; el trigger de stock puede lanzar errores que captura handleDetalleError.
   async addItem(
     compraId: number,
     dto: AddItemCompraDto,
@@ -146,6 +154,7 @@ export class ComprasService {
     }
   }
 
+  // Actualiza cantidad y precios opcionales de un ítem; el trigger ajusta el delta de stock.
   async updateItem(
     compraId: number,
     itemId: number,
@@ -158,6 +167,7 @@ export class ComprasService {
     });
     if (!detalle) throw new DetalleCompraNotFoundException(compraId, itemId);
 
+    // Spread condicional para no sobreescribir precios que no vienen en el DTO.
     Object.assign(detalle, {
       cantidad_comprada: dto.cantidad_comprada,
       ...(dto.costo_unidad !== undefined && { costo_unidad: dto.costo_unidad }),
@@ -173,6 +183,7 @@ export class ComprasService {
     }
   }
 
+  // Elimina un ítem; el trigger revierte el stock sumando las unidades de vuelta.
   async removeItem(
     compraId: number,
     itemId: number,
@@ -191,6 +202,7 @@ export class ComprasService {
     }
   }
 
+  // Traduce errores de BD conocidos (deadlock, stock) a excepciones de dominio.
   private handleDetalleError(err: unknown): never {
     const e = err as { code?: string; message?: string };
     if (e.code === '40P01') throw new DeadlockException();
@@ -202,6 +214,7 @@ export class ComprasService {
     throw err;
   }
 
+  // Garantiza que la compra existe y pertenece a la sede; evita acceso cruzado entre sedes.
   private async ensureAccess(compraId: number, idSede: number): Promise<void> {
     const rows = await this.dataSource.query<{ id_compra: number }[]>(
       `SELECT id_compra FROM compras_refill WHERE id_compra = $1 AND id_sede_destino = $2`,
@@ -210,6 +223,7 @@ export class ComprasService {
     if (!rows.length) throw new CompraNotFoundException(compraId);
   }
 
+  // Mapea la fila cruda de la vista a la forma del DTO de respuesta de cabecera.
   private toCompraResponse(row: CompraRow): CompraResponseDto {
     return {
       id_compra: row.id_compra,
@@ -219,10 +233,12 @@ export class ComprasService {
       id_proveedor: row.id_proveedor,
       proveedor: row.proveedor ?? null,
       fecha_compra: row.fecha_compra,
+      // La BD devuelve decimales como string; se convierte a number para el DTO.
       costo_total: parseFloat(String(row.costo_total)),
     };
   }
 
+  // Mapea la fila cruda de detalle a su DTO, convirtiendo decimales string a number.
   private toDetalleResponse(row: DetalleRow): DetalleCompraResponseDto {
     return {
       id_detalle_compra: row.id_detalle,

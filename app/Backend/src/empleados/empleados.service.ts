@@ -19,6 +19,7 @@ import { UpdateEstadoEmpleadoDto } from './dto/update-estado-empleado.dto';
 import { QueryEmpleadosDto } from './dto/query-empleados.dto';
 import { EmpleadoResponseDto } from './dto/empleado-response.dto';
 
+// Servicio de empleados. Scoped por sede — ninguna operación cruza sedes.
 @Injectable()
 export class EmpleadosService {
   constructor(
@@ -29,6 +30,7 @@ export class EmpleadosService {
     private readonly dataSource: DataSource,
   ) {}
 
+  // Crea empleado: valida formato de documento, existencia de rol y unicidad antes de persistir.
   async create(
     dto: CreateEmpleadoDto,
     currentUser: JwtPayload,
@@ -37,6 +39,7 @@ export class EmpleadosService {
     await this.validateRolExists(dto.id_rol);
     await this.validateDocumentoUnico(dto.tipo_documento, dto.nro_documento);
 
+    // Hashea contraseña con bcrypt antes de almacenarla.
     const password_hash = await bcrypt.hash(dto.password, 10);
     const empleado = this.empleadosRepo.create({
       tipo_documento: dto.tipo_documento,
@@ -44,6 +47,7 @@ export class EmpleadosService {
       nombre_completo: dto.nombre_completo,
       id_rol: dto.id_rol,
       password_hash,
+      // La sede proviene del token JWT del admin, no del body.
       id_sede: currentUser.id_sede!,
       telefono: dto.telefono ?? null,
       sueldo_soles: dto.sueldo_soles ?? null,
@@ -55,12 +59,14 @@ export class EmpleadosService {
     return this.toResponse(await this.empleadosRepo.save(empleado));
   }
 
+  // Listado paginado con filtros opcionales por rol y estado activo/inactivo.
   async findAll(
     currentUser: JwtPayload,
     query: QueryEmpleadosDto,
   ): Promise<PaginatedResult<EmpleadoResponseDto>> {
     const qb = this.empleadosRepo
       .createQueryBuilder('e')
+      // Filtra por sede del admin para evitar acceso cruzado entre sedes.
       .where('e.id_sede = :id_sede', { id_sede: currentUser.id_sede! })
       .orderBy('e.nombre_completo', 'ASC')
       .skip((query.page - 1) * query.limit)
@@ -70,6 +76,7 @@ export class EmpleadosService {
       qb.andWhere('e.id_rol = :id_rol', { id_rol: query.id_rol });
     }
     if (query.activo !== undefined) {
+      // Convierte el booleano a la cadena que usa la columna 'estado'.
       qb.andWhere('e.estado = :estado', {
         estado: query.activo ? 'activo' : 'inactivo',
       });
@@ -85,6 +92,7 @@ export class EmpleadosService {
     };
   }
 
+  // Busca empleado por ID garantizando que pertenece a la sede del admin.
   async findOne(
     id: number,
     currentUser: JwtPayload,
@@ -96,6 +104,7 @@ export class EmpleadosService {
     return this.toResponse(empleado);
   }
 
+  // Actualiza campos del empleado. Valida el nuevo rol si se cambia.
   async update(
     id: number,
     dto: UpdateEmpleadoDto,
@@ -107,6 +116,7 @@ export class EmpleadosService {
     return this.toResponse(await this.empleadosRepo.save(empleado));
   }
 
+  // Reemplaza el hash de contraseña. No valida la contraseña anterior.
   async updatePassword(
     id: number,
     dto: UpdatePasswordEmpleadoDto,
@@ -123,10 +133,12 @@ export class EmpleadosService {
     dto: UpdateEstadoEmpleadoDto,
     currentUser: JwtPayload,
   ): Promise<void> {
+    // Impide que un admin se desactive a sí mismo.
     if (id === currentUser.sub) throw new EmpleadoSelfDeactivateException();
     await this.findOne(id, currentUser);
 
     if (!dto.activo) {
+      // Revoca tokens de refresco para forzar cierre de sesión inmediato.
       await this.dataSource.query(
         `UPDATE "refreshtokens" SET revoked = true WHERE id_empleado = $1 AND revoked = false`,
         [id],
@@ -138,6 +150,7 @@ export class EmpleadosService {
     });
   }
 
+  // Helper interno: carga la entidad completa con validación de sede.
   private async findEntity(
     id: number,
     currentUser: JwtPayload,
@@ -149,17 +162,20 @@ export class EmpleadosService {
     return empleado;
   }
 
+  // Elimina password_hash antes de devolver el empleado al cliente.
   private toResponse(empleado: Empleado): EmpleadoResponseDto {
     const safe = { ...empleado } as Partial<Empleado>;
     delete safe.password_hash;
     return safe as EmpleadoResponseDto;
   }
 
+  // Lanza 404 si el rol no existe en la base de datos.
   private async validateRolExists(id_rol: number): Promise<void> {
     const rol = await this.rolesRepo.findOne({ where: { id_rol } });
     if (!rol) throw new RolNotFoundException(id_rol);
   }
 
+  // Lanza excepción de duplicado si ya existe un empleado con el mismo tipo+nro de documento.
   private async validateDocumentoUnico(
     tipo_documento: string,
     nro_documento: string,
@@ -170,6 +186,7 @@ export class EmpleadosService {
     if (exists) throw new EmpleadoDocumentoDuplicadoException();
   }
 
+  // Valida longitud y formato del documento según su tipo mediante regex.
   private validateDocumentoFormato(
     tipo_documento: string,
     nro_documento: string,

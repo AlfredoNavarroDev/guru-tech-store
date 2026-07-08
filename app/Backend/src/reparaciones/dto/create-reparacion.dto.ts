@@ -13,6 +13,7 @@ import {
   Min,
 } from 'class-validator';
 
+// DTO para registrar el ingreso de un equipo al servicio técnico (HU-15).
 export class CreateReparacionDto {
   @ApiProperty({ example: 5, description: 'ID del cliente dueño del equipo' })
   @Type(() => Number)
@@ -31,6 +32,7 @@ export class CreateReparacionDto {
   @MaxLength(50)
   modelo?: string;
 
+  // Regex valida exactamente 15 dígitos numéricos según formato IMEI estándar.
   @ApiPropertyOptional({
     example: '012345678901234',
     description: 'IMEI de 15 dígitos',
@@ -63,6 +65,7 @@ export class CreateReparacionDto {
   @IsString()
   diagnostico_tecnico?: string;
 
+  // Solo mano de obra; los repuestos se agregan aparte y se suman al total.
   @ApiPropertyOptional({
     example: 250.0,
     description: 'Cotización estimada (>= 0)',
@@ -80,6 +83,7 @@ export class CreateReparacionDto {
   @Min(0)
   monto_descuento?: number;
 
+  // Determina cómo se interpreta monto_descuento: relativo o valor absoluto.
   @ApiPropertyOptional({ enum: ['porcentaje', 'monto_fijo'] })
   @IsOptional()
   @IsIn(['porcentaje', 'monto_fijo'])
@@ -90,6 +94,7 @@ export class CreateReparacionDto {
   @IsIn(['software', 'hardware', 'mixto'])
   tipo_servicio?: 'software' | 'hardware' | 'mixto';
 
+  // Formato estricto YYYY-MM-DD; se valida con regex para coherencia con el campo `date` en BD.
   @ApiPropertyOptional({
     example: '2026-06-28',
     description: 'Fecha estimada de entrega (YYYY-MM-DD)',

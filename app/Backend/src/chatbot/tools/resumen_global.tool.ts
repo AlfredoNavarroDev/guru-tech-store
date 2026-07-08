@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta exclusiva del propietario: consulta la vista global de todas las sedes del negocio
 export const consultarResumenGlobalTool = (dataSource: DataSource) =>
   tool({
     description:
@@ -25,6 +26,7 @@ export const consultarResumenGlobalTool = (dataSource: DataSource) =>
            ORDER BY sede`,
         );
 
+        // El listado de empleados es opcional para no saturar la respuesta cuando no se necesita
         let empleados: object[] = [];
         if (incluir_empleados) {
           empleados = await dataSource.query<object[]>(

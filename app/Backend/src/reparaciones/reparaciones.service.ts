@@ -26,6 +26,7 @@ import {
   StockInsuficienteException,
 } from '../common/exceptions';
 
+// Forma cruda de cada fila devuelta por la vista v_reparacion_lista.
 interface ReparacionRow {
   id_reparacion: number;
   fecha_ingreso: Date;
@@ -58,6 +59,7 @@ interface ReparacionRow {
   id_garantia_reclamada: number | null;
 }
 
+// Forma cruda de cada repuesto consumido, unida con la tabla items.
 interface RepuestoRow {
   id_repuesto_u: number;
   id_item: number;
@@ -68,10 +70,12 @@ interface RepuestoRow {
   costo_unitario_momento: string;
 }
 
+// Resultado del COUNT(*) usado para la paginación; total viene como string en pg.
 interface CountRow {
   total: string;
 }
 
+// Forma cruda de cada pago registrado para una reparación.
 interface PagoRow {
   id_pago: number;
   metodo_pago: string;
@@ -80,6 +84,7 @@ interface PagoRow {
   fecha_pago: Date;
 }
 
+// Fila de estados_reparacion; `orden` controla la secuencia permitida de transiciones.
 interface EstadoRow {
   id_estado: number;
   nombre: string;
@@ -100,6 +105,7 @@ export class ReparacionesService {
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {
+    // Inicializa el cliente S3 compatible con Cloudflare R2 usando el endpoint de cuenta.
     this.s3 = new S3Client({
       region: 'auto',
       endpoint: `https://${config.get<string>('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`,
@@ -476,6 +482,7 @@ export class ReparacionesService {
     return { url };
   }
 
+  // Valida y devuelve las variables de entorno de R2; lanza 500 si alguna falta.
   private getR2Config(): { bucket: string; publicUrl: string } {
     const required = [
       'R2_ACCOUNT_ID',
@@ -512,6 +519,7 @@ export class ReparacionesService {
     return { raw: row, es_final: row.es_final, estado: row.estado ?? '' };
   }
 
+  // Convierte la fila cruda de la vista en el DTO de respuesta; calcula monto_total si viene repuestos_cost.
   private toResponse(row: ReparacionRow): ReparacionResponseDto {
     let montoTotal: number | undefined;
     if (row.repuestos_cost !== undefined) {
@@ -564,6 +572,7 @@ export class ReparacionesService {
     };
   }
 
+  // Parsea los decimales de BD (que llegan como string en pg) a número.
   private toRepuestoResponse(row: RepuestoRow): RepuestoUsadoResponseDto {
     return {
       id_repuesto_u: row.id_repuesto_u,
@@ -576,6 +585,7 @@ export class ReparacionesService {
     };
   }
 
+  // Parsea el monto decimal a número; el resto de campos se mapean directamente.
   private toPagoResponse(row: PagoRow): PagoReparacionResponseDto {
     return {
       id_pago: row.id_pago,

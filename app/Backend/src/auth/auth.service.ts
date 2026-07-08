@@ -151,6 +151,7 @@ export class AuthService {
     return refreshTokenRaw;
   }
 
+  // Recorre tokens no revocados (por empleado opcional) y verifica hash bcrypt.
   private async findMatchingRefreshToken(
     refreshTokenRaw: string,
     id_empleado?: number,

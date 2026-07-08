@@ -18,6 +18,7 @@ export class BoletasController {
     return this.boletasService.renderPreviewMock();
   }
 
+  // Preview de boleta de cambio con datos mock, sin BD. Para iterar el template.
   @Get('cambio/preview')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({

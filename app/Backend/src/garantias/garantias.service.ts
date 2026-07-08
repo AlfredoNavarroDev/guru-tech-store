@@ -20,6 +20,7 @@ import type { GarantiaResponseDto } from './dto/garantia-response.dto';
 import type { ReparacionResponseDto } from '../reparaciones/dto/reparacion-response.dto';
 import { ReparacionesService } from '../reparaciones/reparaciones.service';
 
+// Forma cruda de una fila de garantía devuelta por SQL (antes de mapear a DTO).
 interface GarantiaRow {
   id_garantia: number;
   id_venta: number | null;
@@ -31,10 +32,12 @@ interface GarantiaRow {
   created_at: Date;
 }
 
+// Fila auxiliar para contar totales en paginación.
 interface CountRow {
   total: string;
 }
 
+// Datos que expone la vista v_garantia_reclamo: une garantía, reparación original y cliente.
 interface ReclamoGarantiaRow {
   id_garantia: number;
   id_venta: number | null;
@@ -47,6 +50,7 @@ interface ReclamoGarantiaRow {
   imei: string | null;
 }
 
+// Convierte una fila SQL al DTO de respuesta, derivando el tipo y la etiqueta legible.
 function mapToDto(row: GarantiaRow): GarantiaResponseDto {
   const tipo: 'venta' | 'reparacion' =
     row.id_venta !== null ? 'venta' : 'reparacion';
@@ -55,6 +59,7 @@ function mapToDto(row: GarantiaRow): GarantiaResponseDto {
     tipo,
     id_venta: row.id_venta ?? null,
     id_reparacion: row.id_reparacion ?? null,
+    // Etiqueta legible para el front sin necesidad de un JOIN adicional.
     referencia_label:
       tipo === 'venta'
         ? `Venta #${row.id_venta}`
@@ -67,6 +72,7 @@ function mapToDto(row: GarantiaRow): GarantiaResponseDto {
   };
 }
 
+// Servicio de garantías: gestiona creación, reclamos y consultas con control de acceso por sede.
 @Injectable()
 export class GarantiasService {
   constructor(
@@ -74,6 +80,7 @@ export class GarantiasService {
     private readonly reparacionesService: ReparacionesService,
   ) {}
 
+  // Crea una garantía de reparación; verifica que la reparación pertenezca a la sede del técnico.
   async create(
     dto: CreateGarantiaReparacionDto,
     user: JwtPayload,
@@ -86,6 +93,7 @@ export class GarantiasService {
       );
     }
 
+    // Confirma que la reparación existe y corresponde a la sede del técnico.
     const reps = await this.dataSource.query<{ id_reparacion: number }[]>(
       `SELECT id_reparacion FROM reparaciones
        WHERE id_reparacion = $1 AND id_sede = $2`,
@@ -93,6 +101,7 @@ export class GarantiasService {
     );
     if (!reps.length) throw new ReparacionNotFoundException(dto.id_reparacion);
 
+    // Previene duplicar garantías activas sobre la misma reparación.
     const existing = await this.dataSource.query<{ id_garantia: number }[]>(
       `SELECT id_garantia FROM garantias
        WHERE id_reparacion = $1 AND estado = 'activa'`,
@@ -126,9 +135,11 @@ export class GarantiasService {
     // Tipo check runs before sede check: venta garantías have no
     // id_reparacion, so there's no r.id_sede to compare against.
     if (!garantia) throw new GarantiaNotFoundException(idGarantia);
+    // Solo se pueden reclamar garantías de reparación, no de venta.
     if (garantia.id_venta !== null) {
       throw new GarantiaTipoInvalidoException(idGarantia);
     }
+    // Evita que un técnico de otra sede consuma la garantía.
     if (garantia.id_sede !== user.id_sede) {
       throw new GarantiaNotFoundException(idGarantia);
     }
@@ -136,11 +147,13 @@ export class GarantiasService {
       throw new GarantiaNoActivaException(idGarantia);
     }
 
+    // Obtiene el primer estado del flujo de reparación para asignarlo a la nueva entrada.
     const [estadoInicial] = await this.dataSource.query<
       { id_estado: number }[]
     >(`SELECT id_estado FROM estados_reparacion ORDER BY orden ASC LIMIT 1`);
 
     let nuevaReparacionId!: number;
+    // Transacción atómica: inserta la reparación e invalida la garantía juntas.
     await this.dataSource.transaction(async (manager) => {
       const [inserted] = await manager.query<{ id_reparacion: number }[]>(
         `INSERT INTO reparaciones
@@ -153,6 +166,7 @@ export class GarantiasService {
           garantia.id_cliente,
           user.sub,
           user.id_sede,
+          // Los campos del equipo se heredan de la reparación original si no se sobreescriben.
           dto.marca ?? garantia.marca,
           dto.modelo ?? garantia.modelo,
           dto.imei ?? garantia.imei,
@@ -166,6 +180,7 @@ export class GarantiasService {
       );
       nuevaReparacionId = inserted.id_reparacion;
 
+      // Marca la garantía como invalidada indicando qué reparación la consumió.
       await manager.query(
         `UPDATE garantias
          SET estado = 'invalidada', motivo_invalidacion = $2, updated_at = now()
@@ -180,13 +195,14 @@ export class GarantiasService {
     return this.reparacionesService.findOne(nuevaReparacionId, user);
   }
 
+  // Lista garantías paginadas; construye JOIN y filtros dinámicamente según el rol.
   async findAll(
     user: JwtPayload,
     query: QueryGarantiasDto,
   ): Promise<PaginatedResult<GarantiaResponseDto>> {
     const sede = user.id_sede!;
 
-    // Lazy update: mark expired garantias for this sede as vencida.
+    // Lazy update: marca como vencidas las garantías expiradas de esta sede antes de listar.
     await this.dataSource.query(
       `UPDATE garantias g SET estado = 'vencida', updated_at = now()
        WHERE g.estado = 'activa' AND g.fecha_fin < CURRENT_DATE
@@ -199,6 +215,7 @@ export class GarantiasService {
       [sede],
     );
 
+    // Vendedor solo ve garantías de ventas; técnico solo ve las de reparaciones.
     const isVendedor = user.rol === 'vendedor';
     const joinClause = isVendedor
       ? `JOIN ventas v ON v.id_venta = g.id_venta`
@@ -207,6 +224,7 @@ export class GarantiasService {
       ? `v.id_sede = $1 AND g.id_venta IS NOT NULL`
       : `r.id_sede = $1 AND g.id_reparacion IS NOT NULL`;
 
+    // Construcción dinámica de parámetros para los filtros opcionales.
     const params: (string | number)[] = [sede];
     let idx = 2;
     let estadoFilter = '';
@@ -229,6 +247,7 @@ export class GarantiasService {
       params,
     );
 
+    // Añade OFFSET y LIMIT al array de parámetros para la consulta paginada.
     const pageParams = [...params, (query.page - 1) * query.limit, query.limit];
     const rows = await this.dataSource.query<GarantiaRow[]>(
       `SELECT g.id_garantia, g.id_venta, g.id_reparacion,
@@ -251,6 +270,7 @@ export class GarantiasService {
     };
   }
 
+  // Devuelve el detalle de una garantía verificando que pertenezca a la sede del usuario.
   async findOne(id: number, user: JwtPayload): Promise<GarantiaResponseDto> {
     const sede = user.id_sede!;
 
@@ -267,6 +287,7 @@ export class GarantiasService {
       [id, sede],
     );
 
+    // Filtro con EXISTS garantiza que el usuario no acceda a garantías de otras sedes.
     const rows = await this.dataSource.query<GarantiaRow[]>(
       `SELECT g.id_garantia, g.id_venta, g.id_reparacion,
               g.fecha_inicio, g.fecha_fin, g.estado,

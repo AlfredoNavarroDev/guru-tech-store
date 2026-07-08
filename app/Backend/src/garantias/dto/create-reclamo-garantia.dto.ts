@@ -8,7 +8,10 @@ import {
   MaxLength,
 } from 'class-validator';
 
+// DTO para reclamar una garantía de reparación. Todos los campos son opcionales:
+// si se omiten, el servicio hereda los datos del equipo de la reparación original.
 export class CreateReclamoGarantiaDto {
+  // Sobrescribe la marca del equipo original si el cliente trae un dispositivo distinto.
   @ApiPropertyOptional({ example: 'Samsung' })
   @IsOptional()
   @IsString()
@@ -40,6 +43,7 @@ export class CreateReclamoGarantiaDto {
   @IsBoolean()
   esta_encendido?: boolean;
 
+  // Objeto JSONB libre para registrar el estado físico del equipo en recepción.
   @ApiPropertyOptional({
     example: { pantalla: 'rota', bateria: 'ok' },
     description: 'Checklist de estado físico del equipo (JSONB libre)',

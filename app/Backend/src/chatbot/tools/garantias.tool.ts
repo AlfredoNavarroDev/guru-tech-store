@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que consulta garantías de reparaciones y ventas, filtrando por cliente, estado o modelo
 export const consultarGarantiasTool = (
   dataSource: DataSource,
   idSede: number,
@@ -32,6 +33,7 @@ export const consultarGarantiasTool = (
       modelo_dispositivo,
     }) => {
       try {
+        // La sede se valida en reparaciones O en ventas para cubrir ambos orígenes de garantía
         const conditions: string[] = ['(r.id_sede = $1 OR v.id_sede = $1)'];
         const params: (number | string)[] = [idSede];
         let idx = 2;
@@ -47,6 +49,7 @@ export const consultarGarantiasTool = (
           params.push(`%${safe}%`);
         }
 
+        // El filtro por modelo solo aplica a garantías de reparación (r.marca / r.modelo)
         if (modelo_dispositivo) {
           const safe = modelo_dispositivo
             .replace(/%/g, '\\%')

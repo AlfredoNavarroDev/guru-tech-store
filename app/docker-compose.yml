@@ -9,6 +9,13 @@ services:
       - .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/v1',r=>r.statusCode<400?process.exit(0):process.exit(1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
   frontend:
     build:
       context: ./Frontend
@@ -18,7 +25,14 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://${HOST_IP:-localhost}:3001/api/v1
       - HOST_IP=${HOST_IP:-}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>r.statusCode<400?process.exit(0):process.exit(1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

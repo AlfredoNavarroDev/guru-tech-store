@@ -3,10 +3,11 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que consulta reparaciones de la sede con soporte opcional de detalle completo (checklist, fotos, garantía)
 export const consultarReparacionesTool = (
   dataSource: DataSource,
   idSede: number,
-  idTecnico: number | null,
+  idTecnico: number | null,   // ID del técnico en sesión; usado cuando solo_mias=true
 ) =>
   tool({
     description:
@@ -67,6 +68,7 @@ export const consultarReparacionesTool = (
           conditions.push(`er.es_final = true`);
         }
 
+        // Restringe los resultados al técnico autenticado cuando se solicita solo_mias
         if (solo_mias && idTecnico != null) {
           conditions.push(`r.id_tecnico = $${idx++}`);
           params.push(idTecnico);
@@ -159,6 +161,7 @@ export const consultarReparacionesTool = (
           message: null,
           total,
           reparaciones: rows.map((r) => {
+            // Campos base siempre presentes en la respuesta
             const base = {
               cliente: r.nombre_cliente,
               dispositivo:
@@ -169,6 +172,7 @@ export const consultarReparacionesTool = (
               fecha_ingreso: r.fecha_ingreso,
               fecha_estimada: r.fecha_estimada ?? null,
             };
+            // Con detalle=false se devuelve solo el resumen para ahorrar tokens
             if (!detalle) return base;
             return {
               ...base,

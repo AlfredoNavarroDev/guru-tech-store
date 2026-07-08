@@ -15,6 +15,7 @@ import {
 } from '../common/exceptions';
 import { AjusteStockDto } from './dto/ajuste-stock.dto';
 
+// Forma de cada fila que devuelven las queries SQL de ítems.
 interface ItemRow {
   id_item: number;
   tipo: 'producto' | 'repuesto';
@@ -34,6 +35,7 @@ interface ItemRow {
 }
 
 // stockParamIdx: posición del parámetro $N con el id_sede (o null) para la subconsulta de stock.
+// Construye el SELECT base con JOIN a marcas y categorías; el stock se obtiene por subconsulta correlacionada a inventario_sedes.
 const itemSelect = (stockParamIdx: number) => `
   SELECT i.id_item, i.tipo, i.sku, i.nombre, i.id_marca, m.nombre AS marca,
          i.modelo, i.calidad, i.imagen_url,
@@ -50,11 +52,14 @@ const itemSelect = (stockParamIdx: number) => `
   LEFT JOIN categorias cat ON cat.id_categoria = ic.id_categoria
 `;
 
+// Servicio principal del módulo de ítems: opera con SQL nativo sobre DataSource para mayor control.
 @Injectable()
 export class ItemsService {
   constructor(private readonly dataSource: DataSource) {}
 
+  // Crea el ítem, vincula sus categorías y registra el inventario inicial en la sede, todo en una sola transacción.
   async create(dto: CreateItemDto, idSede: number): Promise<ItemResponseDto> {
+    // Los productos deben tener al menos una categoría; la calidad es exclusiva de repuestos.
     if (dto.tipo === 'producto' && !dto.categoria_ids?.length) {
       throw new ItemCategoriasRequeridaException();
     }
@@ -62,6 +67,7 @@ export class ItemsService {
       throw new ItemCalidadSoloRepuestoException();
     }
 
+    // Verifica unicidad del SKU antes de abrir la transacción para un error más claro.
     const existing = await this.dataSource.query<{ id_item: number }[]>(
       `SELECT id_item FROM items WHERE sku = $1`,
       [dto.sku],
@@ -70,6 +76,7 @@ export class ItemsService {
 
     const id = await this.dataSource.transaction(
       async (manager: EntityManager) => {
+        // Inserta el ítem y recupera el ID generado.
         const [row] = await manager.query<[{ id_item: number }]>(
           `INSERT INTO items (tipo, sku, nombre, id_marca, modelo, calidad, precio_compra_actual, precio_venta_actual)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -85,6 +92,7 @@ export class ItemsService {
             dto.precio_venta_actual,
           ],
         );
+        // Inserta las relaciones ítem-categoría generando los placeholders dinámicamente.
         if (dto.categoria_ids?.length) {
           const vals = dto.categoria_ids
             .map((_, i) => `($1, $${i + 2})`)
@@ -94,6 +102,7 @@ export class ItemsService {
             [row.id_item, ...dto.categoria_ids],
           );
         }
+        // ON CONFLICT permite reutilizar este bloque si el inventario ya existe (actualiza stock_minimo).
         await manager.query(
           `INSERT INTO inventario_sedes (id_sede, id_item, cantidad_actual, stock_minimo)
            VALUES ($1, $2, $3, $4)
@@ -113,6 +122,7 @@ export class ItemsService {
     return this.findOne(id);
   }
 
+  // Devuelve una página de ítems filtrados; construye la cláusula WHERE dinámicamente con parámetros posicionales.
   async findAll(
     query: QueryItemsDto,
     idSede?: number,
@@ -121,6 +131,7 @@ export class ItemsService {
     const params: unknown[] = [];
     let idx = 1;
 
+    // Cada bloque agrega su condición y avanza el índice del parámetro posicional.
     if (query.tipo) {
       conditions.push(`i.tipo = $${idx++}`);
       params.push(query.tipo);
@@ -138,6 +149,7 @@ export class ItemsService {
       params.push(query.id_marca);
     }
     if (query.categoria_id) {
+      // Filtra con EXISTS para evitar duplicados al hacer JOIN con item_categorias.
       conditions.push(
         `EXISTS (SELECT 1 FROM item_categorias ic2 WHERE ic2.id_item = i.id_item AND ic2.id_categoria = $${idx++})`,
       );
@@ -155,6 +167,7 @@ export class ItemsService {
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    // Solo se pasa id_sede al COUNT si la cláusula WHERE lo referencia, para evitar parámetros huérfanos.
     const usesSedeParam = where.includes(`$${sedeParamIdx}`);
 
     const countParams = usesSedeParam ? [...params, idSede ?? null] : params;
@@ -162,6 +175,7 @@ export class ItemsService {
     const limitIdx = rowsParams.length + 1;
     const offsetIdx = limitIdx + 1;
 
+    // Ejecuta COUNT y filas en paralelo para reducir latencia.
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
         `SELECT COUNT(*) AS total FROM items i ${where}`,
@@ -185,6 +199,7 @@ export class ItemsService {
     };
   }
 
+  // Busca un ítem por PK; lanza 404 si no existe. El segundo parámetro (null) ocupa el slot del id_sede en el SELECT base.
   async findOne(id: number): Promise<ItemResponseDto> {
     const [row] = await this.dataSource.query<ItemRow[]>(
       `${itemSelect(2)} WHERE i.id_item = $1 GROUP BY i.id_item, m.nombre`,
@@ -194,13 +209,16 @@ export class ItemsService {
     return this.toResponse(row);
   }
 
+  // Actualiza campos escalares y, opcionalmente, reemplaza el conjunto de categorías del ítem.
   async update(id: number, dto: UpdateItemDto): Promise<ItemResponseDto> {
     const current = await this.findOne(id);
+    // effectiveTipo considera el tipo resultante (enviado o existente) para validar la calidad.
     const effectiveTipo = dto.tipo ?? current.tipo;
 
     if (dto.calidad && effectiveTipo !== 'repuesto') {
       throw new ItemCalidadSoloRepuestoException();
     }
+    // Comprueba duplicidad de SKU excluyendo el propio ítem.
     if (dto.sku) {
       const dup = await this.dataSource.query<{ id_item: number }[]>(
         `SELECT id_item FROM items WHERE sku = $1 AND id_item != $2`,
@@ -214,6 +232,7 @@ export class ItemsService {
       const params: unknown[] = [];
       let setIdx = 1;
 
+      // Genera los pares «columna = $N» solo para los campos presentes en el DTO.
       const scalar: [keyof UpdateItemDto, string][] = [
         ['tipo', 'tipo'],
         ['sku', 'sku'],
@@ -269,6 +288,7 @@ export class ItemsService {
     return this.findOne(id);
   }
 
+  // Elimina el ítem; intercepta la violación de FK (23503) y la convierte en un ConflictException legible.
   async remove(id: number): Promise<void> {
     await this.findOne(id);
     try {
@@ -284,11 +304,13 @@ export class ItemsService {
     }
   }
 
+  // Aplica un delta de stock (positivo = entrada, negativo = salida) sobre la entrada de inventario de la sede.
   async ajusteStock(
     id: number,
     dto: AjusteStockDto,
     idSede: number,
   ): Promise<void> {
+    // Verifica que exista registro de inventario para el ítem en la sede del usuario.
     const [inv] = await this.dataSource.query<
       [{ id_inventario: number; cantidad_actual: number }]
     >(
@@ -296,6 +318,7 @@ export class ItemsService {
       [id, idSede],
     );
     if (!inv) throw new ItemInventarioNotFoundException(id, idSede);
+    // Impide que el stock quede en negativo antes de ejecutar el UPDATE.
     if (inv.cantidad_actual + dto.cantidad < 0)
       throw new ItemStockInsuficienteException();
 
@@ -305,6 +328,7 @@ export class ItemsService {
     );
   }
 
+  // Devuelve todas las categorías ordenadas alfabéticamente (para selectores en el frontend).
   async findCategorias(): Promise<
     { id_categoria: number; nombre_categoria: string }[]
   > {
@@ -313,12 +337,14 @@ export class ItemsService {
     );
   }
 
+  // Devuelve todas las marcas ordenadas alfabéticamente (para selectores en el frontend).
   async findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
     return this.dataSource.query(
       `SELECT id_marca, nombre FROM marcas ORDER BY nombre`,
     );
   }
 
+  // Convierte la fila SQL cruda al DTO de respuesta, normalizando tipos numéricos y la lista de categorías.
   private toResponse(row: ItemRow): ItemResponseDto {
     return {
       id_item: row.id_item,
@@ -329,8 +355,10 @@ export class ItemsService {
       marca: row.marca ?? null,
       modelo: row.modelo ?? null,
       calidad: row.calidad ?? null,
+      // Postgres devuelve DECIMAL como string; parseFloat lo normaliza a número JS.
       precio_compra_actual: parseFloat(String(row.precio_compra_actual)),
       precio_venta_actual: parseFloat(String(row.precio_venta_actual)),
+      // STRING_AGG devuelve una cadena; la convertimos en array (o vacío si no hay categorías).
       categorias: row.categorias_str ? row.categorias_str.split(', ') : [],
       imagen_url: row.imagen_url ?? null,
       created_at: row.created_at,

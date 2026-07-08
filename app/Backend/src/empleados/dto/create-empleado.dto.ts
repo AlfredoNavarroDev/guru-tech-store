@@ -11,6 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 
+// DTO para crear empleado. El formato del documento se valida adicionalmente en el servicio.
 export class CreateEmpleadoDto {
   @ApiProperty({
     example: 'DNI',
@@ -20,6 +21,7 @@ export class CreateEmpleadoDto {
   @IsIn(['DNI', 'CE', 'pasaporte'])
   tipo_documento: string;
 
+  // Único a nivel global (no por sede) — validado en EmpleadosService.validateDocumentoUnico.
   @ApiProperty({
     example: '12345678',
     description: 'Número de documento (único por tipo)',
@@ -35,11 +37,13 @@ export class CreateEmpleadoDto {
   @MaxLength(150)
   nombre_completo: string;
 
+  // El servicio verifica que el rol exista antes de persistir.
   @ApiProperty({ example: 3, description: 'ID del rol (FK → Roles)' })
   @IsInt()
   @IsPositive()
   id_rol: number;
 
+  // Contraseña en texto plano; el servicio la hashea con bcrypt antes de guardar.
   @ApiProperty({
     example: '12345678',
     description: 'Contraseña inicial. Por defecto usa el número de documento.',
@@ -66,6 +70,7 @@ export class CreateEmpleadoDto {
   @IsPositive()
   sueldo_soles?: number;
 
+  // Si no se envía, el servicio asigna 'semanal' por defecto.
   @ApiPropertyOptional({
     example: 'quincenal',
     description: "Frecuencia de pago: 'semanal', 'quincenal' o 'mensual'",

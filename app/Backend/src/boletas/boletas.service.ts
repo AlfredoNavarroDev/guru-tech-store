@@ -201,6 +201,7 @@ export class BoletasService implements OnModuleInit {
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {
+    // Cliente S3 compatible con Cloudflare R2 (endpoint propio, región 'auto').
     this.s3 = new S3Client({
       region: 'auto',
       endpoint: `https://${config.get<string>('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`,
@@ -211,6 +212,7 @@ export class BoletasService implements OnModuleInit {
     });
   }
 
+  // Carga las tres plantillas HBS y el logo al arrancar el módulo (una sola vez).
   async onModuleInit(): Promise<void> {
     // Compila template Handlebars desde archivo externo.
     const source = readFileSync(
@@ -391,6 +393,7 @@ export class BoletasService implements OnModuleInit {
     return this.templateFn(data);
   }
 
+  // Renderiza HTML de boleta de cambio con datos mock. Para iterar el template sin BD.
   renderPreviewMockCambio(): string {
     const data: BoletaCambioTemplateData = {
       logoBase64: this.logoBase64,
@@ -509,6 +512,7 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
+  // Emite boleta de cambio (prefijo C). Idempotente: un cambio → una boleta.
   async emitirParaCambio(idCambio: number, user: JwtPayload): Promise<Boleta> {
     await this.assertCambioInSede(idCambio, user.id_sede!);
 
@@ -571,6 +575,7 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
+  // Busca boleta de un cambio. Lanza 404 si no existe.
   async findByCambio(idCambio: number, user: JwtPayload): Promise<Boleta> {
     await this.assertCambioInSede(idCambio, user.id_sede!);
 
@@ -637,6 +642,7 @@ export class BoletasService implements OnModuleInit {
     return { rows, pagosRows, head, total, subtotal };
   }
 
+  // Verifica que la venta pertenezca al empleado autenticado. Lanza 404 si no.
   private async assertVentaOwnedByUser(
     idVenta: number,
     idEmpleado: number,
@@ -649,6 +655,7 @@ export class BoletasService implements OnModuleInit {
       throw new NotFoundException(`Venta ${idVenta} no encontrada`);
   }
 
+  // Verifica que la reparación pertenezca a la sede del empleado autenticado.
   private async assertReparacionInSede(
     idReparacion: number,
     idSede: number,
@@ -661,6 +668,7 @@ export class BoletasService implements OnModuleInit {
       throw new NotFoundException(`Reparación ${idReparacion} no encontrada`);
   }
 
+  // Verifica que el cambio pertenezca a la sede del empleado autenticado.
   private async assertCambioInSede(
     idCambio: number,
     idSede: number,
@@ -673,6 +681,7 @@ export class BoletasService implements OnModuleInit {
       throw new NotFoundException(`Cambio ${idCambio} no encontrado`);
   }
 
+  // Extrae y calcula los datos de la reparación para la plantilla (servicio + repuestos).
   private async queryDatosReparacion(
     idReparacion: number,
     idSede: number,
@@ -718,6 +727,7 @@ export class BoletasService implements OnModuleInit {
     return { head, rows, pagosRows, total, subtotal };
   }
 
+  // Mapea filas de BD a BoletaReparacionTemplateData listo para Handlebars.
   private buildTemplateDataForReparacion(
     numero: string,
     fechaEmision: Date,
@@ -803,6 +813,7 @@ export class BoletasService implements OnModuleInit {
     };
   }
 
+  // Mapea la fila de cambio a BoletaCambioTemplateData listo para Handlebars.
   private buildTemplateDataForCambio(
     numero: string,
     fechaEmision: Date,
@@ -900,6 +911,7 @@ export class BoletasService implements OnModuleInit {
     };
   }
 
+  // Formatea un número a moneda peruana (ej: 1234.5 → '1,234.50').
   private fmtMoney(n: number): string {
     return new Intl.NumberFormat('es-PE', {
       minimumFractionDigits: 2,
@@ -907,6 +919,7 @@ export class BoletasService implements OnModuleInit {
     }).format(n);
   }
 
+  // Lee y valida las variables de entorno de R2. Falla rápido si faltan.
   private getR2Config(): {
     bucket: string;
     publicUrl: string;
@@ -946,6 +959,7 @@ export class BoletasService implements OnModuleInit {
     return `${prefix}-${String(seq).padStart(7, '0')}`;
   }
 
+  // Lanza Puppeteer (Chromium headless) y genera PDF A4 del HTML recibido.
   private async generatePdf(html: string): Promise<Buffer> {
     // @sparticuz/chromium ships a Linux ELF binary — won't run on macOS natively.
     // Fall back to system Chrome on macOS or a custom path via env var.

@@ -36,7 +36,7 @@ async function bootstrap() {
   // Swagger disponible en /api/docs con autenticación Bearer.
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Guru Tech Dev')
-    .setDescription('REST API para el rol Vendedor')
+    .setDescription('REST API')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

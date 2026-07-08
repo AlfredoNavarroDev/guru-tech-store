@@ -19,6 +19,8 @@ import { CreateGarantiaReparacionDto } from './dto/create-garantia-reparacion.dt
 import { CreateReclamoGarantiaDto } from './dto/create-reclamo-garantia.dto';
 import { QueryGarantiasDto } from './dto/query-garantias.dto';
 
+// Controlador de garantías: expone endpoints para crear, reclamar y consultar garantías.
+// Accesible por vendedor y técnico; cada operación filtra datos según el rol del usuario.
 @ApiTags('garantias')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,6 +29,7 @@ import { QueryGarantiasDto } from './dto/query-garantias.dto';
 export class GarantiasController {
   constructor(private readonly garantiasService: GarantiasService) {}
 
+  // POST /garantias — el técnico registra una garantía asociada a una reparación.
   @Post()
   @ApiOperation({ summary: 'Crear garantía de reparación (solo tecnico)' })
   create(
@@ -36,6 +39,7 @@ export class GarantiasController {
     return this.garantiasService.create(dto, user);
   }
 
+  // POST /garantias/:id/reclamos — consume la garantía activa y abre una nueva reparación.
   @Post(':id/reclamos')
   @ApiOperation({
     summary: 'Crear reclamo de garantía de servicio técnico (solo tecnico)',
@@ -48,12 +52,14 @@ export class GarantiasController {
     return this.garantiasService.crearReclamo(id, dto, user);
   }
 
+  // GET /garantias — lista paginada filtrada por sede y rol (vendedor ve ventas, técnico ve reparaciones).
   @Get()
   @ApiOperation({ summary: 'Listar garantías (paginado, scoped por rol)' })
   findAll(@CurrentUser() user: JwtPayload, @Query() query: QueryGarantiasDto) {
     return this.garantiasService.findAll(user, query);
   }
 
+  // GET /garantias/:id — detalle de una garantía si pertenece a la sede del usuario.
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de garantía' })
   findOne(

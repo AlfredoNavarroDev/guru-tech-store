@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+// Proyección mínima de venta para la lista de recientes del dashboard.
 export class VentaRecienteDto {
   @ApiProperty()
   id_venta: number;
@@ -14,6 +15,7 @@ export class VentaRecienteDto {
   fecha_emision: Date;
 }
 
+// KPIs del dashboard: contadores de hoy y ayer para calcular variación porcentual en el frontend.
 export class ResumenHoyDto {
   @ApiProperty()
   ventas_hoy: number;
@@ -21,6 +23,7 @@ export class ResumenHoyDto {
   @ApiProperty()
   ingresos_hoy: number;
 
+  // Clientes únicos atendidos hoy (COUNT DISTINCT en la vista).
   @ApiProperty()
   clientes_hoy: number;
 
@@ -33,6 +36,7 @@ export class ResumenHoyDto {
   @ApiProperty()
   clientes_ayer: number;
 
+  // Últimas 5 ventas del día, ordenadas por id_venta DESC.
   @ApiProperty({ type: () => [VentaRecienteDto] })
   recientes: VentaRecienteDto[];
 }

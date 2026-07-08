@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que consulta pagos de reparaciones filtrando por cliente y/o modelo de dispositivo
 export const consultarPagosTool = (dataSource: DataSource, idSede: number) =>
   tool({
     description:
@@ -77,6 +78,7 @@ export const consultarPagosTool = (dataSource: DataSource, idSede: number) =>
         );
 
         if (rows.length === 0) {
+          // Construye un mensaje descriptivo con los filtros usados
           const desc = [
             nombre_cliente ? `cliente "${nombre_cliente}"` : null,
             modelo_dispositivo ? `dispositivo "${modelo_dispositivo}"` : null,

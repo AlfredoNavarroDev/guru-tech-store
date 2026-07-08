@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
 
+// DTO de respuesta del empleado. @Exclude oculta todos los campos por defecto; @Expose los selecciona explícitamente.
+// Garantiza que password_hash nunca llegue al cliente aunque se olvide eliminarlo en el servicio.
 @Exclude()
 export class EmpleadoResponseDto {
   @Expose()
@@ -15,6 +17,7 @@ export class EmpleadoResponseDto {
   @ApiProperty({ example: 3 })
   id_rol: number;
 
+  // Nombre del rol desnormalizado para evitar un join extra en el frontend.
   @Expose()
   @ApiPropertyOptional({ example: 'vendedor' })
   rol_nombre?: string;
@@ -35,6 +38,7 @@ export class EmpleadoResponseDto {
   @ApiPropertyOptional({ example: '987654321', nullable: true })
   telefono: string | null;
 
+  // 'activo' | 'inactivo'. Se usa string en lugar de enum para flexibilidad futura.
   @Expose()
   @ApiProperty({ example: 'activo' })
   estado: string;

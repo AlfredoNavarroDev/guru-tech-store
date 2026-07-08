@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { Observable } from 'rxjs';
 import type { JwtPayload } from '../types';
 
+/** Interceptor de auditoría: inyecta el id del actor en la sesión PostgreSQL para triggers de auditoría. */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   constructor(private readonly dataSource: DataSource) {}

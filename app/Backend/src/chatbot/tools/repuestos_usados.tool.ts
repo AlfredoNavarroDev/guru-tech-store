@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que muestra el detalle de repuestos instalados en reparaciones con subtotal por ítem
 export const consultarRepuestosUsadosTool = (
   dataSource: DataSource,
   idSede: number,
@@ -82,6 +83,7 @@ export const consultarRepuestosUsadosTool = (
           };
         }
 
+        // Suma de todos los subtotales (cantidad × precio_cobrado) para el total de materiales
         const total_cobrado = rows.reduce(
           (sum, r) => sum + Number(r.subtotal),
           0,

@@ -1,12 +1,14 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
+/** 404 — Ítem de catálogo no encontrado. */
 export class ItemNotFoundException extends AppException {
   constructor(id: number) {
     super('ITEM_NOT_FOUND', `Item ${id} no encontrado`, HttpStatus.NOT_FOUND);
   }
 }
 
+/** 409 — El SKU ya está asignado a otro ítem del catálogo. */
 export class ItemSkuDuplicadoException extends AppException {
   constructor(sku: string) {
     super(
@@ -17,6 +19,7 @@ export class ItemSkuDuplicadoException extends AppException {
   }
 }
 
+/** 400 — Todo producto debe pertenecer al menos a una categoría. */
 export class ItemCategoriasRequeridaException extends AppException {
   constructor() {
     super(
@@ -27,6 +30,7 @@ export class ItemCategoriasRequeridaException extends AppException {
   }
 }
 
+/** 400 — El campo calidad no aplica a ítems que no sean repuestos. */
 export class ItemCalidadSoloRepuestoException extends AppException {
   constructor() {
     super(
@@ -37,6 +41,7 @@ export class ItemCalidadSoloRepuestoException extends AppException {
   }
 }
 
+/** 409 — El ajuste de inventario dejaría el stock en negativo. */
 export class ItemStockInsuficienteException extends AppException {
   constructor() {
     super(
@@ -47,6 +52,7 @@ export class ItemStockInsuficienteException extends AppException {
   }
 }
 
+/** 404 — El ítem existe en catálogo pero no tiene registro de inventario en la sede indicada. */
 export class ItemInventarioNotFoundException extends AppException {
   constructor(id: number, idSede: number) {
     super(

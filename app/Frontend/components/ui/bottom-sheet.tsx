@@ -11,6 +11,7 @@ interface BottomSheetProps {
   disabled?: boolean
   className?: string
   wrapperClassName?: string
+  centered?: boolean
 }
 
 export function BottomSheet({
@@ -20,6 +21,7 @@ export function BottomSheet({
   disabled = false,
   className,
   wrapperClassName,
+  centered = false,
 }: BottomSheetProps) {
   const sheetRef = React.useRef<HTMLDivElement>(null)
   const [isScrolled, setIsScrolled] = React.useState(false)
@@ -78,22 +80,28 @@ export function BottomSheet({
 
           <motion.div
             key="bottom-sheet-wrapper"
-            initial={{ opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 32 }}
-            transition={{ type: "spring", damping: 32, stiffness: 380 }}
+            initial={centered ? { opacity: 0, scale: 0.95 } : { opacity: 0, y: 32 }}
+            animate={centered ? { opacity: 1, scale: 1 } : { opacity: 1, y: 0 }}
+            exit={centered ? { opacity: 0, scale: 0.95 } : { opacity: 0, y: 32 }}
+            transition={centered ? { duration: 0.2 } : { type: "spring", damping: 32, stiffness: 380 }}
             className={cn(
-              "fixed inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 pointer-events-none",
+              centered
+                ? "fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+                : "fixed inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center z-50 pointer-events-none",
               wrapperClassName
             )}
           >
             <motion.div
               ref={sheetRef}
-              drag={canDrag ? "y" : false}
+              drag={!centered && canDrag ? "y" : false}
               dragConstraints={{ top: 0 }}
               dragElastic={{ top: 0, bottom: 0.15 }}
               onDragEnd={handleDragEnd}
-              className={cn("pointer-events-auto w-full sm:max-w-lg", className)}
+              className={cn(
+                "pointer-events-auto",
+                centered ? "w-full max-w-md rounded-2xl" : "w-full sm:max-w-lg",
+                className
+              )}
               onClick={(e) => e.stopPropagation()}
             >
               {children}

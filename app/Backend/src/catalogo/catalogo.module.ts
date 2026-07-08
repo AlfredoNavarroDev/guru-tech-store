@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CatalogoController } from './catalogo.controller';
 import { CatalogoService } from './catalogo.service';
 
-// Módulo de catálogo (solo lectura). Usa DataSource directo sobre vista SQL.
+// Módulo de catálogo (solo lectura). Usa DataSource directo sobre la vista SQL, sin entidad TypeORM.
 @Module({
   controllers: [CatalogoController],
   providers: [CatalogoService],

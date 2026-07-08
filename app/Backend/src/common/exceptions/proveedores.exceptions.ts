@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from './app.exception';
 
+/** 404 — Proveedor no encontrado. */
 export class ProveedorNotFoundException extends AppException {
   constructor(id: number) {
     super(
@@ -11,6 +12,7 @@ export class ProveedorNotFoundException extends AppException {
   }
 }
 
+/** 409 — El RUC ya pertenece a otro proveedor registrado. */
 export class ProveedorRucDuplicadoException extends AppException {
   constructor(ruc: string) {
     super(

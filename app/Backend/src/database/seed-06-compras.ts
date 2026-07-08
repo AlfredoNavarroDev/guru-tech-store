@@ -57,78 +57,42 @@ export async function seedCompras(qr: QueryRunner): Promise<void> {
   // El trigger sumó las cantidades compradas encima del stock base de seed-04
   // (50 uds para productos, 30 para repuestos). Se pisa con valores que
   // representan el estado post-ventas y producen los 3 badges en el frontend.
+  //
+  // Crítico : cantidad_actual <= stock_minimo
+  // Bajo    : stock_minimo < cantidad_actual <= stock_minimo * 1.2
+  // OK      : cantidad_actual > stock_minimo * 1.2
   // ─────────────────────────────────────────────────────────────────────────
   console.log('  Ajustando inventario al estado final de testing...');
 
-  // ── SEDE 1: CRÍTICO (cantidad_actual <= stock_minimo) ───────────────────
   await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 3, stock_minimo = 10
-    WHERE id_sede = 1 AND id_item IN (1, 2)
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 3, stock_minimo = 8
-    WHERE id_sede = 1 AND id_item = 16
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 2, stock_minimo = 5
-    WHERE id_sede = 1 AND id_item = 10
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 5, stock_minimo = 5
-    WHERE id_sede = 1 AND id_item = 11
-  `);
-
-  // ── SEDE 1: BAJO (stock_minimo < qty <= stock_minimo * 1.2) ─────────────
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 11, stock_minimo = 10
-    WHERE id_sede = 1 AND id_item IN (3, 4)
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 9, stock_minimo = 8
-    WHERE id_sede = 1 AND id_item = 17
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 6, stock_minimo = 5
-    WHERE id_sede = 1 AND id_item = 12
+    UPDATE Inventario_Sedes AS inv
+    SET cantidad_actual = v.qty, stock_minimo = v.min
+    FROM (VALUES
+      -- Sede 1: Crítico (qty <= min)
+      (1,  1,  3, 10), (1,  2,  3, 10), (1, 16,  3,  8),
+      (1, 10,  2,  5), (1, 11,  5,  5),
+      -- Sede 1: Bajo (min < qty <= min * 1.2)
+      (1,  3, 11, 10), (1,  4, 11, 10), (1, 17,  9,  8), (1, 12,  6,  5),
+      -- Sede 1: OK (máx 18)
+      (1,  5, 18,  5), (1,  6, 14,  5), (1,  7, 16,  5), (1,  8, 17,  5),
+      (1,  9, 15,  5), (1, 18, 13,  5), (1, 19, 18,  5), (1, 20, 15,  5),
+      (1, 13, 16,  3), (1, 14, 14,  3), (1, 15, 18,  3),
+      -- Sede 2: Crítico
+      (2,  5,  3, 10), (2, 10,  2,  5),
+      -- Sede 2: Bajo
+      (2,  1, 12, 10),
+      -- Sede 2: OK (máx 18)
+      (2,  2, 17,  5), (2,  3, 13,  5), (2,  4, 15,  5), (2,  6, 18,  5),
+      (2,  7, 14,  5), (2,  8, 16,  5), (2,  9, 12,  5), (2, 16, 17,  5),
+      (2, 17, 15,  5), (2, 18, 13,  5), (2, 19, 18,  5), (2, 20, 16,  5),
+      (2, 11, 15,  3), (2, 12, 13,  3), (2, 13, 17,  3),
+      (2, 14, 14,  3), (2, 15, 16,  3)
+    ) AS v(sede, item, qty, min)
+    WHERE inv.id_sede = v.sede
+      AND inv.id_item = v.item
   `);
 
-  // ── SEDE 1: OK (stock normal) ────────────────────────────────────────────
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 50, stock_minimo = 5
-    WHERE id_sede = 1 AND id_item IN (5, 6, 7, 8, 9, 18, 19, 20)
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 20, stock_minimo = 3
-    WHERE id_sede = 1 AND id_item IN (13, 14, 15)
-  `);
-
-  // ── SEDE 2: CRÍTICO ──────────────────────────────────────────────────────
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 3, stock_minimo = 10
-    WHERE id_sede = 2 AND id_item = 5
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 2, stock_minimo = 5
-    WHERE id_sede = 2 AND id_item = 10
-  `);
-
-  // ── SEDE 2: BAJO ─────────────────────────────────────────────────────────
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 12, stock_minimo = 10
-    WHERE id_sede = 2 AND id_item = 1
-  `);
-
-  // ── SEDE 2: OK ───────────────────────────────────────────────────────────
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 40, stock_minimo = 5
-    WHERE id_sede = 2 AND id_item IN (2, 3, 4, 6, 7, 8, 9, 16, 17, 18, 19, 20)
-  `);
-  await qr.query(`
-    UPDATE Inventario_Sedes SET cantidad_actual = 15, stock_minimo = 3
-    WHERE id_sede = 2 AND id_item IN (11, 12, 13, 14, 15)
-  `);
-
-  console.log('  OK - inventario final ajustado');
+  console.log('  OK - inventario final ajustado (1 query batch, 40 filas)');
   console.log(
     '  Sede 1 — Crítico : items 1,2 (cable/cargador), 16 (mouse), 10,11 (pantallas)',
   );

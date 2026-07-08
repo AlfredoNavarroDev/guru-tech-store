@@ -28,6 +28,7 @@ import { UploadFotoReparacionDto } from './dto/upload-foto-reparacion.dto';
 import { QueryReparacionesDto } from './dto/query-reparaciones.dto';
 import { CreatePagoReparacionDto } from '../pagos/dto/create-pago-reparacion.dto';
 
+// Controlador REST de reparaciones. Acceso restringido al rol 'tecnico'; agrupa ingreso, estados, repuestos, pagos y boletas.
 @ApiTags('reparaciones')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)

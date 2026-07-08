@@ -9,8 +9,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { JwtPayload } from '../../common/types';
 
+// Guard que limita las peticiones al chatbot por usuario usando una ventana deslizante de 60 s
 @Injectable()
 export class ChatbotRateLimitGuard implements CanActivate {
+  // Mapa en memoria: id de usuario → timestamps de sus peticiones recientes
   private readonly requests = new Map<number, number[]>();
 
   constructor(private readonly config: ConfigService) {}
@@ -20,15 +22,18 @@ export class ChatbotRateLimitGuard implements CanActivate {
     const userId = req.user?.sub;
     if (userId == null) return false;
 
+    // Límite configurable vía variable de entorno, por defecto 20 rpm
     const maxRpm =
       this.config.get<number>('CHATBOT_MAX_REQUESTS_PER_MINUTE') ?? 20;
     const now = Date.now();
     const windowStart = now - 60_000;
 
+    // Filtra solo los timestamps dentro de la ventana actual (último minuto)
     const timestamps = (this.requests.get(userId) ?? []).filter(
       (t) => t > windowStart,
     );
 
+    // Limpia la entrada del mapa si ya no hay peticiones recientes
     if (timestamps.length === 0) {
       this.requests.delete(userId);
     } else {
@@ -42,6 +47,7 @@ export class ChatbotRateLimitGuard implements CanActivate {
       );
     }
 
+    // Registra la petición actual antes de permitirla
     timestamps.push(now);
     this.requests.set(userId, timestamps);
     return true;

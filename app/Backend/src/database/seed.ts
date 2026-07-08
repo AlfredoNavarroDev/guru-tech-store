@@ -1,4 +1,4 @@
-/** Orquestador principal de seeds. Ejecuta seeds 01-06 en orden dentro de una transacción. Rollback si alguno falla. */
+/** Orquestador principal de seeds. Ejecuta seeds 01-10 en orden dentro de una transacción. Rollback si alguno falla. */
 
 import 'reflect-metadata';
 import { AppDataSource } from '../data-source';
@@ -10,10 +10,12 @@ import { seedProveedores } from './seed-05-proveedores';
 import { seedCompras } from './seed-06-compras';
 import { seedReparaciones } from './seed-07-reparaciones';
 import { seedCambios } from './seed-08-cambios';
+import { seedVentas } from './seed-09-ventas';
+import { seedGarantias } from './seed-10-garantias';
 
 async function main(): Promise<void> {
   console.log('============================================================');
-  console.log(' SEED — Sprint 4 / Todos los roles');
+  console.log(' SEED — Todos los módulos / Seeds 01-10');
   console.log('============================================================');
 
   console.log('\nConectando a la base de datos...');
@@ -30,6 +32,7 @@ async function main(): Promise<void> {
       TRUNCATE TABLE
         Logs_Sistema,
         Boletas,
+        garantias,
         Cambios_Producto,
         Pagos,
         reparacion_repuestos_usados,
@@ -64,6 +67,8 @@ async function main(): Promise<void> {
     await seedCompras(qr);
     await seedReparaciones(qr);
     await seedCambios(qr);
+    await seedVentas(qr);
+    await seedGarantias(qr);
 
     await qr.commitTransaction();
 
@@ -103,6 +108,19 @@ async function main(): Promise<void> {
       '    GET /stock?id_sede=1&requiere_reposicion=true → críticos y bajos',
     );
     console.log('    GET /stock/critico?id_sede=1             → solo críticos');
+    console.log('\n  VENTAS (10 ventas, 11 pagos)');
+    console.log('    GET /ventas        → historial del vendedor autenticado');
+    console.log('    ids 1-4: ventas del flujo de cambios (seed-08)');
+    console.log('    ids 5-10: ventas directas con pagos (seed-09)');
+    console.log('\n  REPARACIONES (4 reparaciones, un estado por reparación)');
+    console.log('    id=1  pendiente   Samsung Galaxy A54  + adelanto S/60 pagado');
+    console.log('    id=2  reparacion  Apple iPhone 12     (sin pago aún)');
+    console.log('    id=3  listo       Xiaomi Redmi Note 12  sede 2');
+    console.log('    id=4  entregado   Samsung Galaxy A52');
+    console.log('\n  GARANTÍAS (3 garantías)');
+    console.log('    id=1  venta 5      activa   hasta 2026-12-10');
+    console.log('    id=2  reparacion 1 activa   hasta 2026-09-16');
+    console.log('    id=3  venta 6      vencida  desde 2026-01-31');
     console.log('\n  CAMBIOS');
     console.log(
       '    GET /cambios             → 3 cambios sede 1 para vendedor',

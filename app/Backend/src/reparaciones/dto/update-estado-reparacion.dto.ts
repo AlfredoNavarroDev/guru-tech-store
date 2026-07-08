@@ -9,7 +9,9 @@ import {
   Min,
 } from 'class-validator';
 
+// DTO para avanzar el estado de una reparación (HU-16). Solo acepta saltos de un paso a la vez.
 export class UpdateEstadoReparacionDto {
+  // Nuevo estado destino; el servicio valida que el salto de orden sea permitido.
   @ApiProperty({
     example: 3,
     description: 'ID del nuevo estado de la reparación',
@@ -19,6 +21,7 @@ export class UpdateEstadoReparacionDto {
   @Min(1)
   id_estado: number;
 
+  // Permite actualizar el diagnóstico al mismo tiempo que se avanza el estado.
   @ApiPropertyOptional({ example: 'Pantalla reemplazada, batería OK' })
   @IsOptional()
   @IsString()
@@ -45,6 +48,7 @@ export class UpdateEstadoReparacionDto {
   })
   fecha_estimada?: string;
 
+  // Solo se aplica al marcar como 'entregado'; si es 0 no se crea registro de garantía.
   @ApiPropertyOptional({
     example: 30,
     description: 'Días de garantía al marcar como entregado (por defecto 30)',

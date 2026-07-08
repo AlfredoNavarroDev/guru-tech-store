@@ -56,6 +56,7 @@ export class PagosService {
   ): Promise<Pago> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
 
+    // Obtiene precio de mano de obra, descuento y tipo de descuento de la reparación.
     const [rep] = await this.dataSource.query<
       {
         monto_cotizado: string | null;
@@ -67,6 +68,7 @@ export class PagosService {
       [idReparacion],
     );
 
+    // Suma el coste de los repuestos usados para incluirlo en el total a cobrar.
     const [{ repuestos_cost }] = await this.dataSource.query<
       { repuestos_cost: string }[]
     >(
@@ -86,6 +88,7 @@ export class PagosService {
     }
 
     const montoDesc = parseFloat(rep.monto_descuento);
+    // Aplica el descuento según su tipo: porcentual o monto fijo; sin descuento si es null.
     let totalCobrar: number;
     if (rep.tipo_descuento === 'porcentaje') {
       totalCobrar = montoCotizado * (1 - montoDesc / 100);
@@ -95,6 +98,7 @@ export class PagosService {
       totalCobrar = montoCotizado;
     }
 
+    // Suma los pagos previos para calcular el saldo pendiente antes de aceptar el nuevo pago.
     const [{ total_pagado }] = await this.dataSource.query<
       { total_pagado: string }[]
     >(
@@ -104,6 +108,7 @@ export class PagosService {
 
     const saldo = totalCobrar - parseFloat(total_pagado);
 
+    // Tolerancia de medio céntimo para evitar rechazos por redondeo de punto flotante.
     if (dto.monto > saldo + 0.005) {
       throw new PagoExcedeSaldoException(dto.monto, Math.max(0, saldo));
     }
@@ -140,6 +145,7 @@ export class PagosService {
     if (!rows.length) throw new VentaNotFoundException(idVenta);
   }
 
+  // Confirma que la reparación existe en la sede del usuario antes de operar sobre ella.
   private async assertReparacionInSede(
     idReparacion: number,
     idSede: number,

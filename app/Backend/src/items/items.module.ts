@@ -8,8 +8,10 @@ import { Categoria } from './entities/categoria.entity';
 import { ItemCategoria } from './entities/item-categoria.entity';
 import { InventarioSede } from './entities/inventario-sede.entity';
 
+// Módulo de ítems: registra las entidades en TypeORM y expone ItemsService para uso en otros módulos.
 @Module({
   imports: [
+    // Registra los repositorios de las entidades del dominio de ítems e inventario.
     TypeOrmModule.forFeature([
       Item,
       Marca,
@@ -20,6 +22,7 @@ import { InventarioSede } from './entities/inventario-sede.entity';
   ],
   controllers: [ItemsController],
   providers: [ItemsService],
+  // Se exporta para que otros módulos (p.ej. ventas, reparaciones) puedan inyectar ItemsService.
   exports: [ItemsService],
 })
 export class ItemsModule {}

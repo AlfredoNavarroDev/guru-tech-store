@@ -12,7 +12,9 @@ import {
   Min,
 } from 'class-validator';
 
+// DTO de creación de ítem; valida todos los campos obligatorios y opcionales antes de llegar al servicio.
 export class CreateItemDto {
+  // Determina si el artículo se comercializa como producto o se usa en reparaciones como repuesto.
   @ApiProperty({ example: 'producto', enum: ['producto', 'repuesto'] })
   @IsIn(['producto', 'repuesto'])
   tipo: 'producto' | 'repuesto';
@@ -42,6 +44,7 @@ export class CreateItemDto {
   @MaxLength(100)
   modelo?: string;
 
+  // Solo válido cuando tipo='repuesto'; el servicio rechaza calidad en ítems de tipo producto.
   @ApiPropertyOptional({
     example: 'original',
     description: 'Solo para tipo=repuesto',
@@ -65,6 +68,7 @@ export class CreateItemDto {
   @Min(0)
   precio_venta_actual: number;
 
+  // IDs de categorías a asociar; obligatorio con al menos un elemento cuando tipo='producto'.
   @ApiPropertyOptional({
     example: [1, 4],
     description: 'IDs de categorías. Obligatorio (≥1) si tipo=producto.',
@@ -86,6 +90,7 @@ export class CreateItemDto {
   @Min(0)
   stock_minimo?: number;
 
+  // Unidades con las que arranca el ítem en inventario_sedes al crearlo; si se omite se asume 0.
   @ApiPropertyOptional({
     example: 10,
     description: 'Stock inicial al crear el ítem en la sede. Default 0.',

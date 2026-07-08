@@ -23,12 +23,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     xdg-utils \
   && rm -rf /var/lib/apt/lists/*
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nestjs
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force && chown -R nestjs:nodejs /app
+USER nestjs
 EXPOSE 3001
 CMD ["node", "dist/main"]

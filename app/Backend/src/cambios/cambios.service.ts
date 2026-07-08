@@ -17,8 +17,10 @@ import {
   VentaNotFoundException,
 } from '../common/exceptions';
 
+// Máximo de ventas que se devuelven en el selector del flujo de cambios.
 const VENTAS_LIMIT = 20;
 
+// Forma de la fila devuelta por la vista v_cambio_detalle.
 interface CambioRow {
   id_cambio: number;
   id_venta_origen: number;
@@ -41,6 +43,7 @@ interface CambioRow {
   created_at: Date;
 }
 
+// Servicio de negocio para cambios de producto; usa DataSource directamente para SQL explícito.
 @Injectable()
 export class CambiosService {
   constructor(private readonly dataSource: DataSource) {}
@@ -61,6 +64,7 @@ export class CambiosService {
     );
     if (!venta) throw new VentaNotFoundException(id_venta);
 
+    // Carga los ítems de la venta para que el vendedor pueda elegir cuál devolver.
     const detalles = await this.dataSource.query<
       Array<{
         id_item: number;
@@ -91,13 +95,14 @@ export class CambiosService {
     };
   }
 
+  // Devuelve hasta VENTAS_LIMIT ventas de la sede, opcionalmente filtradas por fecha exacta.
   async findVentas(user: JwtPayload, fecha?: string): Promise<VentaListItem[]> {
     let where = `v.id_sede = $1`;
     const params: unknown[] = [user.id_sede!];
     let idx = 2;
 
     if (fecha) {
-      // $${idx} appears twice intentionally — PostgreSQL allows one bound param in multiple positions.
+      // $${idx} aparece dos veces para delimitar el rango del día completo con un solo parámetro.
       where += ` AND v.fecha_emision >= $${idx} AND v.fecha_emision < $${idx}::date + INTERVAL '1 day'`;
       params.push(fecha);
       idx++;
@@ -129,6 +134,7 @@ export class CambiosService {
     }));
   }
 
+  // Registra el cambio de producto aplicando todas las validaciones antes de la transacción.
   async create(
     dto: CreateCambioDto,
     user: JwtPayload,
@@ -153,6 +159,7 @@ export class CambiosService {
         dto.id_venta_origen,
       );
     }
+    // La cantidad devuelta no puede superar la comprada en la venta original.
     if (dto.cantidad > detalleRow.cantidad) {
       throw new CantidadExcedidaException(dto.cantidad, detalleRow.cantidad);
     }
@@ -200,14 +207,14 @@ export class CambiosService {
       );
       insertedId = inserted.id_cambio;
 
-      // Stock +cantidad: ítem devuelto regresa al inventario.
+      // Stock +cantidad: ítem devuelto regresa al inventario de la sede.
       await manager.query(
         `UPDATE inventario_sedes SET cantidad_actual = cantidad_actual + $1
          WHERE id_item = $2 AND id_sede = $3`,
         [dto.cantidad, dto.id_item_devuelto, user.id_sede!],
       );
 
-      // Stock -cantidad: ítem entregado sale del inventario.
+      // Stock -cantidad: ítem entregado sale del inventario de la sede.
       await manager.query(
         `UPDATE inventario_sedes SET cantidad_actual = cantidad_actual - $1
          WHERE id_item = $2 AND id_sede = $3`,
@@ -218,6 +225,7 @@ export class CambiosService {
     return this.findOne(insertedId, user);
   }
 
+  // Listado paginado de cambios de la sede con filtros de rango de fechas opcionales.
   async findAll(
     user: JwtPayload,
     query: QueryCambiosDto,
@@ -226,15 +234,18 @@ export class CambiosService {
     const params: unknown[] = [user.id_sede!];
     let idx = 2;
 
+    // Los filtros de fecha se añaden dinámicamente solo si están presentes.
     if (query.fecha_desde) {
       where += ` AND fecha_cambio >= $${idx++}`;
       params.push(query.fecha_desde);
     }
     if (query.fecha_hasta) {
+      // Se añade 23:59:59 para incluir registros de todo el día final del rango.
       where += ` AND fecha_cambio <= $${idx++}`;
       params.push(`${query.fecha_hasta} 23:59:59`);
     }
 
+    // Conteo total y página de datos se lanzan en paralelo para reducir latencia.
     const [[{ total }], rows] = await Promise.all([
       this.dataSource.query<[{ total: string }]>(
         `SELECT COUNT(*) AS total FROM v_cambio_detalle WHERE ${where}`,
@@ -258,6 +269,7 @@ export class CambiosService {
     };
   }
 
+  // Recupera un cambio concreto; lanza excepción si no pertenece a la sede del usuario.
   async findOne(id: number, user: JwtPayload): Promise<CambioResponseDto> {
     const [row] = await this.dataSource.query<CambioRow[]>(
       `SELECT * FROM v_cambio_detalle WHERE id_cambio = $1 AND id_sede = $2`,
@@ -267,6 +279,7 @@ export class CambiosService {
     return this.toResponse(row);
   }
 
+  // Convierte la fila cruda de la vista a la forma del DTO, parseando decimales de string a number.
   private toResponse(row: CambioRow): CambioResponseDto {
     return {
       id_cambio: row.id_cambio,

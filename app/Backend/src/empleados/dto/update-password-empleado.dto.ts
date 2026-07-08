@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, MinLength, MaxLength } from 'class-validator';
 
+// DTO para cambio de contraseña. No requiere la contraseña antigua (operación administrativa).
 export class UpdatePasswordEmpleadoDto {
   @ApiProperty({
     example: 'NuevaContraseña123',

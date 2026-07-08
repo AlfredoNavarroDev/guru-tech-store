@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
+// Herramienta que identifica ítems con bajo stock o sin stock y puede mostrar el historial de compras
 export const consultarReposicionTool = (
   dataSource: DataSource,
   idSede: number,
@@ -35,6 +36,7 @@ export const consultarReposicionTool = (
         const params: unknown[] = [idSede];
         let idx = 2;
 
+        // Traduce el tipo de filtro a la condición SQL correspondiente
         if (tipo_filtro === 'sin_stock') {
           conditions.push('cantidad_actual = 0');
         } else if (tipo_filtro === 'critico') {
@@ -51,6 +53,7 @@ export const consultarReposicionTool = (
           params.push(`%${safe}%`);
         }
 
+        // unidades_a_pedir indica cuánto hay que comprar para alcanzar el mínimo
         const items = await dataSource.query<object[]>(
           `SELECT sku, item, marca, tipo, categoria, cantidad_actual, stock_minimo,
                   (stock_minimo - cantidad_actual) AS unidades_a_pedir,
@@ -62,6 +65,7 @@ export const consultarReposicionTool = (
           [...params, limit],
         );
 
+        // El historial de compras es una consulta adicional opcional para no penalizar el caso base
         let historial: object[] = [];
         if (ver_historial) {
           historial = await dataSource.query<object[]>(
