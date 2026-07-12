@@ -8,7 +8,7 @@ const allowedDevOrigins = process.env.HOST_IP
 
 const nextConfig: NextConfig = {
   reactCompiler: !isDev,
-  output: isDev ? undefined : "standalone",
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   experimental: {
     optimizePackageImports: ["motion/react"],
   },
