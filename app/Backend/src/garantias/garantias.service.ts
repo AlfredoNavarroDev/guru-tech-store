@@ -184,9 +184,9 @@ export class GarantiasService {
 
       const nuevaRep = (await repRepo.save(
         repRepo.create({
-          id_cliente: garantia.id_cliente!,
+          id_cliente: garantia.id_cliente ?? undefined,
           id_tecnico: user.sub,
-          id_sede: user.id_sede,
+          id_sede: user.id_sede ?? undefined,
           // Los campos del equipo se heredan de la reparación original si no se sobreescriben.
           marca: dto.marca ?? garantia.marca,
           modelo: dto.modelo ?? garantia.modelo,
@@ -199,7 +199,7 @@ export class GarantiasService {
           id_garantia_reclamada: idGarantia,
           tipo_accion: dto.tipo_accion ?? 'reparacion',
         }),
-      )) as Reparacion;
+      )) as unknown as Reparacion;
       nuevaReparacionId = nuevaRep.id_reparacion;
 
       // Marca la garantía como invalidada indicando qué reparación la consumió.
