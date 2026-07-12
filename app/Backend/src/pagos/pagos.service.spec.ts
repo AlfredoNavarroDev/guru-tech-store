@@ -7,6 +7,15 @@ import { Pago } from './entities/pago.entity';
 import type { CreatePagoVentaDto } from './dto/create-pago-venta.dto';
 import type { JwtPayload } from '../common/types';
 
+const makeQb = (getRawOneResult?: unknown) => ({
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
+});
+
 const createMockRepository = () => ({
   create: jest.fn(),
   save: jest.fn(),
@@ -16,7 +25,7 @@ const createMockRepository = () => ({
 describe('PagosService', () => {
   let service: PagosService;
   let pagoRepo: ReturnType<typeof createMockRepository>;
-  let dataSource: { query: jest.Mock };
+  let dataSource: { createQueryBuilder: jest.Mock };
   const mockUser: JwtPayload = {
     sub: 10,
     id_sede: 2,
@@ -26,7 +35,7 @@ describe('PagosService', () => {
 
   beforeEach(async () => {
     pagoRepo = createMockRepository();
-    dataSource = { query: jest.fn() };
+    dataSource = { createQueryBuilder: jest.fn().mockReturnValue(makeQb({ id_venta: 1 })) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -45,13 +54,7 @@ describe('PagosService', () => {
     const dto: CreatePagoVentaDto = { metodo_pago: 'efectivo', monto: 150 };
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 1 }]);
-      const pago = {
-        id_pago: 1,
-        id_venta: 1,
-        metodo_pago: 'efectivo',
-        monto: 150,
-      };
+      const pago = { id_pago: 1, id_venta: 1, metodo_pago: 'efectivo', monto: 150 };
       pagoRepo.create.mockReturnValue(pago);
       pagoRepo.save.mockResolvedValue(pago);
 
@@ -61,13 +64,10 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 1 }]);
       pagoRepo.create.mockReturnValue({});
       pagoRepo.save.mockResolvedValue({});
 
       await service.createForVenta(1, dto, mockUser);
-
-      const createArg = pagoRepo.create.mock.calls[0][0];
 
       expect(pagoRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -81,20 +81,10 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 1 }]);
       pagoRepo.create.mockReturnValue({});
       pagoRepo.save.mockResolvedValue({});
 
-      await service.createForVenta(
-        1,
-        {
-          ...dto,
-          referencia_transaccion: 'OP-123',
-        },
-        mockUser,
-      );
-
-      const createArg = pagoRepo.create.mock.calls[0][0];
+      await service.createForVenta(1, { ...dto, referencia_transaccion: 'OP-123' }, mockUser);
 
       expect(pagoRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ referencia_transaccion: 'OP-123' }),
@@ -102,13 +92,10 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 1 }]);
       pagoRepo.create.mockReturnValue({});
       pagoRepo.save.mockResolvedValue({});
 
       await service.createForVenta(1, dto, mockUser);
-
-      const createArg = pagoRepo.create.mock.calls[0][0];
 
       expect(pagoRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ referencia_transaccion: null }),
@@ -116,7 +103,7 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+      dataSource.createQueryBuilder.mockReturnValue(makeQb(undefined));
 
       let caught: Error | undefined;
       try {
@@ -130,32 +117,31 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 5 }]);
+      const qb = makeQb({ id_venta: 5 });
+      dataSource.createQueryBuilder.mockReturnValue(qb);
       pagoRepo.create.mockReturnValue({});
       pagoRepo.save.mockResolvedValue({});
 
       await service.createForVenta(5, dto, mockUser);
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('WHERE id_venta = $1');
-      expect(sql).toContain('id_empleado = $2');
-      expect(params).toEqual([5, mockUser.sub]);
+      expect(qb.where).toHaveBeenCalledWith(
+        expect.stringContaining('id_venta'),
+        expect.objectContaining({ idVenta: 5, idEmpleado: mockUser.sub }),
+      );
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+      dataSource.createQueryBuilder.mockReturnValue(makeQb(undefined));
 
-      await expect(
-        service.createForVenta(5, dto, mockUser),
-      ).rejects.toBeInstanceOf(VentaNotFoundException);
+      await expect(service.createForVenta(5, dto, mockUser)).rejects.toBeInstanceOf(
+        VentaNotFoundException,
+      );
       expect(pagoRepo.create).not.toHaveBeenCalled();
     });
   });
 
   describe('findByVenta', () => {
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 1 }]);
       const pagos = [{ id_pago: 1 }, { id_pago: 2 }];
       pagoRepo.find.mockResolvedValue(pagos);
 
@@ -166,7 +152,7 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+      dataSource.createQueryBuilder.mockReturnValue(makeQb(undefined));
 
       let caught: Error | undefined;
       try {
@@ -180,7 +166,6 @@ describe('PagosService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([{ id_venta: 1 }]);
       pagoRepo.find.mockResolvedValue([]);
 
       const result = await service.findByVenta(1, mockUser);

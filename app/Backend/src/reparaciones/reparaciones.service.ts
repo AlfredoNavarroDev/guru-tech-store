@@ -5,6 +5,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DataSource, Repository } from 'typeorm';
 import { Reparacion } from './entities/reparacion.entity';
 import { ReparacionRepuesto } from './entities/reparacion-repuesto.entity';
+import { Garantia } from '../garantias/entities/garantia.entity';
 import { CreateReparacionDto } from './dto/create-reparacion.dto';
 import { UpdateEstadoReparacionDto } from './dto/update-estado-reparacion.dto';
 import { AddRepuestoReparacionDto } from './dto/add-repuesto-reparacion.dto';
@@ -103,6 +104,8 @@ export class ReparacionesService {
     private readonly reparacionRepo: Repository<Reparacion>,
     @InjectRepository(ReparacionRepuesto)
     private readonly repuestoRepo: Repository<ReparacionRepuesto>,
+    @InjectRepository(Garantia)
+    private readonly garantiaRepo: Repository<Garantia>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {
@@ -122,9 +125,21 @@ export class ReparacionesService {
     dto: CreateReparacionDto,
     user: JwtPayload,
   ): Promise<ReparacionResponseDto> {
-    const [estadoRow] = await this.dataSource.query<EstadoRow[]>(
-      `SELECT id_estado, nombre, es_final FROM estados_reparacion ORDER BY orden ASC LIMIT 1`,
-    );
+    const estadoRow = await this.dataSource
+      .createQueryBuilder()
+      .select('e.id_estado', 'id_estado')
+      .addSelect('e.nombre', 'nombre')
+      .addSelect('e.es_final', 'es_final')
+      .from('estados_reparacion', 'e')
+      .orderBy('e.orden', 'ASC')
+      .limit(1)
+      .getRawOne<EstadoRow>();
+
+    if (!estadoRow) {
+      throw new InternalServerErrorException(
+        'No hay estados de reparación configurados',
+      );
+    }
 
     const reparacion = this.reparacionRepo.create({
       id_cliente: dto.id_cliente,
@@ -155,85 +170,99 @@ export class ReparacionesService {
     user: JwtPayload,
     query: QueryReparacionesDto,
   ): Promise<PaginatedResult<ReparacionResponseDto>> {
-    const conditions: string[] = [`id_sede = $1`];
-    const params: (string | number | boolean)[] = [user.id_sede!];
-    let idx = 2;
+    const applyConditions = (
+      qb: ReturnType<DataSource['createQueryBuilder']>,
+    ) => {
+      qb.where('r.id_sede = :idSede', { idSede: user.id_sede! });
+      if (query.id_cliente !== undefined)
+        qb.andWhere('r.id_cliente = :idCliente', {
+          idCliente: query.id_cliente,
+        });
+      if (query.id_estado !== undefined)
+        qb.andWhere('r.id_estado = :idEstado', { idEstado: query.id_estado });
+      if (query.fecha_desde)
+        qb.andWhere('r.fecha_ingreso >= :fechaDesde', {
+          fechaDesde: query.fecha_desde,
+        });
+      if (query.fecha_hasta)
+        qb.andWhere('r.fecha_ingreso <= :fechaHasta', {
+          fechaHasta: `${query.fecha_hasta} 23:59:59`,
+        });
+      if (query.marca)
+        qb.andWhere('r.marca ILIKE :marca', { marca: `%${query.marca}%` });
+      if (query.modelo)
+        qb.andWhere('r.modelo ILIKE :modelo', { modelo: `%${query.modelo}%` });
+      if (query.imei)
+        qb.andWhere('r.imei ILIKE :imei', { imei: `%${query.imei}%` });
+      return qb;
+    };
 
-    if (query.id_cliente !== undefined) {
-      conditions.push(`id_cliente = $${idx++}`);
-      params.push(query.id_cliente);
-    }
-    if (query.id_estado !== undefined) {
-      conditions.push(`id_estado = $${idx++}`);
-      params.push(query.id_estado);
-    }
-    if (query.fecha_desde) {
-      conditions.push(`fecha_ingreso >= $${idx++}`);
-      params.push(query.fecha_desde);
-    }
-    if (query.fecha_hasta) {
-      conditions.push(`fecha_ingreso <= $${idx++}`);
-      params.push(`${query.fecha_hasta} 23:59:59`);
-    }
-    if (query.marca) {
-      conditions.push(`marca ILIKE $${idx++}`);
-      params.push(`%${query.marca}%`);
-    }
-    if (query.modelo) {
-      conditions.push(`modelo ILIKE $${idx++}`);
-      params.push(`%${query.modelo}%`);
-    }
-    if (query.imei) {
-      conditions.push(`imei ILIKE $${idx++}`);
-      params.push(`%${query.imei}%`);
-    }
-
-    const where = conditions.join(' AND ');
-
-    const [[{ total }], rows] = await Promise.all([
-      this.dataSource.query<CountRow[]>(
-        `SELECT COUNT(*) AS total FROM v_reparacion_lista WHERE ${where}`,
-        params,
-      ),
-      this.dataSource.query<ReparacionRow[]>(
-        `SELECT * FROM v_reparacion_lista
-         WHERE ${where}
-         ORDER BY fecha_ingreso DESC
-         LIMIT $${idx} OFFSET $${idx + 1}`,
-        [...params, query.limit, (query.page - 1) * query.limit],
-      ),
+    const [countResult, rows] = await Promise.all([
+      applyConditions(
+        this.dataSource
+          .createQueryBuilder()
+          .select('COUNT(*)', 'total')
+          .from('v_reparacion_lista', 'r'),
+      ).getRawOne<CountRow>(),
+      applyConditions(
+        this.dataSource
+          .createQueryBuilder()
+          .select('r.*')
+          .from('v_reparacion_lista', 'r'),
+      )
+        .orderBy('r.fecha_ingreso', 'DESC')
+        .limit(query.limit)
+        .offset((query.page - 1) * query.limit)
+        .getRawMany<ReparacionRow>(),
     ]);
+
+    const total = parseInt(countResult?.total ?? '0', 10);
 
     return {
       items: rows.map(this.toResponse),
-      total: parseInt(total, 10),
+      total,
       page: query.page,
       limit: query.limit,
-      totalPages: Math.ceil(parseInt(total, 10) / query.limit),
+      totalPages: Math.ceil(total / query.limit),
     };
   }
 
   // HU-18: Detalle completo con repuestos usados, pagos, total pagado y saldo pendiente.
   async findOne(id: number, user: JwtPayload): Promise<ReparacionResponseDto> {
-    const [[row], repuestos, pagos] = await Promise.all([
-      this.dataSource.query<ReparacionRow[]>(
-        `SELECT * FROM v_reparacion_lista WHERE id_reparacion = $1 AND id_sede = $2`,
-        [id, user.id_sede!],
-      ),
-      this.dataSource.query<RepuestoRow[]>(
-        `SELECT
-           rru.id_repuesto_u, rru.id_item, i.nombre AS item_nombre, i.sku,
-           rru.cantidad, rru.precio_cobrado, rru.costo_unitario_momento
-         FROM reparacion_repuestos_usados rru
-         LEFT JOIN items i ON i.id_item = rru.id_item
-         WHERE rru.id_reparacion = $1`,
-        [id],
-      ),
-      this.dataSource.query<PagoRow[]>(
-        `SELECT id_pago, metodo_pago, monto, es_adelanto, fecha_pago
-         FROM pagos WHERE id_reparacion = $1 ORDER BY fecha_pago ASC`,
-        [id],
-      ),
+    const [row, repuestos, pagos] = await Promise.all([
+      this.dataSource
+        .createQueryBuilder()
+        .select('r.*')
+        .from('v_reparacion_lista', 'r')
+        .where('r.id_reparacion = :id', { id })
+        .andWhere('r.id_sede = :idSede', { idSede: user.id_sede! })
+        .getRawOne<ReparacionRow>(),
+
+      this.dataSource
+        .createQueryBuilder()
+        .select('rru.id_repuesto_u', 'id_repuesto_u')
+        .addSelect('rru.id_item', 'id_item')
+        .addSelect('i.nombre', 'item_nombre')
+        .addSelect('i.sku', 'sku')
+        .addSelect('rru.cantidad', 'cantidad')
+        .addSelect('rru.precio_cobrado', 'precio_cobrado')
+        .addSelect('rru.costo_unitario_momento', 'costo_unitario_momento')
+        .from('reparacion_repuestos_usados', 'rru')
+        .leftJoin('items', 'i', 'i.id_item = rru.id_item')
+        .where('rru.id_reparacion = :id', { id })
+        .getRawMany<RepuestoRow>(),
+
+      this.dataSource
+        .createQueryBuilder()
+        .select('p.id_pago', 'id_pago')
+        .addSelect('p.metodo_pago', 'metodo_pago')
+        .addSelect('p.monto', 'monto')
+        .addSelect('p.es_adelanto', 'es_adelanto')
+        .addSelect('p.fecha_pago', 'fecha_pago')
+        .from('pagos', 'p')
+        .where('p.id_reparacion = :id', { id })
+        .orderBy('p.fecha_pago', 'ASC')
+        .getRawMany<PagoRow>(),
     ]);
 
     if (!row) throw new ReparacionNotFoundException(id);
@@ -286,17 +315,24 @@ export class ReparacionesService {
       throw new ReparacionEntregadaException(id);
     }
 
-    const [estadoNuevo] = await this.dataSource.query<EstadoRow[]>(
-      `SELECT id_estado, nombre, es_final, orden FROM estados_reparacion WHERE id_estado = $1`,
-      [dto.id_estado],
-    );
-    if (!estadoNuevo)
-      throw new EstadoReparacionNotFoundException(dto.id_estado);
+    const estadoNuevo = await this.dataSource
+      .createQueryBuilder()
+      .select('e.id_estado', 'id_estado')
+      .addSelect('e.nombre', 'nombre')
+      .addSelect('e.es_final', 'es_final')
+      .addSelect('e.orden', 'orden')
+      .from('estados_reparacion', 'e')
+      .where('e.id_estado = :idEstado', { idEstado: dto.id_estado })
+      .getRawOne<EstadoRow>();
 
-    const [estadoActual] = await this.dataSource.query<{ orden: number }[]>(
-      `SELECT orden FROM estados_reparacion WHERE id_estado = $1`,
-      [reparacion.raw.id_estado],
-    );
+    if (!estadoNuevo) throw new EstadoReparacionNotFoundException(dto.id_estado);
+
+    const estadoActual = await this.dataSource
+      .createQueryBuilder()
+      .select('e.orden', 'orden')
+      .from('estados_reparacion', 'e')
+      .where('e.id_estado = :idEstado', { idEstado: reparacion.raw.id_estado })
+      .getRawOne<{ orden: number }>();
 
     if (estadoActual && estadoNuevo.orden > estadoActual.orden + 1) {
       throw new EstadoSaltoInvalidoException(
@@ -328,36 +364,8 @@ export class ReparacionesService {
       updates.fecha_entrega_cliente = new Date();
     }
 
-    // Usamos query raw para evitar incompatibilidades de tipo con JSONB en reparacionRepo.update.
-    const setClauses: string[] = ['id_estado = $2'];
-    const params: (number | string | null | Date)[] = [id, dto.id_estado];
-    let idx = 3;
-
-    if (updates.diagnostico_tecnico !== undefined) {
-      setClauses.push(`diagnostico_tecnico = $${idx++}`);
-      params.push(updates.diagnostico_tecnico);
-    }
-    if (updates.monto_cotizado !== undefined) {
-      setClauses.push(`monto_cotizado = $${idx++}`);
-      params.push(updates.monto_cotizado);
-    }
-    if (updates.fecha_terminado !== undefined) {
-      setClauses.push(`fecha_terminado = $${idx++}`);
-      params.push(updates.fecha_terminado);
-    }
-    if (updates.fecha_entrega_cliente !== undefined) {
-      setClauses.push(`fecha_entrega_cliente = $${idx++}`);
-      params.push(updates.fecha_entrega_cliente);
-    }
-    if (updates.fecha_estimada !== undefined) {
-      setClauses.push(`fecha_estimada = $${idx++}`);
-      params.push(updates.fecha_estimada ?? null);
-    }
-
-    await this.dataSource.query(
-      `UPDATE reparaciones SET ${setClauses.join(', ')} WHERE id_reparacion = $1`,
-      params,
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.reparacionRepo.update(id, updates as any);
 
     // Auto-create garantía when delivered, if none exists yet.
     // Reclamo de garantía (id_garantia_reclamada set) never gets a new one.
@@ -366,15 +374,21 @@ export class ReparacionesService {
       !reparacion.raw.id_garantia_reclamada
     ) {
       const dias = dto.dias_garantia ?? 15;
-      const existing = await this.dataSource.query<{ id_garantia: number }[]>(
-        `SELECT id_garantia FROM garantias WHERE id_reparacion = $1`,
-        [id],
-      );
-      if (!existing.length && dias > 0) {
-        await this.dataSource.query(
-          `INSERT INTO garantias (id_reparacion, fecha_inicio, fecha_fin, estado)
-           VALUES ($1, CURRENT_DATE, CURRENT_DATE + $2 * INTERVAL '1 day', 'activa')`,
-          [id, dias],
+      const existing = await this.garantiaRepo.findOne({
+        where: { id_reparacion: id },
+      });
+      if (!existing && dias > 0) {
+        const fechaInicio = new Date();
+        const fechaFin = new Date(fechaInicio);
+        fechaFin.setDate(fechaFin.getDate() + dias);
+        await this.garantiaRepo.save(
+          this.garantiaRepo.create({
+            id_reparacion: id,
+            id_venta: null,
+            fecha_inicio: fechaInicio.toISOString().split('T')[0],
+            fecha_fin: fechaFin.toISOString().split('T')[0],
+            estado: 'activa',
+          }),
         );
       }
     }
@@ -401,16 +415,21 @@ export class ReparacionesService {
     try {
       const saved = await this.repuestoRepo.save(repuesto);
 
-      const [row] = await this.dataSource.query<RepuestoRow[]>(
-        `SELECT rru.id_repuesto_u, rru.id_item, i.nombre AS item_nombre, i.sku,
-                rru.cantidad, rru.precio_cobrado, rru.costo_unitario_momento
-         FROM reparacion_repuestos_usados rru
-         LEFT JOIN items i ON i.id_item = rru.id_item
-         WHERE rru.id_repuesto_u = $1`,
-        [saved.id_repuesto_u],
-      );
+      const row = await this.dataSource
+        .createQueryBuilder()
+        .select('rru.id_repuesto_u', 'id_repuesto_u')
+        .addSelect('rru.id_item', 'id_item')
+        .addSelect('i.nombre', 'item_nombre')
+        .addSelect('i.sku', 'sku')
+        .addSelect('rru.cantidad', 'cantidad')
+        .addSelect('rru.precio_cobrado', 'precio_cobrado')
+        .addSelect('rru.costo_unitario_momento', 'costo_unitario_momento')
+        .from('reparacion_repuestos_usados', 'rru')
+        .leftJoin('items', 'i', 'i.id_item = rru.id_item')
+        .where('rru.id_repuesto_u = :id', { id: saved.id_repuesto_u })
+        .getRawOne<RepuestoRow>();
 
-      return this.toRepuestoResponse(row);
+      return this.toRepuestoResponse(row!);
     } catch (err: unknown) {
       const e = err as { message?: string; code?: string };
       if (e.message?.includes('Stock insuficiente') || e.code === '23514') {
@@ -445,7 +464,7 @@ export class ReparacionesService {
     dto: UploadFotoReparacionDto,
     user: JwtPayload,
   ): Promise<{ url: string }> {
-    await this.assertAccess(id, user.id_sede!);
+    const result = await this.assertAccess(id, user.id_sede!);
 
     const buffer = Buffer.from(dto.imagen_base64, 'base64');
     const extMap: Record<string, string> = {
@@ -469,17 +488,10 @@ export class ReparacionesService {
     );
 
     const url = `${r2Config.publicUrl}/${key}`;
-    await this.dataSource.query(
-      `UPDATE reparaciones
-       SET fotos = COALESCE(fotos, '[]'::jsonb) || $2::jsonb
-       WHERE id_reparacion = $1`,
-      [
-        id,
-        JSON.stringify([
-          { url, etapa: estadoNorm, created_at: new Date().toISOString() },
-        ]),
-      ],
-    );
+    const nuevaFoto = { url, etapa: estadoNorm, created_at: new Date().toISOString() };
+    const fotosActualizadas = [...(result.raw.fotos ?? []), nuevaFoto];
+
+    await this.reparacionRepo.update(id, { fotos: fotosActualizadas });
 
     return { url };
   }
@@ -510,13 +522,17 @@ export class ReparacionesService {
     id: number,
     idSede: number,
   ): Promise<{ raw: ReparacionRow; es_final: boolean; estado: string }> {
-    const [row] = await this.dataSource.query<ReparacionRow[]>(
-      `SELECT r.*, er.es_final, er.nombre AS estado
-       FROM reparaciones r
-       LEFT JOIN estados_reparacion er ON er.id_estado = r.id_estado
-       WHERE r.id_reparacion = $1 AND r.id_sede = $2`,
-      [id, idSede],
-    );
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('r.*')
+      .addSelect('er.es_final', 'es_final')
+      .addSelect('er.nombre', 'estado')
+      .from('reparaciones', 'r')
+      .leftJoin('estados_reparacion', 'er', 'er.id_estado = r.id_estado')
+      .where('r.id_reparacion = :id', { id })
+      .andWhere('r.id_sede = :idSede', { idSede })
+      .getRawOne<ReparacionRow>();
+
     if (!row) throw new ReparacionNotFoundException(id);
     return { raw: row, es_final: row.es_final, estado: row.estado ?? '' };
   }

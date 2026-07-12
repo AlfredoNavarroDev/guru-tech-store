@@ -20,6 +20,19 @@ const createMockRepository = () => ({
   save: jest.fn(),
 });
 
+const makeQb = (getRawOneResult?: unknown, getRawManyResult: unknown[] = []) => ({
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
+  getRawMany: jest.fn().mockResolvedValue(getRawManyResult),
+});
+
 const mockUser: JwtPayload = {
   sub: 10,
   id_sede: 1,
@@ -39,12 +52,20 @@ describe('VentasService', () => {
   let service: VentasService;
   let ventaRepo: ReturnType<typeof createMockRepository>;
   let detalleRepo: ReturnType<typeof createMockRepository>;
-  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let dataSource: {
+    createQueryBuilder: jest.Mock;
+    transaction: jest.Mock;
+    manager: { query: jest.Mock };
+  };
 
   beforeEach(async () => {
     ventaRepo = createMockRepository();
     detalleRepo = createMockRepository();
-    dataSource = { query: jest.fn(), transaction: jest.fn() };
+    dataSource = {
+      createQueryBuilder: jest.fn(),
+      transaction: jest.fn(),
+      manager: { query: jest.fn() },
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,8 +120,6 @@ describe('VentasService', () => {
       ventaRepo.findOne.mockResolvedValue({ id_venta: 1, detalles: [] });
 
       await service.create({ items: [validItem] }, mockUser);
-
-      const createCall = manager.create.mock.calls[0][1];
 
       expect(manager.create).toHaveBeenCalledWith(
         Venta,
@@ -226,9 +245,9 @@ describe('VentasService', () => {
 
     it('valida', async () => {
       const rows = [{ id_venta: 1 }];
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '3' }])
-        .mockResolvedValueOnce(rows);
+      const mockQb = makeQb({ total: '3' });
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
+      dataSource.manager.query.mockResolvedValue(rows);
 
       const result = await service.findAll(mockUser, baseQuery);
 
@@ -242,68 +261,67 @@ describe('VentasService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '0' }])
-        .mockResolvedValueOnce([]);
+      const mockQb = makeQb({ total: '0' });
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
+      dataSource.manager.query.mockResolvedValue([]);
 
       await service.findAll(mockUser, baseQuery);
 
-      const [, params] = dataSource.query.mock.calls[0];
-
-      expect(params[0]).toBe(mockUser.sub);
+      expect(mockQb.where).toHaveBeenCalledWith(
+        expect.stringContaining(':emp'),
+        expect.objectContaining({ emp: mockUser.sub }),
+      );
     });
 
     it('valida', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '0' }])
-        .mockResolvedValueOnce([]);
+      const mockQb = makeQb({ total: '0' });
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
+      dataSource.manager.query.mockResolvedValue([]);
 
       await service.findAll(mockUser, {
         ...baseQuery,
         fecha_desde: '2026-01-01',
       });
 
-      const [sql] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('fecha_emision >=');
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('fecha_emision >='),
+        expect.any(Object),
+      );
     });
 
     it('valida', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '0' }])
-        .mockResolvedValueOnce([]);
+      const mockQb = makeQb({ total: '0' });
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
+      dataSource.manager.query.mockResolvedValue([]);
 
       await service.findAll(mockUser, {
         ...baseQuery,
         fecha_hasta: '2026-12-31',
       });
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-      const fechaParam = params.find((p: string | number) =>
-        String(p).includes('23:59:59'),
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('fecha_emision <='),
+        expect.objectContaining({ hasta: '2026-12-31 23:59:59' }),
       );
-
-      expect(sql).toContain('fecha_emision <=');
-      expect(params).toContain('2026-12-31 23:59:59');
     });
 
     it('valida', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '0' }])
-        .mockResolvedValueOnce([]);
+      const mockQb = makeQb({ total: '0' });
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
+      dataSource.manager.query.mockResolvedValue([]);
 
       await service.findAll(mockUser, { ...baseQuery, id_cliente: 5 });
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('id_cliente');
-      expect(params).toContain(5);
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('id_cliente'),
+        expect.objectContaining({ cliente: 5 }),
+      );
     });
 
     it('valida', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '45' }])
-        .mockResolvedValueOnce([]);
+      const mockQb = makeQb({ total: '45' });
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
+      dataSource.manager.query.mockResolvedValue([]);
 
       const result = await service.findAll(mockUser, { page: 1, limit: 20 });
 
@@ -314,19 +332,21 @@ describe('VentasService', () => {
   describe('findOne', () => {
     it('valida', async () => {
       const rows = [{ id_venta: 1 }, { id_venta: 1 }];
-      dataSource.query.mockResolvedValue(rows);
+      const mockQb = makeQb(undefined, rows);
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
 
       const result = await service.findOne(1, mockUser);
 
       expect(result).toEqual(rows);
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('id_venta = $1'),
-        [1, mockUser.sub],
+      expect(mockQb.where).toHaveBeenCalledWith(
+        expect.stringContaining('id_venta'),
+        expect.objectContaining({ id: 1 }),
       );
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+      const mockQb = makeQb(undefined, []);
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
 
       let caught: Error | undefined;
       try {
@@ -335,14 +355,16 @@ describe('VentasService', () => {
         caught = e as Error;
       }
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-
       expect(caught).toBeInstanceOf(VentaNotFoundException);
-      expect(sql).toContain('id_empleado = $2');
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('id_empleado'),
+        expect.objectContaining({ emp: mockUser.sub }),
+      );
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+      const mockQb = makeQb(undefined, []);
+      dataSource.createQueryBuilder.mockReturnValue(mockQb);
 
       let caught: Error | undefined;
       try {

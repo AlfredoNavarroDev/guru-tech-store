@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { Cliente } from './entities/cliente.entity';
+import { ClienteView } from './entities/cliente-view.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { QueryClienteDto } from './dto/query-cliente.dto';
@@ -10,63 +11,38 @@ import {
   ClienteNotFoundException,
 } from '../common/exceptions';
 
-// Estructura de fila de la vista v_vendedor_clientes.
-interface ClienteVista {
-  id_cliente: number;
-  nombre_completo: string;
-  tipo_documento: string;
-  nro_documento: string;
-  telefono: string | null;
-  direccion_completa: string | null;
-  es_extranjero: boolean;
-  total_compras: number;
-  ultima_compra: Date | null;
-  total_reparaciones: number;
-  ultima_reparacion: Date | null;
-}
-
 // Servicio de clientes. Lectura desde vista, escritura con TypeORM + validación de unicidad.
 @Injectable()
 export class ClientesService {
   constructor(
     @InjectRepository(Cliente)
     private readonly clienteRepo: Repository<Cliente>,
-    private readonly dataSource: DataSource,
+    @InjectRepository(ClienteView)
+    private readonly clienteViewRepo: Repository<ClienteView>,
   ) {}
 
-  // Lista clientes con filtros opcionales. SQL parametrizado con ILIKE case-insensitive.
-  async findAll(query: QueryClienteDto): Promise<ClienteVista[]> {
-    let sql = `SELECT * FROM v_vendedor_clientes WHERE 1=1`;
-    const params: (string | number)[] = [];
-    let idx = 1;
-
+  // Lista clientes con filtros opcionales.
+  async findAll(query: QueryClienteDto): Promise<ClienteView[]> {
     if (query.search) {
-      sql += ` AND (nombre_completo ILIKE $${idx} OR nro_documento ILIKE $${idx})`;
-      params.push(`%${query.search}%`);
-      idx++;
-    } else {
-      if (query.nombre) {
-        sql += ` AND nombre_completo ILIKE $${idx++}`;
-        params.push(`%${query.nombre}%`);
-      }
-      if (query.nro_documento) {
-        sql += ` AND nro_documento ILIKE $${idx++}`;
-        params.push(`%${query.nro_documento}%`);
-      }
+      return this.clienteViewRepo.find({
+        where: [
+          { nombre_completo: ILike(`%${query.search}%`) },
+          { nro_documento: ILike(`%${query.search}%`) },
+        ],
+        order: { nombre_completo: 'ASC' },
+      });
     }
-
-    sql += ` ORDER BY nombre_completo`;
-    return this.dataSource.query<ClienteVista[]>(sql, params);
+    const where: FindOptionsWhere<ClienteView> = {};
+    if (query.nombre) where.nombre_completo = ILike(`%${query.nombre}%`);
+    if (query.nro_documento) where.nro_documento = ILike(`%${query.nro_documento}%`);
+    return this.clienteViewRepo.find({ where, order: { nombre_completo: 'ASC' } });
   }
 
   // Obtiene cliente por ID desde la vista (incluye total compras). Lanza 404 si no existe.
-  async findOne(id: number): Promise<ClienteVista> {
-    const rows = await this.dataSource.query<ClienteVista[]>(
-      `SELECT * FROM v_vendedor_clientes WHERE id_cliente = $1`,
-      [id],
-    );
-    if (!rows.length) throw new ClienteNotFoundException(id);
-    return rows[0];
+  async findOne(id: number): Promise<ClienteView> {
+    const cliente = await this.clienteViewRepo.findOne({ where: { id_cliente: id } });
+    if (!cliente) throw new ClienteNotFoundException(id);
+    return cliente;
   }
 
   // Crea cliente validando unicidad (tipo_documento + nro_documento) en la app.

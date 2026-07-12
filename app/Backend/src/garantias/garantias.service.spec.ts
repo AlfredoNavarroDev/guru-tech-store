@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { GarantiasService } from './garantias.service';
+import { Garantia } from './entities/garantia.entity';
+import { GarantiaReclamoView } from './entities/garantia-reclamo-view.entity';
 import {
   GarantiaNoActivaException,
   GarantiaNotFoundException,
@@ -10,6 +13,7 @@ import {
   ReparacionNotFoundException,
 } from '../common/exceptions';
 import { ReparacionesService } from '../reparaciones/reparaciones.service';
+import { RestriccionesService } from '../restricciones/restricciones.service';
 import type { JwtPayload } from '../common/types';
 import type { QueryGarantiasDto } from './dto/query-garantias.dto';
 
@@ -38,20 +42,54 @@ const garantiaRow = {
   created_at: new Date('2026-06-01'),
 };
 
+const makeQb = (getRawOneResult?: unknown, getRawManyResult: unknown[] = []) => ({
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  innerJoin: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockReturnThis(),
+  update: jest.fn().mockReturnThis(),
+  set: jest.fn().mockReturnThis(),
+  execute: jest.fn().mockResolvedValue({ affected: 0 }),
+  getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
+  getRawMany: jest.fn().mockResolvedValue(getRawManyResult),
+});
+
 describe('GarantiasService', () => {
   let service: GarantiasService;
-  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let dataSource: { createQueryBuilder: jest.Mock; transaction: jest.Mock };
+  let garantiaRepo: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let garantiaReclamoRepo: { findOne: jest.Mock };
   let reparacionesService: { findOne: jest.Mock };
+  let restriccionesService: { resolveItemRestriction: jest.Mock };
 
   beforeEach(async () => {
-    dataSource = { query: jest.fn(), transaction: jest.fn() };
+    dataSource = { createQueryBuilder: jest.fn(), transaction: jest.fn() };
+    garantiaRepo = {
+      findOne: jest.fn(),
+      create: jest.fn().mockImplementation((data) => data),
+      save: jest.fn(),
+    };
+    garantiaReclamoRepo = { findOne: jest.fn() };
     reparacionesService = { findOne: jest.fn() };
+    restriccionesService = { resolveItemRestriction: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GarantiasService,
         { provide: DataSource, useValue: dataSource },
+        { provide: getRepositoryToken(Garantia), useValue: garantiaRepo },
+        {
+          provide: getRepositoryToken(GarantiaReclamoView),
+          useValue: garantiaReclamoRepo,
+        },
         { provide: ReparacionesService, useValue: reparacionesService },
+        { provide: RestriccionesService, useValue: restriccionesService },
       ],
     }).compile();
 
@@ -70,10 +108,11 @@ describe('GarantiasService', () => {
     };
 
     it('inserta garantia de reparacion y devuelve DTO', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_reparacion: 7 }]) // reparacion pertenece a sede
-        .mockResolvedValueOnce([]) // sin garantia activa previa
-        .mockResolvedValueOnce([garantiaRow]); // INSERT RETURNING
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ id_reparacion: 7 })) // reparacion pertenece a sede
+        .mockReturnValueOnce(makeQb(null)); // sin repuesto → omite restricción
+      garantiaRepo.findOne.mockResolvedValueOnce(null); // sin garantia activa previa
+      garantiaRepo.save.mockResolvedValueOnce(garantiaRow);
 
       const result = await service.create(dto, mockTecnico);
 
@@ -86,18 +125,18 @@ describe('GarantiasService', () => {
       await expect(service.create(dto, mockVendedor)).rejects.toThrow(
         ForbiddenException,
       );
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.createQueryBuilder).not.toHaveBeenCalled();
     });
 
     it('lanza BadRequestException si fecha_fin <= fecha_inicio', async () => {
       await expect(
         service.create({ ...dto, fecha_fin: dto.fecha_inicio }, mockTecnico),
       ).rejects.toThrow(BadRequestException);
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.createQueryBuilder).not.toHaveBeenCalled();
     });
 
     it('lanza ReparacionNotFoundException si reparacion no pertenece a sede', async () => {
-      dataSource.query.mockResolvedValueOnce([]); // reparacion not found
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb(null)); // rep not found
 
       await expect(service.create(dto, mockTecnico)).rejects.toThrow(
         ReparacionNotFoundException,
@@ -105,9 +144,8 @@ describe('GarantiasService', () => {
     });
 
     it('lanza GarantiaYaExisteException si ya hay garantia activa', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_reparacion: 7 }]) // reparacion ok
-        .mockResolvedValueOnce([{ id_garantia: 99 }]); // garantia activa previa
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb({ id_reparacion: 7 }));
+      garantiaRepo.findOne.mockResolvedValueOnce({ id_garantia: 99 }); // garantia activa previa
 
       await expect(service.create(dto, mockTecnico)).rejects.toThrow(
         GarantiaYaExisteException,
@@ -121,31 +159,40 @@ describe('GarantiasService', () => {
     const baseQuery: QueryGarantiasDto = { page: 1, limit: 20 };
 
     it('vendedor recibe garantias de ventas (lazy update + scoped join)', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([]) // lazy UPDATE
-        .mockResolvedValueOnce([{ total: '1' }]) // COUNT
-        .mockResolvedValueOnce([
-          { ...garantiaRow, id_venta: 42, id_reparacion: null },
-        ]); // rows
+      const updateQb = makeQb();
+      const countQb = makeQb({ total: '1' });
+      const rowsQb = makeQb(undefined, [
+        { ...garantiaRow, id_venta: 42, id_reparacion: null },
+      ]);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(updateQb)
+        .mockReturnValueOnce(countQb)
+        .mockReturnValueOnce(rowsQb);
 
       const result = await service.findAll(mockVendedor, baseQuery);
 
       expect(result.total).toBe(1);
       expect(result.items[0].tipo).toBe('venta');
-      const updateSql: string = dataSource.query.mock.calls[0][0];
-      expect(updateSql).toContain("estado = 'vencida'");
+      expect(updateQb.execute).toHaveBeenCalled();
+      expect(updateQb.set).toHaveBeenCalledWith(
+        expect.objectContaining({ estado: 'vencida' }),
+      );
     });
 
     it('filtro por estado agrega clausula AND', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ total: '0' }])
-        .mockResolvedValueOnce([]);
+      const countQb = makeQb({ total: '0' });
+      const rowsQb = makeQb(undefined, []);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb()) // UPDATE
+        .mockReturnValueOnce(countQb) // COUNT
+        .mockReturnValueOnce(rowsQb); // ROWS
 
       await service.findAll(mockTecnico, { ...baseQuery, estado: 'vencida' });
 
-      const countSql: string = dataSource.query.mock.calls[1][0];
-      expect(countSql).toContain('g.estado =');
+      expect(countQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('g.estado'),
+        expect.objectContaining({ estado: 'vencida' }),
+      );
     });
   });
 
@@ -153,18 +200,18 @@ describe('GarantiasService', () => {
 
   describe('findOne', () => {
     it('devuelve DTO si garantia pertenece a la sede', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([]) // lazy UPDATE
-        .mockResolvedValueOnce([garantiaRow]); // SELECT
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb()) // UPDATE
+        .mockReturnValueOnce(makeQb(garantiaRow)); // SELECT
 
       const result = await service.findOne(1, mockTecnico);
       expect(result.id_garantia).toBe(1);
     });
 
     it('lanza GarantiaNotFoundException si no pertenece a sede', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([]) // lazy UPDATE
-        .mockResolvedValueOnce([]); // SELECT sin filas
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb()) // UPDATE
+        .mockReturnValueOnce(makeQb(null)); // SELECT sin resultado
 
       await expect(service.findOne(999, mockTecnico)).rejects.toThrow(
         GarantiaNotFoundException,
@@ -188,20 +235,19 @@ describe('GarantiasService', () => {
     };
 
     it('crea reparacion-reclamo, invalida garantia y devuelve la reparacion nueva', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([garantiaReclamableRow]) // SELECT garantia + reparacion
-        .mockResolvedValueOnce([{ id_estado: 1 }]); // SELECT primer estado
+      garantiaReclamoRepo.findOne.mockResolvedValueOnce(garantiaReclamableRow);
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb({ id_estado: 1 }));
+
+      const mockRepo = {
+        save: jest.fn().mockResolvedValue({ id_reparacion: 55 }),
+        create: jest.fn().mockImplementation((data: unknown) => data),
+        update: jest.fn().mockResolvedValue({}),
+      };
+      const mockManager = { getRepository: jest.fn().mockReturnValue(mockRepo) };
       dataSource.transaction.mockImplementation(
-        async (cb: (m: unknown) => Promise<void>) => {
-          const manager = {
-            query: jest
-              .fn()
-              .mockResolvedValueOnce([{ id_reparacion: 55 }]) // INSERT reparacion
-              .mockResolvedValueOnce(undefined), // UPDATE garantia
-          };
-          await cb(manager);
-        },
+        (fn: (m: typeof mockManager) => Promise<void>) => fn(mockManager),
       );
+
       reparacionesService.findOne.mockResolvedValueOnce({
         id_reparacion: 55,
         id_garantia_reclamada: 1,
@@ -226,11 +272,11 @@ describe('GarantiasService', () => {
           mockVendedor,
         ),
       ).rejects.toThrow(ForbiddenException);
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(garantiaReclamoRepo.findOne).not.toHaveBeenCalled();
     });
 
     it('lanza GarantiaNotFoundException si no existe', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      garantiaReclamoRepo.findOne.mockResolvedValueOnce(null);
 
       await expect(
         service.crearReclamo(
@@ -242,9 +288,10 @@ describe('GarantiasService', () => {
     });
 
     it('lanza GarantiaNotFoundException si la reparacion es de otra sede', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        { ...garantiaReclamableRow, id_sede: 99 },
-      ]);
+      garantiaReclamoRepo.findOne.mockResolvedValueOnce({
+        ...garantiaReclamableRow,
+        id_sede: 99,
+      });
 
       await expect(
         service.crearReclamo(
@@ -256,14 +303,12 @@ describe('GarantiasService', () => {
     });
 
     it('lanza GarantiaTipoInvalidoException si la garantia es de venta', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        {
-          ...garantiaReclamableRow,
-          id_venta: 42,
-          id_reparacion: null,
-          id_sede: null,
-        },
-      ]);
+      garantiaReclamoRepo.findOne.mockResolvedValueOnce({
+        ...garantiaReclamableRow,
+        id_venta: 42,
+        id_reparacion: null,
+        id_sede: null,
+      });
 
       await expect(
         service.crearReclamo(
@@ -275,9 +320,10 @@ describe('GarantiasService', () => {
     });
 
     it('lanza GarantiaNoActivaException si la garantia esta vencida', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        { ...garantiaReclamableRow, estado: 'vencida' },
-      ]);
+      garantiaReclamoRepo.findOne.mockResolvedValueOnce({
+        ...garantiaReclamableRow,
+        estado: 'vencida',
+      });
 
       await expect(
         service.crearReclamo(
@@ -289,9 +335,10 @@ describe('GarantiasService', () => {
     });
 
     it('lanza GarantiaNoActivaException si la garantia ya esta invalidada', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        { ...garantiaReclamableRow, estado: 'invalidada' },
-      ]);
+      garantiaReclamoRepo.findOne.mockResolvedValueOnce({
+        ...garantiaReclamableRow,
+        estado: 'invalidada',
+      });
 
       await expect(
         service.crearReclamo(

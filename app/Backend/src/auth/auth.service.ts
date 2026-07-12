@@ -4,10 +4,11 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Empleado } from './entities/empleado.entity';
+import { EmpleadoSesionView } from './entities/empleado-sesion-view.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import {
@@ -24,10 +25,10 @@ export class AuthService {
     private readonly empleadoRepo: Repository<Empleado>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: Repository<RefreshToken>,
+    @InjectRepository(EmpleadoSesionView)
+    private readonly sesionViewRepo: Repository<EmpleadoSesionView>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    // DataSource para consultas SQL a tablas fuera de AuthModule (Sedes, Roles).
-    private readonly dataSource: DataSource,
   ) {}
 
   // Autentica por nro_documento + contraseña. Retorna tokens, roles y sede.
@@ -195,13 +196,8 @@ export class AuthService {
   private async getEmpleadoData(
     id_empleado: number,
   ): Promise<{ rol: string; sede: string }> {
-    const rows = await this.dataSource.query<
-      { nombre_rol: string; nombre_sede: string }[]
-    >(
-      `SELECT nombre_rol, nombre_sede FROM v_empleado_sesion WHERE id_empleado = $1`,
-      [id_empleado],
-    );
-    if (!rows.length) return { rol: 'desconocido', sede: 'Sin sede' };
-    return { rol: rows[0].nombre_rol, sede: rows[0].nombre_sede };
+    const row = await this.sesionViewRepo.findOne({ where: { id_empleado } });
+    if (!row) return { rol: 'desconocido', sede: 'Sin sede' };
+    return { rol: row.nombre_rol, sede: row.nombre_sede };
   }
 }

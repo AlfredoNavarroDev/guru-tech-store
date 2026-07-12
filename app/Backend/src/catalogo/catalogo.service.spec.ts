@@ -1,19 +1,33 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { CatalogoService } from './catalogo.service';
-import type { QueryCatalogoDto } from './dto/query-catalogo.dto';
+import { CatalogoView } from './entities/catalogo-view.entity';
+
+const createMockQb = () => {
+  const qb = {
+    where: jest.fn(),
+    andWhere: jest.fn(),
+    orderBy: jest.fn(),
+    getMany: jest.fn().mockResolvedValue([]),
+  };
+  qb.where.mockReturnThis();
+  qb.andWhere.mockReturnThis();
+  qb.orderBy.mockReturnThis();
+  return qb;
+};
 
 describe('CatalogoService', () => {
   let service: CatalogoService;
-  let dataSource: { query: jest.Mock };
+  let mockQb: ReturnType<typeof createMockQb>;
 
   beforeEach(async () => {
-    dataSource = { query: jest.fn().mockResolvedValue([]) };
+    mockQb = createMockQb();
+    const catRepo = { createQueryBuilder: jest.fn().mockReturnValue(mockQb) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CatalogoService,
-        { provide: DataSource, useValue: dataSource },
+        { provide: getRepositoryToken(CatalogoView), useValue: catRepo },
       ],
     }).compile();
 
@@ -23,133 +37,83 @@ describe('CatalogoService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('findAll', () => {
-    it('valida', async () => {
+    it('filters by sede and orders by producto', async () => {
       await service.findAll(1, {});
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('WHERE id_sede = $1');
-      expect(params[0]).toBe(1);
+      expect(mockQb.where).toHaveBeenCalledWith('cv.id_sede = :idSede', { idSede: 1 });
+      expect(mockQb.orderBy).toHaveBeenCalledWith('cv.producto', 'ASC');
     });
 
-    it('valida', async () => {
-      await service.findAll(1, {});
-
-      const [sql] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('ORDER BY producto');
-    });
-
-    it('valida', async () => {
+    it('returns result from getMany', async () => {
       const rows = [{ id_item: 1, producto: 'Laptop' }];
-      dataSource.query.mockResolvedValue(rows);
-
+      mockQb.getMany.mockResolvedValue(rows);
       const result = await service.findAll(1, {});
-
       expect(result).toEqual(rows);
     });
 
-    it('valida', async () => {
+    it('adds ILIKE filter for nombre', async () => {
       await service.findAll(1, { nombre: 'laptop' });
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('ILIKE');
-      expect(params).toContain('%laptop%');
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'cv.producto ILIKE :nombre',
+        { nombre: '%laptop%' },
+      );
     });
 
-    it('valida', async () => {
+    it('adds stock_disponible > 0 when con_stock true', async () => {
       await service.findAll(1, { con_stock: true });
-
-      const [sql] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('stock_disponible > 0');
+      expect(mockQb.andWhere).toHaveBeenCalledWith('cv.stock_disponible > 0');
     });
 
-    it('valida', async () => {
+    it('skips stock filter when con_stock is false/undefined', async () => {
+      await service.findAll(1, {});
+      const stockCalls = mockQb.andWhere.mock.calls.filter(
+        (c: unknown[]) => String(c[0]).includes('stock'),
+      );
+      expect(stockCalls).toHaveLength(0);
+    });
+
+    it('adds item_categorias subquery for categoria filter', async () => {
       await service.findAll(1, { categoria: 3 });
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('item_categorias');
-      expect(sql).toContain('ic.id_categoria');
-      expect(params).toContain(3);
+      const call = mockQb.andWhere.mock.calls.find(
+        (c: unknown[]) => String(c[0]).includes('item_categorias') && String(c[0]).includes('id_categoria'),
+      );
+      expect(call).toBeDefined();
+      expect(call![1]).toEqual(expect.objectContaining({ cat: 3 }));
     });
 
-    it('valida', async () => {
-      await service.findAll(1, { categoria: 3, marca: 2 });
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('ic.id_categoria');
-      expect(sql).toContain('id_marca');
-      expect(params).toContain(2);
-      expect(params).toContain(3);
-    });
-
-    it('valida', async () => {
+    it('adds items subquery for marca filter', async () => {
       await service.findAll(1, { marca: 5 });
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('JOIN Items');
-      expect(sql).toContain('id_marca');
-      expect(params).toContain(5);
+      const call = mockQb.andWhere.mock.calls.find(
+        (c: unknown[]) => String(c[0]).includes('id_marca'),
+      );
+      expect(call).toBeDefined();
+      expect(call![1]).toEqual(expect.objectContaining({ marca: 5 }));
     });
 
-    it('valida', async () => {
-      await service.findAll(1, {
-        marca: 5,
-        nombre: 'mouse',
-      });
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('ILIKE');
-      expect(params).toContain('%mouse%');
+    it('combines categoria and marca filters', async () => {
+      await service.findAll(1, { categoria: 3, marca: 2 });
+      const catCall = mockQb.andWhere.mock.calls.find(
+        (c: unknown[]) => String(c[0]).includes('id_categoria'),
+      );
+      const marcaCall = mockQb.andWhere.mock.calls.find(
+        (c: unknown[]) => String(c[0]).includes('id_marca'),
+      );
+      expect(catCall![1]).toEqual(expect.objectContaining({ cat: 3 }));
+      expect(marcaCall![1]).toEqual(expect.objectContaining({ marca: 2 }));
     });
 
-    it('valida', async () => {
-      await service.findAll(1, {
-        marca: 5,
-        con_stock: true,
-      });
-
-      const [sql] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('stock_disponible > 0');
-    });
-
-    it('valida', async () => {
-      await service.findAll(2, {
-        categoria: 1,
-        marca: 3,
-        nombre: 'mouse',
-        con_stock: true,
-      });
-
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('ic.id_categoria');
-      expect(sql).toContain('id_marca');
-      expect(sql).toContain('ILIKE');
-      expect(sql).toContain('stock_disponible > 0');
-      expect(params).toContain(2);
-      expect(params).toContain(1);
-      expect(params).toContain(3);
-      expect(params).toContain('%mouse%');
-    });
-
-    it('base query includes calidad', async () => {
-      await service.findAll(1, {});
-      const [sql] = dataSource.query.mock.calls[0];
-      expect(sql).toContain('calidad');
-    });
-
-    it('base query includes imagen_url', async () => {
-      await service.findAll(1, {});
-      const [sql] = dataSource.query.mock.calls[0];
-      expect(sql).toContain('imagen_url');
+    it('combines all filters', async () => {
+      await service.findAll(2, { categoria: 1, marca: 3, nombre: 'mouse', con_stock: true });
+      expect(mockQb.where).toHaveBeenCalledWith('cv.id_sede = :idSede', { idSede: 2 });
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('item_categorias'),
+        expect.objectContaining({ cat: 1 }),
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('id_marca'),
+        expect.objectContaining({ marca: 3 }),
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith('cv.producto ILIKE :nombre', { nombre: '%mouse%' });
+      expect(mockQb.andWhere).toHaveBeenCalledWith('cv.stock_disponible > 0');
     });
   });
 });

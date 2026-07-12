@@ -92,10 +92,12 @@ export class EmpleadosService {
     const sedeIds = [...new Set(items.map((e) => e.id_sede).filter(Boolean))] as number[];
     let sedeNames: Record<number, string> = {};
     if (sedeIds.length) {
-      const rows = await this.dataSource.query<{ id_sede: number; nombre: string }[]>(
-        `SELECT id_sede, nombre FROM sedes WHERE id_sede = ANY($1)`,
-        [sedeIds],
-      );
+      const rows = await this.dataSource
+        .createQueryBuilder()
+        .select(['s.id_sede', 's.nombre'])
+        .from('sedes', 's')
+        .where('s.id_sede IN (:...ids)', { ids: sedeIds })
+        .getRawMany<{ id_sede: number; nombre: string }>();
       sedeNames = Object.fromEntries(rows.map((r) => [r.id_sede, r.nombre]));
     }
 
@@ -159,10 +161,12 @@ export class EmpleadosService {
 
     if (!dto.activo) {
       // Revoca tokens de refresco para forzar cierre de sesión inmediato.
-      await this.dataSource.query(
-        `UPDATE "refreshtokens" SET revoked = true WHERE id_empleado = $1 AND revoked = false`,
-        [id],
-      );
+      await this.dataSource
+        .createQueryBuilder()
+        .update('refreshtokens')
+        .set({ revoked: true })
+        .where('id_empleado = :id AND revoked = false', { id })
+        .execute();
     }
 
     await this.empleadosRepo.update(id, {
@@ -310,8 +314,8 @@ export class EmpleadosService {
     `;
 
     const [vendedores, tecnicos] = await Promise.all([
-      this.dataSource.query(vendedoresSQL, [idSede]),
-      this.dataSource.query(tecnicosSQL, [idSede]),
+      this.dataSource.manager.query(vendedoresSQL, [idSede]),
+      this.dataSource.manager.query(tecnicosSQL, [idSede]),
     ]);
 
     return plainToInstance(
@@ -334,36 +338,34 @@ export class EmpleadosService {
     let total_hoy = 0;
 
     if (user.rol === 'vendedor') {
-      const [row] = await this.dataSource.query<{ total: string }[]>(
-        `SELECT COALESCE(SUM(dv.importe), 0) AS total
-         FROM detalle_venta dv
-         JOIN ventas v ON v.id_venta = dv.id_venta
-         WHERE v.id_empleado = $1
-           AND DATE(v.fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`,
-        [user.sub],
-      );
-      total_hoy = parseFloat(row.total);
+      const row = await this.dataSource
+        .createQueryBuilder()
+        .select('COALESCE(SUM(dv.importe), 0)', 'total')
+        .from('detalle_venta', 'dv')
+        .innerJoin('ventas', 'v', 'v.id_venta = dv.id_venta')
+        .where('v.id_empleado = :id', { id: user.sub })
+        .andWhere("DATE(v.fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date")
+        .getRawOne<{ total: string }>();
+      total_hoy = parseFloat(row?.total ?? '0');
     } else if (user.rol === 'tecnico') {
-      const [row] = await this.dataSource.query<{ total: string }[]>(
-        `SELECT COALESCE(SUM(monto_cotizado), 0) AS total
-         FROM reparaciones
-         WHERE id_tecnico = $1
-           AND DATE(fecha_terminado AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
-           AND fecha_terminado IS NOT NULL`,
-        [user.sub],
-      );
-      total_hoy = parseFloat(row.total);
+      const row = await this.dataSource
+        .createQueryBuilder()
+        .select('COALESCE(SUM(r.monto_cotizado), 0)', 'total')
+        .from('reparaciones', 'r')
+        .where('r.id_tecnico = :id', { id: user.sub })
+        .andWhere("DATE(r.fecha_terminado AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date")
+        .andWhere('r.fecha_terminado IS NOT NULL')
+        .getRawOne<{ total: string }>();
+      total_hoy = parseFloat(row?.total ?? '0');
     }
 
-    const [metaRow] = await this.dataSource.query<
-      { meta_ventas_diaria: string | null }[]
-    >(
-      `SELECT cmr.meta_ventas_diaria
-       FROM config_metas_rol cmr
-       JOIN roles r ON r.id_rol = cmr.id_rol
-       WHERE r.nombre_rol = $1`,
-      [user.rol],
-    );
+    const metaRow = await this.dataSource
+      .createQueryBuilder()
+      .select('cmr.meta_ventas_diaria', 'meta_ventas_diaria')
+      .from('config_metas_rol', 'cmr')
+      .innerJoin('roles', 'r', 'r.id_rol = cmr.id_rol')
+      .where('r.nombre_rol = :rol', { rol: user.rol })
+      .getRawOne<{ meta_ventas_diaria: string | null }>();
 
     const meta_diaria = metaRow?.meta_ventas_diaria
       ? parseFloat(metaRow.meta_ventas_diaria)

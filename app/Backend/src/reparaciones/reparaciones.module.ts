@@ -4,6 +4,7 @@ import { ReparacionesController } from './reparaciones.controller';
 import { ReparacionesService } from './reparaciones.service';
 import { Reparacion } from './entities/reparacion.entity';
 import { ReparacionRepuesto } from './entities/reparacion-repuesto.entity';
+import { Garantia } from '../garantias/entities/garantia.entity';
 import { PagosModule } from '../pagos/pagos.module';
 import { NotasVentaModule } from '../notas-venta/notas-venta.module';
 
@@ -11,7 +12,7 @@ import { NotasVentaModule } from '../notas-venta/notas-venta.module';
 @Module({
   imports: [
     // Registra las entidades de reparaciones para acceso via repositorio en este módulo.
-    TypeOrmModule.forFeature([Reparacion, ReparacionRepuesto]),
+    TypeOrmModule.forFeature([Reparacion, ReparacionRepuesto, Garantia]),
     PagosModule,
     NotasVentaModule,
   ],

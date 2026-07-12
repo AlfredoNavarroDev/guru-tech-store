@@ -9,6 +9,7 @@ import {
 import { DataSource } from 'typeorm';
 import { NotasVentaService } from './notas-venta.service';
 import { NotaVenta } from './entities/nota-venta.entity';
+import { PdfService } from '../common/pdf.service';
 import type { JwtPayload } from '../common/types';
 
 jest.mock(
@@ -136,6 +137,7 @@ describe('NotasVentaService', () => {
         { provide: getRepositoryToken(NotaVenta), useValue: boletaRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: ConfigService, useValue: configService },
+        { provide: PdfService, useValue: { generateFromHtml: jest.fn().mockResolvedValue(Buffer.from('pdf')) } },
       ],
     }).compile();
 

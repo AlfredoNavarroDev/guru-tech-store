@@ -7,6 +7,7 @@ import type { StringValue } from 'ms';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { Empleado } from './entities/empleado.entity';
+import { EmpleadoSesionView } from './entities/empleado-sesion-view.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
@@ -29,7 +30,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
 
     // Entidades usadas con @InjectRepository en AuthService.
-    TypeOrmModule.forFeature([Empleado, RefreshToken]),
+    TypeOrmModule.forFeature([Empleado, RefreshToken, EmpleadoSesionView]),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

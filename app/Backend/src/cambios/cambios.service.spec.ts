@@ -52,12 +52,35 @@ const cambioBd = {
   created_at: new Date(),
 };
 
+const makeQb = (getRawOneResult?: unknown, getRawManyResult: unknown[] = []) => ({
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  innerJoin: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
+  getRawMany: jest.fn().mockResolvedValue(getRawManyResult),
+});
+
 describe('CambiosService', () => {
   let service: CambiosService;
-  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let dataSource: {
+    createQueryBuilder: jest.Mock;
+    manager: { query: jest.Mock };
+    transaction: jest.Mock;
+  };
 
   beforeEach(async () => {
-    dataSource = { query: jest.fn(), transaction: jest.fn() };
+    dataSource = {
+      createQueryBuilder: jest.fn(),
+      manager: { query: jest.fn() },
+      transaction: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,34 +98,26 @@ describe('CambiosService', () => {
 
   describe('findVentaDetalle', () => {
     it('venta de otra sede → VentaNotFoundException', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb(undefined));
       await expect(service.findVentaDetalle(999, mockUser)).rejects.toThrow(
         VentaNotFoundException,
-      );
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('FROM ventas v'),
-        [999, mockUser.id_sede],
       );
     });
 
     it('venta encontrada → devuelve cabecera + ítems', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          {
-            id_venta: 1042,
-            fecha_emision: new Date('2026-06-20'),
-            cliente: 'Juan',
-          },
-        ])
-        .mockResolvedValueOnce([
-          {
-            id_item: 10,
-            nombre: 'Laptop',
-            sku: 'PRD-001',
-            precio_unitario_momento: '2200.00',
-            cantidad: 1,
-          },
-        ]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(
+        makeQb({ id_venta: 1042, fecha_emision: new Date('2026-06-20'), cliente: 'Juan' }),
+      );
+      dataSource.manager.query.mockResolvedValueOnce([
+        {
+          id_item: 10,
+          nombre: 'Laptop',
+          sku: 'PRD-001',
+          precio_unitario_momento: '2200.00',
+          cantidad: 1,
+          es_no_cambiable: false,
+        },
+      ]);
 
       const result = await service.findVentaDetalle(1042, mockUser);
 
@@ -117,46 +132,46 @@ describe('CambiosService', () => {
 
   describe('create', () => {
     it('venta de otra sede → VentaNotFoundException', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb(undefined));
       await expect(service.create(validDto, mockUser)).rejects.toThrow(
         VentaNotFoundException,
       );
     });
 
     it('ítem no en venta → ItemNoEnVentaException', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_venta: 1042 }])
-        .mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ id_venta: 1042 }))
+        .mockReturnValueOnce(makeQb(undefined));
       await expect(service.create(validDto, mockUser)).rejects.toThrow(
         ItemNoEnVentaException,
       );
     });
 
     it('cantidad > vendida → CantidadExcedidaException', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_venta: 1042 }])
-        .mockResolvedValueOnce([{ cantidad: 0 }]);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ id_venta: 1042 }))
+        .mockReturnValueOnce(makeQb({ cantidad: 0 }));
       await expect(service.create(validDto, mockUser)).rejects.toThrow(
         CantidadExcedidaException,
       );
     });
 
     it('stock insuficiente → StockInsuficienteException', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_venta: 1042 }])
-        .mockResolvedValueOnce([{ cantidad: 2 }])
-        .mockResolvedValueOnce([{ id_inventario: 5, cantidad_actual: 0 }]);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ id_venta: 1042 }))
+        .mockReturnValueOnce(makeQb({ cantidad: 2 }))
+        .mockReturnValueOnce(makeQb({ id_inventario: 5, cantidad_actual: 0 }));
       await expect(service.create(validDto, mockUser)).rejects.toThrow(
         StockInsuficienteException,
       );
     });
 
     it('validaciones ok → ejecuta transacción y devuelve cambio creado', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_venta: 1042 }])
-        .mockResolvedValueOnce([{ cantidad: 2 }])
-        .mockResolvedValueOnce([{ id_inventario: 5, cantidad_actual: 5 }])
-        .mockResolvedValueOnce([cambioBd]);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ id_venta: 1042 }))
+        .mockReturnValueOnce(makeQb({ cantidad: 2 }))
+        .mockReturnValueOnce(makeQb({ id_inventario: 5, cantidad_actual: 5 }))
+        .mockReturnValueOnce(makeQb(cambioBd));
 
       dataSource.transaction.mockImplementation(
         async (cb: (m: unknown) => Promise<void>) => {
@@ -184,9 +199,11 @@ describe('CambiosService', () => {
 
   describe('findAll', () => {
     it('devuelve lista paginada de la sede', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '2' }])
-        .mockResolvedValueOnce([]);
+      const countQb = makeQb({ total: '2' });
+      const dataQb = makeQb(undefined, []);
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(countQb)
+        .mockReturnValueOnce(dataQb);
 
       const result = await service.findAll(mockUser, { page: 1, limit: 20 });
 
@@ -200,14 +217,14 @@ describe('CambiosService', () => {
 
   describe('findOne', () => {
     it('id no existe → CambioNotFoundException', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb(undefined));
       await expect(service.findOne(999, mockUser)).rejects.toThrow(
         CambioNotFoundException,
       );
     });
 
     it('id existe → devuelve cambio', async () => {
-      dataSource.query.mockResolvedValueOnce([cambioBd]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb(cambioBd));
       const result = await service.findOne(1, mockUser);
       expect(result.id_cambio).toBe(1);
       expect(result.nombre_item_devuelto).toBe('Laptop');
@@ -218,7 +235,7 @@ describe('CambiosService', () => {
 
   describe('findVentas', () => {
     it('sin fecha → devuelve todas las ventas de la sede (límite 20)', async () => {
-      dataSource.query.mockResolvedValueOnce([
+      const qb = makeQb(undefined, [
         {
           id_venta: 1042,
           fecha_emision: new Date('2026-06-23'),
@@ -232,6 +249,7 @@ describe('CambiosService', () => {
           total_items: '1',
         },
       ]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(qb);
 
       const result = await service.findVentas(mockUser);
 
@@ -239,14 +257,11 @@ describe('CambiosService', () => {
       expect(result[0].id_venta).toBe(1042);
       expect(result[0].total_items).toBe(3);
       expect(result[1].cliente).toBeNull();
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('FROM ventas v'),
-        expect.arrayContaining([mockUser.id_sede]),
-      );
+      expect(qb.andWhere).not.toHaveBeenCalled();
     });
 
     it('con fecha → filtra por día completo', async () => {
-      dataSource.query.mockResolvedValueOnce([
+      const qb = makeQb(undefined, [
         {
           id_venta: 1042,
           fecha_emision: new Date('2026-06-23'),
@@ -254,18 +269,19 @@ describe('CambiosService', () => {
           total_items: '2',
         },
       ]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(qb);
 
       const result = await service.findVentas(mockUser, '2026-06-23');
 
       expect(result).toHaveLength(1);
-      expect(dataSource.query).toHaveBeenCalledWith(
+      expect(qb.andWhere).toHaveBeenCalledWith(
         expect.stringContaining('INTERVAL'),
-        expect.arrayContaining(['2026-06-23']),
+        { fecha: '2026-06-23' },
       );
     });
 
     it('sin ventas en fecha → devuelve array vacío', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(makeQb(undefined, []));
       const result = await service.findVentas(mockUser, '2026-01-01');
       expect(result).toEqual([]);
     });

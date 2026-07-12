@@ -5,9 +5,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import type { CreatePromocionDto } from './dto/create-promocion.dto';
 import type { UpdatePromocionDto } from './dto/update-promocion.dto';
+import { Promocion } from './entities/promocion.entity';
 
 interface JwtPayload {
   sub: number;
@@ -16,39 +18,40 @@ interface JwtPayload {
   nombre: string;
 }
 
-// Servicio de promociones. Propietario ve todas; administrador solo su sede.
 @Injectable()
 export class PromocionesService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectRepository(Promocion)
+    private readonly promoRepo: Repository<Promocion>,
+    private readonly dataSource: DataSource,
+  ) {}
 
-  // Lista promociones con datos enriquecidos (ítem, categoría, sede, creador).
-  // Propietario ve todo; administrador solo su sede o promociones globales (id_sede IS NULL).
   async findAll(user: JwtPayload): Promise<object[]> {
-    const creatorSubquery = `(
-      SELECT r.nombre_rol FROM empleados e2
-      JOIN roles r ON r.id_rol = e2.id_rol
-      WHERE e2.id_empleado = p.created_by LIMIT 1
-    ) AS created_by_rol`;
-    const baseSelect = `
-      SELECT p.*, i.nombre AS item_nombre, c.nombre_categoria, s.nombre AS sede_nombre,
-             e.nombre_completo AS creado_por_nombre, ${creatorSubquery}
-      FROM promociones p
-      LEFT JOIN items i ON i.id_item = p.id_item_afectado
-      LEFT JOIN categorias c ON c.id_categoria = p.id_categoria_afectada
-      LEFT JOIN sedes s ON s.id_sede = p.id_sede
-      LEFT JOIN empleados e ON e.id_empleado = p.created_by`;
+    const qb = this.dataSource
+      .createQueryBuilder()
+      .select('p.*')
+      .addSelect('i.nombre', 'item_nombre')
+      .addSelect('c.nombre_categoria', 'nombre_categoria')
+      .addSelect('s.nombre', 'sede_nombre')
+      .addSelect('e.nombre_completo', 'creado_por_nombre')
+      .addSelect(
+        `(SELECT r.nombre_rol FROM empleados e2 JOIN roles r ON r.id_rol = e2.id_rol WHERE e2.id_empleado = p.created_by LIMIT 1)`,
+        'created_by_rol',
+      )
+      .from('promociones', 'p')
+      .leftJoin('items', 'i', 'i.id_item = p.id_item_afectado')
+      .leftJoin('categorias', 'c', 'c.id_categoria = p.id_categoria_afectada')
+      .leftJoin('sedes', 's', 's.id_sede = p.id_sede')
+      .leftJoin('empleados', 'e', 'e.id_empleado = p.created_by')
+      .orderBy('p.created_at', 'DESC');
 
-    if (user.rol === 'propietario') {
-      return this.dataSource.query(`${baseSelect} ORDER BY p.created_at DESC`);
+    if (user.rol !== 'propietario') {
+      qb.where('(p.id_sede = :idSede OR p.id_sede IS NULL)', { idSede: user.id_sede });
     }
-    return this.dataSource.query(
-      `${baseSelect} WHERE p.id_sede = $1 OR p.id_sede IS NULL ORDER BY p.created_at DESC`,
-      [user.id_sede],
-    );
+
+    return qb.getRawMany();
   }
 
-  // Evita solapamiento de promociones activas/pausadas sobre el mismo ítem o categoría
-  // en el mismo período y sede. excludeId omite la propia promoción al editar.
   private async checkConflict(
     idItem: number | null,
     idCategoria: number | null,
@@ -58,45 +61,52 @@ export class PromocionesService {
     excludeId?: number,
   ): Promise<void> {
     if (!idItem && !idCategoria) return;
-    const rows = await this.dataSource.query<{ nombre: string }[]>(
-      `SELECT p.nombre FROM promociones p
-       WHERE p.estado IN ('activa', 'pausada')
-         AND ($1::int IS NULL OR p.id_promocion != $1)
-         AND (
-           ($2::int IS NOT NULL AND p.id_item_afectado = $2)
-           OR ($3::int IS NOT NULL AND p.id_categoria_afectada = $3)
-         )
-         AND (
-           $4::int IS NULL
-           OR p.id_sede IS NULL
-           OR p.id_sede = $4
-         )
-         AND (p.fecha_inicio IS NULL OR $6::date IS NULL OR p.fecha_inicio <= $6::date)
-         AND (p.fecha_fin IS NULL OR $5::date IS NULL OR p.fecha_fin >= $5::date)
-       LIMIT 1`,
-      [excludeId ?? null, idItem, idCategoria, idSede, fechaInicio, fechaFin],
-    );
-    if (rows.length > 0) {
+
+    const qb = this.dataSource
+      .createQueryBuilder()
+      .select('p.nombre', 'nombre')
+      .from('promociones', 'p')
+      .where("p.estado IN ('activa', 'pausada')")
+      .limit(1);
+
+    if (excludeId != null) {
+      qb.andWhere('p.id_promocion != :excludeId', { excludeId });
+    }
+
+    const scope: string[] = [];
+    if (idItem != null) scope.push('p.id_item_afectado = :idItem');
+    if (idCategoria != null) scope.push('p.id_categoria_afectada = :idCategoria');
+    qb.andWhere(`(${scope.join(' OR ')})`, {
+      ...(idItem != null ? { idItem } : {}),
+      ...(idCategoria != null ? { idCategoria } : {}),
+    });
+
+    if (idSede != null) {
+      qb.andWhere('(p.id_sede IS NULL OR p.id_sede = :idSede)', { idSede });
+    }
+    if (fechaFin) {
+      qb.andWhere('(p.fecha_inicio IS NULL OR p.fecha_inicio <= :fechaFin)', { fechaFin });
+    }
+    if (fechaInicio) {
+      qb.andWhere('(p.fecha_fin IS NULL OR p.fecha_fin >= :fechaInicio)', { fechaInicio });
+    }
+
+    const row = await qb.getRawOne<{ nombre: string }>();
+    if (row) {
       throw new ConflictException(
-        `Ya existe la promoción "${rows[0].nombre}" activa para este ítem/categoría en ese período.`,
+        `Ya existe la promoción "${row.nombre}" activa para este ítem/categoría en ese período.`,
       );
     }
   }
 
-  // Crea promoción. Administrador hereda su sede; propietario puede especificar cualquiera.
-  // Valida que no aplique a ítem Y categoría simultáneamente y que no haya conflicto de fechas.
-  async create(
-    dto: CreatePromocionDto,
-    user: JwtPayload,
-  ): Promise<{ id_promocion: number }> {
+  async create(dto: CreatePromocionDto, user: JwtPayload): Promise<{ id_promocion: number }> {
     if (dto.id_item_afectado && dto.id_categoria_afectada) {
       throw new BadRequestException(
         'Una promoción no puede aplicar a un ítem y una categoría al mismo tiempo.',
       );
     }
 
-    const id_sede =
-      user.rol === 'administrador' ? user.id_sede : (dto.id_sede ?? null);
+    const id_sede = user.rol === 'administrador' ? user.id_sede : (dto.id_sede ?? null);
 
     await this.checkConflict(
       dto.id_item_afectado ?? null,
@@ -106,62 +116,35 @@ export class PromocionesService {
       dto.fecha_fin ?? null,
     );
 
-    const [row] = await this.dataSource.query<{ id_promocion: number }[]>(
-      `INSERT INTO promociones
-         (id_sede, nombre, id_item_afectado, id_categoria_afectada,
-          valor_descuento, tipo_descuento, fecha_inicio, fecha_fin, dia_semana, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING id_promocion`,
-      [
-        id_sede,
-        dto.nombre,
-        dto.id_item_afectado ?? null,
-        dto.id_categoria_afectada ?? null,
-        dto.valor_descuento,
-        dto.tipo_descuento,
-        dto.fecha_inicio ?? null,
-        dto.fecha_fin ?? null,
-        dto.dia_semana ?? null,
-        user.sub,
-      ],
-    );
-    return row;
+    const entity = this.promoRepo.create({
+      id_sede,
+      nombre: dto.nombre,
+      id_item_afectado: dto.id_item_afectado ?? null,
+      id_categoria_afectada: dto.id_categoria_afectada ?? null,
+      valor_descuento: dto.valor_descuento,
+      tipo_descuento: dto.tipo_descuento,
+      fecha_inicio: dto.fecha_inicio ?? null,
+      fecha_fin: dto.fecha_fin ?? null,
+      dia_semana: dto.dia_semana ?? null,
+      created_by: user.sub,
+    });
+    const saved = await this.promoRepo.save(entity);
+    return { id_promocion: saved.id_promocion };
   }
 
-  // Actualiza campos de la promoción. Verifica acceso antes de modificar.
-  // Si el nuevo estado es 'activa', re-valida conflictos de solapamiento.
-  async update(
-    id: number,
-    dto: UpdatePromocionDto,
-    user: JwtPayload,
-  ): Promise<void> {
+  async update(id: number, dto: UpdatePromocionDto, user: JwtPayload): Promise<void> {
     const promo = await this.assertAccess(id, user);
-    const sets: string[] = [];
-    const params: unknown[] = [];
-    let idx = 1;
-    if (dto.estado !== undefined) {
-      sets.push(`estado = $${idx++}`);
-      params.push(dto.estado);
-    }
-    if (dto.valor_descuento !== undefined) {
-      sets.push(`valor_descuento = $${idx++}`);
-      params.push(dto.valor_descuento);
-    }
-    if (dto.fecha_inicio !== undefined) {
-      sets.push(`fecha_inicio = $${idx++}`);
-      params.push(dto.fecha_inicio);
-    }
-    if (dto.fecha_fin !== undefined) {
-      sets.push(`fecha_fin = $${idx++}`);
-      params.push(dto.fecha_fin);
-    }
-    if (!sets.length) return;
+
+    const updates: Partial<Promocion> = {};
+    if (dto.estado !== undefined) updates.estado = dto.estado;
+    if (dto.valor_descuento !== undefined) updates.valor_descuento = dto.valor_descuento;
+    if (dto.fecha_inicio !== undefined) updates.fecha_inicio = dto.fecha_inicio ?? null;
+    if (dto.fecha_fin !== undefined) updates.fecha_fin = dto.fecha_fin ?? null;
+    if (!Object.keys(updates).length) return;
 
     const nextEstado = dto.estado ?? promo.estado;
     const nextFechaInicio =
-      dto.fecha_inicio !== undefined
-        ? (dto.fecha_inicio ?? null)
-        : promo.fecha_inicio;
+      dto.fecha_inicio !== undefined ? (dto.fecha_inicio ?? null) : promo.fecha_inicio;
     const nextFechaFin =
       dto.fecha_fin !== undefined ? (dto.fecha_fin ?? null) : promo.fecha_fin;
 
@@ -176,63 +159,28 @@ export class PromocionesService {
       );
     }
 
-    sets.push(`updated_at = now()`);
-    params.push(id);
-    await this.dataSource.query(
-      `UPDATE promociones SET ${sets.join(', ')} WHERE id_promocion = $${idx}`,
-      params,
-    );
+    await this.promoRepo.update({ id_promocion: id }, updates);
   }
 
-  // Eliminación lógica: cambia estado a 'cancelada' en vez de borrar el registro.
   async remove(id: number, user: JwtPayload): Promise<void> {
     await this.assertAccess(id, user);
-    await this.dataSource.query(
-      `UPDATE promociones SET estado = 'cancelada', updated_at = now() WHERE id_promocion = $1`,
-      [id],
-    );
+    await this.promoRepo.update({ id_promocion: id }, { estado: 'cancelada' });
   }
 
-  // Carga la promoción y verifica permisos de acceso.
-  // Administrador no puede editar promociones creadas por el propietario ni de otras sedes.
-  private async assertAccess(
-    id: number,
-    user: JwtPayload,
-  ): Promise<{
-    id_sede: number | null;
-    id_item_afectado: number | null;
-    id_categoria_afectada: number | null;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
-    estado: string;
-    created_by: number | null;
-  }> {
-    const [promo] = await this.dataSource.query<
-      {
-        id_sede: number | null;
-        id_item_afectado: number | null;
-        id_categoria_afectada: number | null;
-        fecha_inicio: string | null;
-        fecha_fin: string | null;
-        estado: string;
-        created_by: number | null;
-      }[]
-    >(
-      `SELECT id_sede, id_item_afectado, id_categoria_afectada, fecha_inicio, fecha_fin, estado, created_by
-       FROM promociones WHERE id_promocion = $1`,
-      [id],
-    );
+  private async assertAccess(id: number, user: JwtPayload): Promise<Promocion> {
+    const promo = await this.promoRepo.findOne({ where: { id_promocion: id } });
     if (!promo) throw new NotFoundException(`Promocion #${id} not found`);
     if (user.rol === 'administrador') {
       if (promo.created_by) {
-        const [creatorIsOwner] = await this.dataSource.query<{ id_rol: number }[]>(
-          `SELECT e2.id_rol FROM empleados e2
-           JOIN roles r ON r.id_rol = e2.id_rol
-           WHERE e2.id_empleado = $1 AND r.nombre_rol = 'propietario'
-           LIMIT 1`,
-          [promo.created_by],
-        );
-        if (creatorIsOwner) throw new ForbiddenException();
+        const isOwner = await this.dataSource
+          .createQueryBuilder()
+          .select('1', 'x')
+          .from('empleados', 'e')
+          .innerJoin('roles', 'r', 'r.id_rol = e.id_rol')
+          .where('e.id_empleado = :id', { id: promo.created_by })
+          .andWhere("r.nombre_rol = 'propietario'")
+          .getRawOne<{ x: string }>();
+        if (isOwner) throw new ForbiddenException();
       }
       if (promo.id_sede !== user.id_sede) throw new ForbiddenException();
     }

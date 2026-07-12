@@ -44,7 +44,7 @@ interface DetalleRow {
   precio_venta_sugerido: string;
 }
 
-// Servicio de negocio para órdenes de compra; interactúa directamente con la BD via SQL y ORM.
+// Servicio de negocio para órdenes de compra; interactúa directamente con la BD via ORM y QueryBuilder.
 @Injectable()
 export class ComprasService {
   constructor(
@@ -84,52 +84,69 @@ export class ComprasService {
     query: ComprasQueryDto,
   ): Promise<PaginatedResult<CompraResponseDto>> {
     const proveedorFilter = query.proveedor ?? null;
-    const [[{ total }], rows] = await Promise.all([
-      this.dataSource.query<[{ total: string }]>(
-        `SELECT COUNT(*) AS total FROM v_compra_cabecera
-         WHERE id_sede_destino = $1
-           AND ($2::text IS NULL OR proveedor ILIKE '%' || $2 || '%')`,
-        [user.id_sede!, proveedorFilter],
-      ),
-      this.dataSource.query<CompraRow[]>(
-        `SELECT * FROM v_compra_cabecera
-         WHERE id_sede_destino = $1
-           AND ($2::text IS NULL OR proveedor ILIKE '%' || $2 || '%')
-         ORDER BY fecha_compra DESC
-         LIMIT $3 OFFSET $4`,
-        [
-          user.id_sede!,
-          proveedorFilter,
-          query.limit,
-          (query.page - 1) * query.limit,
-        ],
-      ),
+
+    const countQb = this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(*)', 'total')
+      .from('v_compra_cabecera', 'c')
+      .where('c.id_sede_destino = :idSede', { idSede: user.id_sede! });
+
+    const dataQb = this.dataSource
+      .createQueryBuilder()
+      .select('c.*')
+      .from('v_compra_cabecera', 'c')
+      .where('c.id_sede_destino = :idSede', { idSede: user.id_sede! })
+      .orderBy('c.fecha_compra', 'DESC')
+      .limit(query.limit)
+      .offset((query.page - 1) * query.limit);
+
+    if (proveedorFilter) {
+      countQb.andWhere('c.proveedor ILIKE :proveedor', {
+        proveedor: `%${proveedorFilter}%`,
+      });
+      dataQb.andWhere('c.proveedor ILIKE :proveedor', {
+        proveedor: `%${proveedorFilter}%`,
+      });
+    }
+
+    const [countResult, rows] = await Promise.all([
+      countQb.getRawOne<{ total: string }>(),
+      dataQb.getRawMany<CompraRow>(),
     ]);
 
+    const total = parseInt(countResult?.total ?? '0', 10);
     return {
       items: rows.map((row) => this.toCompraResponse(row)),
-      total: parseInt(total, 10),
+      total,
       page: query.page,
       limit: query.limit,
-      totalPages: Math.ceil(parseInt(total, 10) / query.limit),
+      totalPages: Math.ceil(total / query.limit),
     };
   }
 
   // Devuelve cabecera + detalles de una compra; verifica que pertenezca a la sede del usuario.
   async findOne(id: number, idSede: number): Promise<CompraResponseDto> {
-    const [[compra], detalles] = await Promise.all([
-      this.dataSource.query<CompraRow[]>(
-        `SELECT * FROM v_compra_cabecera WHERE id_compra = $1 AND id_sede_destino = $2`,
-        [id, idSede],
-      ),
-      this.dataSource.query<DetalleRow[]>(
-        `SELECT d.id_detalle, d.id_item, i.nombre AS item_nombre, i.sku,
-                d.cantidad_comprada, d.costo_unidad, d.precio_venta_sugerido
-         FROM detalle_compra_refill d
-         JOIN items i ON i.id_item = d.id_item
-         WHERE d.id_compra = $1`,
-        [id],
-      ),
+    const [compra, detalles] = await Promise.all([
+      this.dataSource
+        .createQueryBuilder()
+        .select('c.*')
+        .from('v_compra_cabecera', 'c')
+        .where('c.id_compra = :id', { id })
+        .andWhere('c.id_sede_destino = :idSede', { idSede })
+        .getRawOne<CompraRow>(),
+      this.dataSource
+        .createQueryBuilder()
+        .select('d.id_detalle', 'id_detalle')
+        .addSelect('d.id_item', 'id_item')
+        .addSelect('i.nombre', 'item_nombre')
+        .addSelect('i.sku', 'sku')
+        .addSelect('d.cantidad_comprada', 'cantidad_comprada')
+        .addSelect('d.costo_unidad', 'costo_unidad')
+        .addSelect('d.precio_venta_sugerido', 'precio_venta_sugerido')
+        .from('detalle_compra_refill', 'd')
+        .innerJoin('items', 'i', 'i.id_item = d.id_item')
+        .where('d.id_compra = :id', { id })
+        .getRawMany<DetalleRow>(),
     ]);
 
     if (!compra) throw new CompraNotFoundException(id);
@@ -216,11 +233,10 @@ export class ComprasService {
 
   // Garantiza que la compra existe y pertenece a la sede; evita acceso cruzado entre sedes.
   private async ensureAccess(compraId: number, idSede: number): Promise<void> {
-    const rows = await this.dataSource.query<{ id_compra: number }[]>(
-      `SELECT id_compra FROM compras_refill WHERE id_compra = $1 AND id_sede_destino = $2`,
-      [compraId, idSede],
-    );
-    if (!rows.length) throw new CompraNotFoundException(compraId);
+    const compra = await this.compraRepo.findOne({
+      where: { id_compra: compraId, id_sede_destino: idSede },
+    });
+    if (!compra) throw new CompraNotFoundException(compraId);
   }
 
   // Mapea la fila cruda de la vista a la forma del DTO de respuesta de cabecera.

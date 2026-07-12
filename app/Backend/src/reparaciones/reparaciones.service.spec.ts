@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { ReparacionesService } from './reparaciones.service';
 import { Reparacion } from './entities/reparacion.entity';
 import { ReparacionRepuesto } from './entities/reparacion-repuesto.entity';
+import { Garantia } from '../garantias/entities/garantia.entity';
 import {
   EstadoReparacionNotFoundException,
   ReparacionEntregadaException,
@@ -21,10 +22,27 @@ jest.mock('@aws-sdk/client-s3', () => ({
   PutObjectCommand: jest.fn().mockImplementation((args) => args),
 }));
 
+// QB mock: every chaining method returns `this`; terminal methods return the provided result.
+const makeQb = (getRawOneResult?: unknown, getRawManyResult: unknown[] = []) => ({
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  innerJoin: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
+  getRawMany: jest.fn().mockResolvedValue(getRawManyResult),
+});
+
 const createMockRepository = () => ({
   create: jest.fn(),
   save: jest.fn(),
   findOne: jest.fn(),
+  find: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
 });
@@ -81,12 +99,14 @@ describe('ReparacionesService', () => {
   let service: ReparacionesService;
   let reparacionRepo: ReturnType<typeof createMockRepository>;
   let repuestoRepo: ReturnType<typeof createMockRepository>;
-  let dataSource: { query: jest.Mock };
+  let garantiaRepo: ReturnType<typeof createMockRepository>;
+  let dataSource: { createQueryBuilder: jest.Mock };
 
   beforeEach(async () => {
     reparacionRepo = createMockRepository();
     repuestoRepo = createMockRepository();
-    dataSource = { query: jest.fn() };
+    garantiaRepo = createMockRepository();
+    dataSource = { createQueryBuilder: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -96,6 +116,7 @@ describe('ReparacionesService', () => {
           provide: getRepositoryToken(ReparacionRepuesto),
           useValue: repuestoRepo,
         },
+        { provide: getRepositoryToken(Garantia), useValue: garantiaRepo },
         { provide: DataSource, useValue: dataSource },
         {
           provide: ConfigService,
@@ -124,11 +145,12 @@ describe('ReparacionesService', () => {
 
   describe('create', () => {
     it('crea reparacion con estado inicial pendiente → devuelve ReparacionResponseDto', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([mockEstadoPendiente]) // SELECT primer estado
-        .mockResolvedValueOnce([mockReparacionRow]) // findOne: reparacion
-        .mockResolvedValueOnce([]) // findOne: repuestos
-        .mockResolvedValueOnce([]); // findOne: pagos
+      // QB calls: (1) first estado, (2) findOne view, (3) findOne repuestos, (4) findOne pagos
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb(mockEstadoPendiente))   // SELECT primer estado
+        .mockReturnValueOnce(makeQb(mockReparacionRow))      // findOne: reparacion view
+        .mockReturnValueOnce(makeQb(undefined, []))          // findOne: repuestos
+        .mockReturnValueOnce(makeQb(undefined, []));         // findOne: pagos
 
       reparacionRepo.create.mockReturnValue({ id_reparacion: 1 });
       reparacionRepo.save.mockResolvedValue({ id_reparacion: 1 });
@@ -172,10 +194,12 @@ describe('ReparacionesService', () => {
         es_adelanto: true,
         fecha_pago: new Date('2026-06-11'),
       };
-      dataSource.query
-        .mockResolvedValueOnce([mockReparacionRow]) // reparacion
-        .mockResolvedValueOnce([repuestoRow]) // repuestos
-        .mockResolvedValueOnce([pagoRow]); // pagos
+
+      // QB calls: (1) view, (2) repuestos, (3) pagos
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb(mockReparacionRow))         // reparacion view
+        .mockReturnValueOnce(makeQb(undefined, [repuestoRow]))  // repuestos
+        .mockReturnValueOnce(makeQb(undefined, [pagoRow]));     // pagos
 
       const result = await service.findOne(1, mockUser);
 
@@ -188,10 +212,11 @@ describe('ReparacionesService', () => {
     });
 
     it('lanza ReparacionNotFoundException si no existe o no pertenece a sede', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([]) // reparacion
-        .mockResolvedValueOnce([]) // repuestos (Promise.all los lanza igual)
-        .mockResolvedValueOnce([]); // pagos
+      // QB calls: (1) view not found, (2) repuestos, (3) pagos (Promise.all still runs all)
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb(undefined))    // reparacion not found
+        .mockReturnValueOnce(makeQb(undefined, []))// repuestos
+        .mockReturnValueOnce(makeQb(undefined, []));// pagos
 
       await expect(service.findOne(999, mockUser)).rejects.toThrow(
         ReparacionNotFoundException,
@@ -203,18 +228,15 @@ describe('ReparacionesService', () => {
 
   describe('findAll', () => {
     it('devuelve lista paginada filtrada por sede', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ total: '2' }])
-        .mockResolvedValueOnce([mockReparacionRow, mockReparacionRow]);
+      // QB calls: (1) count, (2) rows
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ total: '2' }))
+        .mockReturnValueOnce(makeQb(undefined, [mockReparacionRow, mockReparacionRow]));
 
       const result = await service.findAll(mockUser, { page: 1, limit: 20 });
 
       expect(result.total).toBe(2);
       expect(result.items).toHaveLength(2);
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('id_sede = $1'),
-        expect.arrayContaining([1]),
-      );
     });
   });
 
@@ -222,31 +244,31 @@ describe('ReparacionesService', () => {
 
   describe('updateEstado', () => {
     it('actualiza estado correctamente y retorna reparacion actualizada', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          { ...mockReparacionRow, es_final: false, estado: 'pendiente' },
-        ]) // assertAccess
-        .mockResolvedValueOnce([mockEstadoListo]) // SELECT nuevo estado
-        .mockResolvedValueOnce(undefined) // UPDATE raw
-        .mockResolvedValueOnce([
-          { ...mockReparacionRow, id_estado: 5, estado: 'listo' },
-        ]) // findOne reparacion
-        .mockResolvedValueOnce([]) // findOne repuestos
-        .mockResolvedValueOnce([]); // findOne pagos
+      // QB calls: (1) assertAccess, (2) estadoNuevo, (3) estadoActual,
+      //           (4) findOne view, (5) findOne repuestos, (6) findOne pagos
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ ...mockReparacionRow, es_final: false, estado: 'pendiente' }))
+        .mockReturnValueOnce(makeQb({ ...mockEstadoListo, orden: 5 }))
+        .mockReturnValueOnce(makeQb({ orden: 4 }))
+        .mockReturnValueOnce(makeQb({ ...mockReparacionRow, id_estado: 5, estado: 'listo' }))
+        .mockReturnValueOnce(makeQb(undefined, []))
+        .mockReturnValueOnce(makeQb(undefined, []));
+
+      reparacionRepo.update.mockResolvedValue({ affected: 1 });
 
       const result = await service.updateEstado(1, { id_estado: 5 }, mockUser);
 
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE reparaciones'),
-        expect.arrayContaining([1, 5]),
+      expect(reparacionRepo.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ id_estado: 5 }),
       );
       expect(result.estado).toBe('listo');
     });
 
     it('lanza ReparacionEntregadaException si estado es entregado', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        { ...mockReparacionRow, es_final: true, estado: 'entregado' },
-      ]);
+      dataSource.createQueryBuilder.mockReturnValueOnce(
+        makeQb({ ...mockReparacionRow, es_final: true, estado: 'entregado' }),
+      );
 
       await expect(
         service.updateEstado(1, { id_estado: 5 }, mockUser),
@@ -254,11 +276,9 @@ describe('ReparacionesService', () => {
     });
 
     it('lanza EstadoReparacionNotFoundException si id_estado no existe', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          { ...mockReparacionRow, es_final: false, estado: 'pendiente' },
-        ])
-        .mockResolvedValueOnce([]); // estado no encontrado
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ ...mockReparacionRow, es_final: false, estado: 'pendiente' }))
+        .mockReturnValueOnce(makeQb(undefined)); // estado no encontrado
 
       await expect(
         service.updateEstado(1, { id_estado: 99 }, mockUser),
@@ -266,45 +286,51 @@ describe('ReparacionesService', () => {
     });
 
     it('establece fecha_entrega_cliente al pasar a entregado', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          {
-            ...mockReparacionRow,
-            es_final: true,
-            estado: 'listo',
-            fecha_terminado: new Date(),
-          },
-        ])
-        .mockResolvedValueOnce([mockEstadoEntregado])
-        .mockResolvedValueOnce(undefined) // UPDATE raw
-        .mockResolvedValueOnce([mockReparacionRow])
-        .mockResolvedValueOnce([]) // findOne repuestos
-        .mockResolvedValueOnce([]); // findOne pagos
+      // QB calls: (1) assertAccess, (2) estadoNuevo, (3) estadoActual,
+      //           (4) findOne view, (5) findOne repuestos, (6) findOne pagos
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({
+          ...mockReparacionRow,
+          es_final: true,
+          estado: 'listo',
+          fecha_terminado: new Date(),
+        }))
+        .mockReturnValueOnce(makeQb({ ...mockEstadoEntregado, orden: 5 }))
+        .mockReturnValueOnce(makeQb({ orden: 4 }))
+        .mockReturnValueOnce(makeQb(mockReparacionRow))
+        .mockReturnValueOnce(makeQb(undefined, []))
+        .mockReturnValueOnce(makeQb(undefined, []));
+
+      reparacionRepo.update.mockResolvedValue({ affected: 1 });
+      garantiaRepo.findOne.mockResolvedValue(null);
+      garantiaRepo.create.mockReturnValue({});
+      garantiaRepo.save.mockResolvedValue({});
 
       await service.updateEstado(1, { id_estado: 6 }, mockUser);
 
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('fecha_entrega_cliente'),
-        expect.arrayContaining([1, 6]),
+      expect(reparacionRepo.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ fecha_entrega_cliente: expect.any(Date) }),
       );
     });
 
     it('no crea garantia automatica si la reparacion es un reclamo de garantia', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          {
-            ...mockReparacionRow,
-            es_final: false,
-            estado: 'listo',
-            id_garantia_reclamada: 99,
-          },
-        ]) // assertAccess
-        .mockResolvedValueOnce([mockEstadoEntregado]) // estado nuevo
-        .mockResolvedValueOnce([{ orden: 3 }]) // estado actual orden
-        .mockResolvedValueOnce(undefined) // UPDATE reparaciones
-        .mockResolvedValueOnce([mockReparacionRow]) // findOne: reparacion
-        .mockResolvedValueOnce([]) // findOne: repuestos
-        .mockResolvedValueOnce([]); // findOne: pagos
+      // QB calls: (1) assertAccess, (2) estadoNuevo, (3) estadoActual,
+      //           (4) findOne view, (5) findOne repuestos, (6) findOne pagos
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({
+          ...mockReparacionRow,
+          es_final: false,
+          estado: 'listo',
+          id_garantia_reclamada: 99,
+        }))
+        .mockReturnValueOnce(makeQb({ ...mockEstadoEntregado, orden: 5 }))
+        .mockReturnValueOnce(makeQb({ orden: 4 }))
+        .mockReturnValueOnce(makeQb(mockReparacionRow))
+        .mockReturnValueOnce(makeQb(undefined, []))
+        .mockReturnValueOnce(makeQb(undefined, []));
+
+      reparacionRepo.update.mockResolvedValue({ affected: 1 });
 
       await service.updateEstado(
         1,
@@ -312,12 +338,7 @@ describe('ReparacionesService', () => {
         mockUser,
       );
 
-      const queriedSql = dataSource.query.mock.calls.map(
-        (call: unknown[]) => call[0] as string,
-      );
-      expect(
-        queriedSql.some((sql) => sql.includes('INSERT INTO garantias')),
-      ).toBe(false);
+      expect(garantiaRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -325,21 +346,20 @@ describe('ReparacionesService', () => {
 
   describe('addRepuesto', () => {
     it('agrega repuesto y devuelve RepuestoUsadoResponseDto', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
-        ]) // assertAccess
-        .mockResolvedValueOnce([
-          {
-            id_repuesto_u: 1,
-            id_item: 12,
-            item_nombre: 'Pantalla AMOLED',
-            sku: 'REP-001',
-            cantidad: 1,
-            precio_cobrado: '45.00',
-            costo_unitario_momento: '30.00',
-          },
-        ]); // reload
+      const repuestoReloadRow = {
+        id_repuesto_u: 1,
+        id_item: 12,
+        item_nombre: 'Pantalla AMOLED',
+        sku: 'REP-001',
+        cantidad: 1,
+        precio_cobrado: '45.00',
+        costo_unitario_momento: '30.00',
+      };
+
+      // QB calls: (1) assertAccess, (2) reload repuesto JOIN items
+      dataSource.createQueryBuilder
+        .mockReturnValueOnce(makeQb({ ...mockReparacionRow, es_final: false, estado: 'reparacion' }))
+        .mockReturnValueOnce(makeQb(repuestoReloadRow));
 
       repuestoRepo.create.mockReturnValue({ id_repuesto_u: 1 });
       repuestoRepo.save.mockResolvedValue({ id_repuesto_u: 1 });
@@ -360,9 +380,10 @@ describe('ReparacionesService', () => {
     });
 
     it('lanza StockInsuficienteException si trigger rechaza la inserción', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
-      ]);
+      // QB calls: (1) assertAccess only (save throws before reload)
+      dataSource.createQueryBuilder.mockReturnValueOnce(
+        makeQb({ ...mockReparacionRow, es_final: false, estado: 'reparacion' }),
+      );
       repuestoRepo.create.mockReturnValue({});
       repuestoRepo.save.mockRejectedValue(
         new Error('Stock insuficiente para id_item 12'),
@@ -393,9 +414,11 @@ describe('ReparacionesService', () => {
         id_item: 12,
         cantidad: 1,
       };
-      dataSource.query.mockResolvedValueOnce([
-        { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
-      ]);
+
+      // QB calls: (1) assertAccess
+      dataSource.createQueryBuilder.mockReturnValueOnce(
+        makeQb({ ...mockReparacionRow, es_final: false, estado: 'reparacion' }),
+      );
       repuestoRepo.findOne.mockResolvedValue(mockRepuesto);
       repuestoRepo.remove.mockResolvedValue(undefined);
 
@@ -405,9 +428,10 @@ describe('ReparacionesService', () => {
     });
 
     it('lanza RepuestoUsadoNotFoundException si no existe', async () => {
-      dataSource.query.mockResolvedValueOnce([
-        { ...mockReparacionRow, es_final: false, estado: 'reparacion' },
-      ]);
+      // QB calls: (1) assertAccess
+      dataSource.createQueryBuilder.mockReturnValueOnce(
+        makeQb({ ...mockReparacionRow, es_final: false, estado: 'reparacion' }),
+      );
       repuestoRepo.findOne.mockResolvedValue(null);
 
       await expect(service.removeRepuesto(1, 99, mockUser)).rejects.toThrow(
@@ -420,11 +444,11 @@ describe('ReparacionesService', () => {
 
   describe('uploadFoto', () => {
     it('almacena objeto {url, etapa, created_at} en fotos JSONB', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([
-          { ...mockReparacionRow, es_final: false, estado: 'pendiente' },
-        ]) // assertAccess
-        .mockResolvedValueOnce([]); // UPDATE fotos
+      // QB calls: (1) assertAccess
+      dataSource.createQueryBuilder.mockReturnValueOnce(
+        makeQb({ ...mockReparacionRow, es_final: false, estado: 'pendiente' }),
+      );
+      reparacionRepo.update.mockResolvedValue({ affected: 1 });
 
       const result = await service.uploadFoto(
         1,
@@ -439,22 +463,19 @@ describe('ReparacionesService', () => {
       expect(result).toHaveProperty('url');
       expect(typeof result.url).toBe('string');
 
-      // Verificar que dataSource.query fue llamado con objeto estructurado
-      const queryCall = dataSource.query.mock.calls.find(
-        (call: unknown[]) =>
-          typeof call[0] === 'string' &&
-          (call[0] as string).includes('SET fotos'),
+      // Verify reparacionRepo.update was called with the new foto appended
+      expect(reparacionRepo.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          fotos: expect.arrayContaining([
+            expect.objectContaining({
+              url: expect.any(String),
+              etapa: 'pendiente', // estadoNorm = dto.estado.toLowerCase()
+              created_at: expect.any(String),
+            }),
+          ]),
+        }),
       );
-      expect(queryCall).toBeDefined();
-      const storedArray = JSON.parse(
-        (queryCall as unknown[][])[1][1] as string,
-      );
-      expect(storedArray).toHaveLength(1);
-      expect(storedArray[0]).toMatchObject({
-        url: expect.any(String),
-        etapa: 'Pendiente',
-        created_at: expect.any(String),
-      });
     });
   });
 

@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
@@ -22,8 +23,12 @@ import {
 } from '../common/exceptions';
 import { AjusteStockDto } from './dto/ajuste-stock.dto';
 import { UploadImagenItemDto } from './dto/upload-imagen-item.dto';
+import { Item } from './entities/item.entity';
+import { Marca } from './entities/marca.entity';
+import { Categoria } from './entities/categoria.entity';
+import { ItemCategoria } from './entities/item-categoria.entity';
+import { InventarioSede } from './entities/inventario-sede.entity';
 
-// Forma de cada fila que devuelven las queries SQL de ítems.
 interface ItemRow {
   id_item: number;
   tipo: 'producto' | 'repuesto';
@@ -42,30 +47,21 @@ interface ItemRow {
   stock_disponible: string | number;
 }
 
-// stockParamIdx: posición del parámetro $N con el id_sede (o null) para la subconsulta de stock.
-// Construye el SELECT base con JOIN a marcas y categorías; el stock se obtiene por subconsulta correlacionada a inventario_sedes.
-const itemSelect = (stockParamIdx: number) => `
-  SELECT i.id_item, i.tipo, i.sku, i.nombre, i.id_marca, m.nombre AS marca,
-         i.modelo, i.calidad, i.imagen_url,
-         i.precio_compra_actual, i.precio_venta_actual, i.created_at, i.updated_at,
-         COALESCE(STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria), '') AS categorias_str,
-         COALESCE(
-           (SELECT inv.cantidad_actual FROM inventario_sedes inv
-            WHERE inv.id_item = i.id_item AND inv.id_sede = $${stockParamIdx}),
-           0
-         ) AS stock_disponible
-  FROM items i
-  LEFT JOIN marcas m ON m.id_marca = i.id_marca
-  LEFT JOIN item_categorias ic ON ic.id_item = i.id_item
-  LEFT JOIN categorias cat ON cat.id_categoria = ic.id_categoria
-`;
-
-// Servicio principal del módulo de ítems: opera con SQL nativo sobre DataSource para mayor control.
 @Injectable()
 export class ItemsService {
   private readonly s3: S3Client;
 
   constructor(
+    @InjectRepository(Item)
+    private readonly itemRepo: Repository<Item>,
+    @InjectRepository(Marca)
+    private readonly marcaRepo: Repository<Marca>,
+    @InjectRepository(Categoria)
+    private readonly catRepo: Repository<Categoria>,
+    @InjectRepository(ItemCategoria)
+    private readonly icRepo: Repository<ItemCategoria>,
+    @InjectRepository(InventarioSede)
+    private readonly invSedeRepo: Repository<InventarioSede>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {
@@ -79,9 +75,41 @@ export class ItemsService {
     });
   }
 
-  // Crea el ítem, vincula sus categorías y registra el inventario inicial en la sede, todo en una sola transacción.
+  // Builds the full item SELECT with STRING_AGG categories and stock subquery.
+  private buildItemQb(idSede: number | null) {
+    return this.itemRepo
+      .createQueryBuilder('i')
+      .leftJoin('marcas', 'm', 'm.id_marca = i.id_marca')
+      .leftJoin('item_categorias', 'ic', 'ic.id_item = i.id_item')
+      .leftJoin('categorias', 'cat', 'cat.id_categoria = ic.id_categoria')
+      .select('i.id_item', 'id_item')
+      .addSelect('i.tipo', 'tipo')
+      .addSelect('i.sku', 'sku')
+      .addSelect('i.nombre', 'nombre')
+      .addSelect('i.id_marca', 'id_marca')
+      .addSelect('m.nombre', 'marca')
+      .addSelect('i.modelo', 'modelo')
+      .addSelect('i.calidad', 'calidad')
+      .addSelect('i.imagen_url', 'imagen_url')
+      .addSelect('i.precio_compra_actual', 'precio_compra_actual')
+      .addSelect('i.precio_venta_actual', 'precio_venta_actual')
+      .addSelect('i.created_at', 'created_at')
+      .addSelect('i.updated_at', 'updated_at')
+      .addSelect(
+        "COALESCE(STRING_AGG(cat.nombre_categoria, ', ' ORDER BY cat.nombre_categoria), '')",
+        'categorias_str',
+      )
+      .addSelect(
+        `COALESCE((SELECT inv.cantidad_actual FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = :idSede), 0)`,
+        'stock_disponible',
+      )
+      .setParameter('idSede', idSede)
+      .groupBy(
+        'i.id_item, i.tipo, i.sku, i.nombre, i.id_marca, m.nombre, i.modelo, i.calidad, i.imagen_url, i.precio_compra_actual, i.precio_venta_actual, i.created_at, i.updated_at',
+      );
+  }
+
   async create(dto: CreateItemDto, idSede: number): Promise<ItemResponseDto> {
-    // Los productos deben tener al menos una categoría; la calidad es exclusiva de repuestos.
     if (dto.tipo === 'producto' && !dto.categoria_ids?.length) {
       throw new ItemCategoriasRequeridaException();
     }
@@ -89,194 +117,123 @@ export class ItemsService {
       throw new ItemCalidadSoloRepuestoException();
     }
 
-    // Verifica unicidad del SKU antes de abrir la transacción para un error más claro.
-    const existing = await this.dataSource.query<{ id_item: number }[]>(
-      `SELECT id_item FROM items WHERE sku = $1`,
-      [dto.sku],
-    );
-    if (existing.length > 0) throw new ItemSkuDuplicadoException(dto.sku);
+    const existing = await this.itemRepo.findOne({ where: { sku: dto.sku }, select: { id_item: true } });
+    if (existing) throw new ItemSkuDuplicadoException(dto.sku);
 
-    const id = await this.dataSource.transaction(
-      async (manager: EntityManager) => {
-        // Inserta el ítem y recupera el ID generado.
-        const [row] = await manager.query<[{ id_item: number }]>(
-          `INSERT INTO items (tipo, sku, nombre, id_marca, modelo, calidad, precio_compra_actual, precio_venta_actual)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id_item`,
-          [
-            dto.tipo,
-            dto.sku,
-            dto.nombre,
-            dto.id_marca ?? null,
-            dto.modelo ?? null,
-            dto.calidad ?? null,
-            dto.precio_compra_actual,
-            dto.precio_venta_actual,
-          ],
-        );
-        // Inserta las relaciones ítem-categoría generando los placeholders dinámicamente.
-        if (dto.categoria_ids?.length) {
-          const vals = dto.categoria_ids
-            .map((_, i) => `($1, $${i + 2})`)
-            .join(', ');
-          await manager.query(
-            `INSERT INTO item_categorias (id_item, id_categoria) VALUES ${vals}`,
-            [row.id_item, ...dto.categoria_ids],
-          );
-        }
-        // ON CONFLICT permite reutilizar este bloque si el inventario ya existe (actualiza stock_minimo).
-        await manager.query(
-          `INSERT INTO inventario_sedes (id_sede, id_item, cantidad_actual, stock_minimo)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (id_sede, id_item)
-           DO UPDATE SET stock_minimo = EXCLUDED.stock_minimo`,
-          [
-            idSede,
-            row.id_item,
-            dto.cantidad_inicial ?? 0,
-            dto.stock_minimo ?? 0,
-          ],
-        );
-        return row.id_item;
-      },
-    );
+    const id = await this.dataSource.transaction(async (manager) => {
+      const item = manager.getRepository(Item).create({
+        tipo: dto.tipo,
+        sku: dto.sku,
+        nombre: dto.nombre,
+        id_marca: dto.id_marca ?? null,
+        modelo: dto.modelo ?? null,
+        calidad: dto.calidad ?? null,
+        precio_compra_actual: dto.precio_compra_actual,
+        precio_venta_actual: dto.precio_venta_actual,
+      });
+      const saved = await manager.getRepository(Item).save(item);
+
+      if (dto.categoria_ids?.length) {
+        await manager
+          .createQueryBuilder()
+          .insert()
+          .into(ItemCategoria)
+          .values(dto.categoria_ids.map((id_categoria) => ({ id_item: saved.id_item, id_categoria })))
+          .orIgnore()
+          .execute();
+      }
+
+      await manager.getRepository(InventarioSede).upsert(
+        {
+          id_sede: idSede,
+          id_item: saved.id_item,
+          cantidad_actual: dto.cantidad_inicial ?? 0,
+          stock_minimo: dto.stock_minimo ?? 0,
+        },
+        { conflictPaths: ['id_sede', 'id_item'] },
+      );
+
+      return saved.id_item;
+    });
 
     return this.findOne(id);
   }
 
-  // Devuelve una página de ítems filtrados; construye la cláusula WHERE dinámicamente con parámetros posicionales.
-  async findAll(
-    query: QueryItemsDto,
-    idSede?: number,
-  ): Promise<PaginatedResult<ItemResponseDto>> {
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-    let idx = 1;
+  async findAll(query: QueryItemsDto, idSede?: number): Promise<PaginatedResult<ItemResponseDto>> {
+    const applyFilters = (qb: ReturnType<typeof this.itemRepo.createQueryBuilder>) => {
+      if (query.tipo) qb.andWhere('i.tipo = :tipo', { tipo: query.tipo });
+      if (query.nombre) qb.andWhere('i.nombre ILIKE :nombre', { nombre: `%${query.nombre}%` });
+      if (query.sku) qb.andWhere('i.sku ILIKE :sku', { sku: `%${query.sku}%` });
+      if (query.id_marca) qb.andWhere('i.id_marca = :idMarca', { idMarca: query.id_marca });
+      if (query.categoria_id) {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM item_categorias ic2 WHERE ic2.id_item = i.id_item AND ic2.id_categoria = :catId)',
+          { catId: query.categoria_id },
+        );
+      }
+      if (query.con_stock && idSede) {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = :sedeStock AND inv.cantidad_actual > 0)',
+          { sedeStock: idSede },
+        );
+      }
+    };
 
-    // Cada bloque agrega su condición y avanza el índice del parámetro posicional.
-    if (query.tipo) {
-      conditions.push(`i.tipo = $${idx++}`);
-      params.push(query.tipo);
-    }
-    if (query.nombre) {
-      conditions.push(`i.nombre ILIKE $${idx++}`);
-      params.push(`%${query.nombre}%`);
-    }
-    if (query.sku) {
-      conditions.push(`i.sku ILIKE $${idx++}`);
-      params.push(`%${query.sku}%`);
-    }
-    if (query.id_marca) {
-      conditions.push(`i.id_marca = $${idx++}`);
-      params.push(query.id_marca);
-    }
-    if (query.categoria_id) {
-      // Filtra con EXISTS para evitar duplicados al hacer JOIN con item_categorias.
-      conditions.push(
-        `EXISTS (SELECT 1 FROM item_categorias ic2 WHERE ic2.id_item = i.id_item AND ic2.id_categoria = $${idx++})`,
-      );
-      params.push(query.categoria_id);
-    }
+    const countQb = this.itemRepo.createQueryBuilder('i').select('COUNT(DISTINCT i.id_item)', 'count');
+    applyFilters(countQb);
+    const countRow = await countQb.getRawOne<{ count: string }>();
+    const total = parseInt(countRow?.count ?? '0', 10);
 
-    // id_sede: usado en filtro con_stock y en subconsulta stock_disponible (solo rows query).
-    // Postgres no puede inferir el tipo de un parámetro que no aparece en la query,
-    // así que solo se incluye en cada query cuando realmente se referencia.
-    const sedeParamIdx = idx++;
-    if (query.con_stock && idSede) {
-      conditions.push(
-        `EXISTS (SELECT 1 FROM inventario_sedes inv WHERE inv.id_item = i.id_item AND inv.id_sede = $${sedeParamIdx} AND inv.cantidad_actual > 0)`,
-      );
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    // Solo se pasa id_sede al COUNT si la cláusula WHERE lo referencia, para evitar parámetros huérfanos.
-    const usesSedeParam = where.includes(`$${sedeParamIdx}`);
-
-    const countParams = usesSedeParam ? [...params, idSede ?? null] : params;
-    const rowsParams = [...params, idSede ?? null];
-    const limitIdx = rowsParams.length + 1;
-    const offsetIdx = limitIdx + 1;
-
-    // Ejecuta COUNT y filas en paralelo para reducir latencia.
-    const [[{ total }], rows] = await Promise.all([
-      this.dataSource.query<[{ total: string }]>(
-        `SELECT COUNT(*) AS total FROM items i ${where}`,
-        countParams,
-      ),
-      this.dataSource.query<ItemRow[]>(
-        `${itemSelect(sedeParamIdx)} ${where}
-         GROUP BY i.id_item, m.nombre
-         ORDER BY i.nombre
-         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-        [...rowsParams, query.limit, (query.page - 1) * query.limit],
-      ),
-    ]);
+    const dataQb = this.buildItemQb(idSede ?? null).orderBy('i.nombre', 'ASC');
+    applyFilters(dataQb);
+    const rows = await dataQb
+      .offset((query.page - 1) * query.limit)
+      .limit(query.limit)
+      .getRawMany<ItemRow>();
 
     return {
       items: rows.map((row) => this.toResponse(row)),
-      total: parseInt(total, 10),
+      total,
       page: query.page,
       limit: query.limit,
-      totalPages: Math.ceil(parseInt(total, 10) / query.limit),
+      totalPages: Math.ceil(total / query.limit),
     };
   }
 
-  // Busca un ítem por PK; lanza 404 si no existe. El segundo parámetro (null) ocupa el slot del id_sede en el SELECT base.
-  async findOne(id: number): Promise<ItemResponseDto> {
-    const [row] = await this.dataSource.query<ItemRow[]>(
-      `${itemSelect(2)} WHERE i.id_item = $1 GROUP BY i.id_item, m.nombre`,
-      [id, null],
-    );
+  async findOne(id: number, idSede?: number): Promise<ItemResponseDto> {
+    const row = await this.buildItemQb(idSede ?? null)
+      .where('i.id_item = :id', { id })
+      .getRawOne<ItemRow>();
     if (!row) throw new ItemNotFoundException(id);
     return this.toResponse(row);
   }
 
-  // Actualiza campos escalares y, opcionalmente, reemplaza el conjunto de categorías del ítem.
   async update(id: number, dto: UpdateItemDto): Promise<ItemResponseDto> {
     const current = await this.findOne(id);
-    // effectiveTipo considera el tipo resultante (enviado o existente) para validar la calidad.
     const effectiveTipo = dto.tipo ?? current.tipo;
 
     if (dto.calidad && effectiveTipo !== 'repuesto') {
       throw new ItemCalidadSoloRepuestoException();
     }
-    // Comprueba duplicidad de SKU excluyendo el propio ítem.
     if (dto.sku) {
-      const dup = await this.dataSource.query<{ id_item: number }[]>(
-        `SELECT id_item FROM items WHERE sku = $1 AND id_item != $2`,
-        [dto.sku, id],
-      );
-      if (dup.length > 0) throw new ItemSkuDuplicadoException(dto.sku);
+      const dup = await this.itemRepo.findOne({
+        where: { sku: dto.sku },
+        select: { id_item: true },
+      });
+      if (dup && dup.id_item !== id) throw new ItemSkuDuplicadoException(dto.sku);
     }
 
-    await this.dataSource.transaction(async (manager: EntityManager) => {
-      const sets: string[] = [];
-      const params: unknown[] = [];
-      let setIdx = 1;
-
-      // Genera los pares «columna = $N» solo para los campos presentes en el DTO.
-      const scalar: [keyof UpdateItemDto, string][] = [
-        ['tipo', 'tipo'],
-        ['sku', 'sku'],
-        ['nombre', 'nombre'],
-        ['id_marca', 'id_marca'],
-        ['modelo', 'modelo'],
-        ['calidad', 'calidad'],
-        ['precio_compra_actual', 'precio_compra_actual'],
-        ['precio_venta_actual', 'precio_venta_actual'],
+    await this.dataSource.transaction(async (manager) => {
+      const scalar: (keyof UpdateItemDto)[] = [
+        'tipo', 'sku', 'nombre', 'id_marca', 'modelo',
+        'calidad', 'precio_compra_actual', 'precio_venta_actual',
       ];
-      for (const [key, col] of scalar) {
-        if (dto[key] !== undefined) {
-          sets.push(`${col} = $${setIdx++}`);
-          params.push(dto[key]);
-        }
+      const updates: Partial<Item> = {};
+      for (const key of scalar) {
+        if (dto[key] !== undefined) (updates as Record<string, unknown>)[key] = dto[key];
       }
-      if (sets.length) {
-        params.push(id);
-        await manager.query(
-          `UPDATE items SET ${sets.join(', ')} WHERE id_item = $${setIdx}`,
-          params,
-        );
+      if (Object.keys(updates).length) {
+        await manager.getRepository(Item).update({ id_item: id }, updates);
       }
 
       if (dto.categoria_ids !== undefined) {
@@ -284,25 +241,21 @@ export class ItemsService {
           throw new ItemCategoriasRequeridaException();
         }
         if (dto.categoria_ids.length > 0) {
-          // Insert new FIRST (trigger only fires on DELETE — prevents 0-category state)
-          const vals = dto.categoria_ids
-            .map((_, i) => `($1, $${i + 2})`)
-            .join(', ');
-          await manager.query(
-            `INSERT INTO item_categorias (id_item, id_categoria) VALUES ${vals} ON CONFLICT DO NOTHING`,
-            [id, ...dto.categoria_ids],
-          );
-          // Then delete old ones not in new set
-          await manager.query(
-            `DELETE FROM item_categorias WHERE id_item = $1 AND id_categoria != ALL($2::int[])`,
-            [id, dto.categoria_ids],
-          );
+          await manager
+            .createQueryBuilder()
+            .insert()
+            .into(ItemCategoria)
+            .values(dto.categoria_ids.map((id_categoria) => ({ id_item: id, id_categoria })))
+            .orIgnore()
+            .execute();
+          await manager
+            .getRepository(ItemCategoria)
+            .createQueryBuilder()
+            .delete()
+            .where('id_item = :id AND id_categoria NOT IN (:...ids)', { id, ids: dto.categoria_ids })
+            .execute();
         } else {
-          // repuesto: delete all categories (no minimum required)
-          await manager.query(
-            `DELETE FROM item_categorias WHERE id_item = $1`,
-            [id],
-          );
+          await manager.getRepository(ItemCategoria).delete({ id_item: id });
         }
       }
     });
@@ -310,11 +263,10 @@ export class ItemsService {
     return this.findOne(id);
   }
 
-  // Elimina el ítem; intercepta la violación de FK (23503) y la convierte en un ConflictException legible.
   async remove(id: number): Promise<void> {
     await this.findOne(id);
     try {
-      await this.dataSource.query(`DELETE FROM items WHERE id_item = $1`, [id]);
+      await this.itemRepo.delete({ id_item: id });
     } catch (err: unknown) {
       const e = err as { code?: string };
       if (e.code === '23503') {
@@ -326,64 +278,33 @@ export class ItemsService {
     }
   }
 
-  // Aplica un delta de stock (positivo = entrada, negativo = salida) sobre la entrada de inventario de la sede.
-  async ajusteStock(
-    id: number,
-    dto: AjusteStockDto,
-    idSede: number,
-  ): Promise<void> {
-    // Verifica que exista registro de inventario para el ítem en la sede del usuario.
-    const [inv] = await this.dataSource.query<
-      [{ id_inventario: number; cantidad_actual: number }]
-    >(
-      `SELECT id_inventario, cantidad_actual FROM inventario_sedes WHERE id_item = $1 AND id_sede = $2`,
-      [id, idSede],
-    );
+  async ajusteStock(id: number, dto: AjusteStockDto, idSede: number): Promise<void> {
+    const inv = await this.invSedeRepo.findOne({ where: { id_item: id, id_sede: idSede } });
     if (!inv) throw new ItemInventarioNotFoundException(id, idSede);
-    // Impide que el stock quede en negativo antes de ejecutar el UPDATE.
-    if (inv.cantidad_actual + dto.cantidad < 0)
-      throw new ItemStockInsuficienteException();
-
-    await this.dataSource.query(
-      `UPDATE inventario_sedes SET cantidad_actual = cantidad_actual + $1 WHERE id_inventario = $2`,
-      [dto.cantidad, inv.id_inventario],
-    );
+    if (inv.cantidad_actual + dto.cantidad < 0) throw new ItemStockInsuficienteException();
+    await this.invSedeRepo.increment({ id_inventario: inv.id_inventario }, 'cantidad_actual', dto.cantidad);
   }
 
-  // Devuelve todas las categorías ordenadas alfabéticamente (para selectores en el frontend).
-  async findCategorias(): Promise<
-    { id_categoria: number; nombre_categoria: string }[]
-  > {
-    return this.dataSource.query(
-      `SELECT id_categoria, nombre_categoria FROM categorias ORDER BY nombre_categoria`,
-    );
+  async findCategorias(): Promise<{ id_categoria: number; nombre_categoria: string }[]> {
+    return this.catRepo.find({ order: { nombre_categoria: 'ASC' } });
   }
 
-  // Devuelve todas las marcas ordenadas alfabéticamente (para selectores en el frontend).
   async findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
-    return this.dataSource.query(
-      `SELECT id_marca, nombre FROM marcas ORDER BY nombre`,
-    );
+    return this.marcaRepo.find({ order: { nombre: 'ASC' } });
   }
 
-  // Devuelve todas las sedes ordenadas por id (para selectores en el frontend).
   async findSedes(): Promise<{ id_sede: number; nombre: string }[]> {
-    return this.dataSource.query(
-      `SELECT id_sede, nombre FROM sedes ORDER BY id_sede`,
-    );
+    return this.dataSource
+      .createQueryBuilder()
+      .select(['s.id_sede', 's.nombre'])
+      .from('sedes', 's')
+      .orderBy('s.id_sede', 'ASC')
+      .getRawMany<{ id_sede: number; nombre: string }>();
   }
 
-  // Sube imagen de ítem a Cloudflare R2 y actualiza imagen_url en la tabla items.
-  // La clave incluye un timestamp para evitar colisiones al actualizar la imagen.
-  async uploadImagen(
-    id: number,
-    dto: UploadImagenItemDto,
-  ): Promise<{ url: string }> {
-    const exists = await this.dataSource.query(
-      `SELECT id_item FROM items WHERE id_item = $1`,
-      [id],
-    );
-    if (!exists.length) throw new NotFoundException(`Ítem ${id} no encontrado`);
+  async uploadImagen(id: number, dto: UploadImagenItemDto): Promise<{ url: string }> {
+    const exists = await this.itemRepo.findOne({ where: { id_item: id }, select: { id_item: true } });
+    if (!exists) throw new NotFoundException(`Ítem ${id} no encontrado`);
 
     const buffer = Buffer.from(dto.imagen_base64, 'base64');
     const extMap: Record<string, string> = {
@@ -405,22 +326,15 @@ export class ItemsService {
     );
 
     const url = `${r2.publicUrl}/${key}`;
-    await this.dataSource.query(
-      `UPDATE items SET imagen_url = $1 WHERE id_item = $2`,
-      [url, id],
-    );
+    await this.itemRepo.update({ id_item: id }, { imagen_url: url });
 
     return { url };
   }
 
-  // Valida las 5 variables de entorno de R2 y devuelve bucket + publicUrl. Falla rápido si faltan.
   private getR2Config(): { bucket: string; publicUrl: string } {
     const required = [
-      'R2_ACCOUNT_ID',
-      'R2_ACCESS_KEY_ID',
-      'R2_SECRET_ACCESS_KEY',
-      'R2_BUCKET_NAME',
-      'R2_PUBLIC_URL',
+      'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME', 'R2_PUBLIC_URL',
     ] as const;
     const missing = required.filter((k) => !this.config.get<string>(k));
     if (missing.length > 0) {
@@ -434,7 +348,6 @@ export class ItemsService {
     };
   }
 
-  // Convierte la fila SQL cruda al DTO de respuesta, normalizando tipos numéricos y la lista de categorías.
   private toResponse(row: ItemRow): ItemResponseDto {
     return {
       id_item: row.id_item,
@@ -445,10 +358,8 @@ export class ItemsService {
       marca: row.marca ?? null,
       modelo: row.modelo ?? null,
       calidad: row.calidad ?? null,
-      // Postgres devuelve DECIMAL como string; parseFloat lo normaliza a número JS.
       precio_compra_actual: parseFloat(String(row.precio_compra_actual)),
       precio_venta_actual: parseFloat(String(row.precio_venta_actual)),
-      // STRING_AGG devuelve una cadena; la convertimos en array (o vacío si no hay categorías).
       categorias: row.categorias_str ? row.categorias_str.split(', ') : [],
       imagen_url: row.imagen_url ?? null,
       created_at: row.created_at,

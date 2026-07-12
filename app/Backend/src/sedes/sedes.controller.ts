@@ -29,8 +29,11 @@ export class SedesController {
   @ApiOperation({ summary: 'Lista todas las sedes' })
   @ApiOkResponse({ description: 'Array de sedes' })
   async getSedes(): Promise<SedeDto[]> {
-    return this.dataSource.query<SedeDto[]>(
-      `SELECT id_sede, nombre, direccion FROM sedes ORDER BY id_sede`,
-    );
+    return this.dataSource
+      .createQueryBuilder()
+      .select(['s.id_sede', 's.nombre', 's.direccion'])
+      .from('sedes', 's')
+      .orderBy('s.id_sede', 'ASC')
+      .getRawMany<SedeDto>();
   }
 }

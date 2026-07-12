@@ -53,20 +53,23 @@ export class CambiosService {
     id_venta: number,
     user: JwtPayload,
   ): Promise<VentaDetalleResponse> {
-    const [venta] = await this.dataSource.query<
-      Array<{ id_venta: number; fecha_emision: Date; cliente: string | null }>
-    >(
-      `SELECT v.id_venta, v.fecha_emision, c.nombre_completo AS cliente
-       FROM ventas v
-       LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
-       WHERE v.id_venta = $1 AND v.id_sede = $2`,
-      [id_venta, user.id_sede!],
-    );
+    const venta = await this.dataSource
+      .createQueryBuilder()
+      .select('v.id_venta')
+      .addSelect('v.fecha_emision')
+      .addSelect('c.nombre_completo', 'cliente')
+      .from('ventas', 'v')
+      .leftJoin('clientes', 'c', 'c.id_cliente = v.id_cliente')
+      .where('v.id_venta = :id_venta', { id_venta })
+      .andWhere('v.id_sede = :id_sede', { id_sede: user.id_sede! })
+      .getRawOne<{ id_venta: number; fecha_emision: Date; cliente: string | null }>();
+
     if (!venta) throw new VentaNotFoundException(id_venta);
 
     // Carga los ítems de la venta para que el vendedor pueda elegir cuál devolver.
     // es_no_cambiable se resuelve: nivel ítem > nivel categoría > false (por defecto).
-    const detalles = await this.dataSource.query<
+    // Consulta compleja con COALESCE y subconsulta correlacionada; se mantiene como SQL directo.
+    const detalles = await this.dataSource.manager.query<
       Array<{
         id_item: number;
         nombre: string;
@@ -109,34 +112,35 @@ export class CambiosService {
 
   // Devuelve hasta VENTAS_LIMIT ventas de la sede, opcionalmente filtradas por fecha exacta.
   async findVentas(user: JwtPayload, fecha?: string): Promise<VentaListItem[]> {
-    let where = `v.id_sede = $1`;
-    const params: unknown[] = [user.id_sede!];
-    let idx = 2;
+    const qb = this.dataSource
+      .createQueryBuilder()
+      .select('v.id_venta')
+      .addSelect('v.fecha_emision')
+      .addSelect('c.nombre_completo', 'cliente')
+      .addSelect(
+        '(SELECT COUNT(*) FROM detalle_venta dv WHERE dv.id_venta = v.id_venta)',
+        'total_items',
+      )
+      .from('ventas', 'v')
+      .leftJoin('clientes', 'c', 'c.id_cliente = v.id_cliente')
+      .where('v.id_sede = :id_sede', { id_sede: user.id_sede! })
+      .orderBy('v.fecha_emision', 'DESC')
+      .limit(VENTAS_LIMIT);
 
     if (fecha) {
-      // $${idx} aparece dos veces para delimitar el rango del día completo con un solo parámetro.
-      where += ` AND v.fecha_emision >= $${idx} AND v.fecha_emision < $${idx}::date + INTERVAL '1 day'`;
-      params.push(fecha);
-      idx++;
+      // El mismo parámetro :fecha delimita el inicio y el fin del día completo.
+      qb.andWhere(
+        "v.fecha_emision >= :fecha AND v.fecha_emision < :fecha::date + INTERVAL '1 day'",
+        { fecha },
+      );
     }
 
-    const rows = await this.dataSource.query<
-      Array<{
-        id_venta: number;
-        fecha_emision: Date;
-        cliente: string | null;
-        total_items: string;
-      }>
-    >(
-      `SELECT v.id_venta, v.fecha_emision, c.nombre_completo AS cliente,
-              (SELECT COUNT(*) FROM detalle_venta dv WHERE dv.id_venta = v.id_venta) AS total_items
-       FROM ventas v
-       LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
-       WHERE ${where}
-       ORDER BY v.fecha_emision DESC
-       LIMIT ${VENTAS_LIMIT}`,
-      params,
-    );
+    const rows = await qb.getRawMany<{
+      id_venta: number;
+      fecha_emision: Date;
+      cliente: string | null;
+      total_items: string;
+    }>();
 
     return rows.map((r) => ({
       id_venta: r.id_venta,
@@ -152,19 +156,23 @@ export class CambiosService {
     user: JwtPayload,
   ): Promise<CambioResponseDto> {
     // 1. Venta pertenece a sede del vendedor.
-    const [venta] = await this.dataSource.query<Array<{ id_venta: number }>>(
-      `SELECT id_venta FROM ventas WHERE id_venta = $1 AND id_sede = $2`,
-      [dto.id_venta_origen, user.id_sede!],
-    );
+    const venta = await this.dataSource
+      .createQueryBuilder()
+      .select('v.id_venta')
+      .from('ventas', 'v')
+      .where('v.id_venta = :id_venta', { id_venta: dto.id_venta_origen })
+      .andWhere('v.id_sede = :id_sede', { id_sede: user.id_sede! })
+      .getRawOne<{ id_venta: number }>();
     if (!venta) throw new VentaNotFoundException(dto.id_venta_origen);
 
     // 2. Ítem devuelto está en el detalle de esa venta.
-    const [detalleRow] = await this.dataSource.query<
-      Array<{ cantidad: number }>
-    >(
-      `SELECT cantidad FROM detalle_venta WHERE id_venta = $1 AND id_item = $2`,
-      [dto.id_venta_origen, dto.id_item_devuelto],
-    );
+    const detalleRow = await this.dataSource
+      .createQueryBuilder()
+      .select('dv.cantidad')
+      .from('detalle_venta', 'dv')
+      .where('dv.id_venta = :id_venta', { id_venta: dto.id_venta_origen })
+      .andWhere('dv.id_item = :id_item', { id_item: dto.id_item_devuelto })
+      .getRawOne<{ cantidad: number }>();
     if (!detalleRow) {
       throw new ItemNoEnVentaException(
         dto.id_item_devuelto,
@@ -177,12 +185,14 @@ export class CambiosService {
     }
 
     // 3. Pre-verificar stock del ítem entregado antes de entrar en transacción.
-    const [invEntregado] = await this.dataSource.query<
-      Array<{ id_inventario: number; cantidad_actual: number }>
-    >(
-      `SELECT id_inventario, cantidad_actual FROM inventario_sedes WHERE id_item = $1 AND id_sede = $2`,
-      [dto.id_item_entregado, user.id_sede!],
-    );
+    const invEntregado = await this.dataSource
+      .createQueryBuilder()
+      .select('inv.id_inventario')
+      .addSelect('inv.cantidad_actual')
+      .from('inventario_sedes', 'inv')
+      .where('inv.id_item = :id_item', { id_item: dto.id_item_entregado })
+      .andWhere('inv.id_sede = :id_sede', { id_sede: user.id_sede! })
+      .getRawOne<{ id_inventario: number; cantidad_actual: number }>();
     if (!invEntregado || invEntregado.cantidad_actual < dto.cantidad) {
       throw new StockInsuficienteException(
         `Stock insuficiente para ítem ${dto.id_item_entregado}`,
@@ -242,51 +252,67 @@ export class CambiosService {
     user: JwtPayload,
     query: QueryCambiosDto,
   ): Promise<PaginatedResult<CambioResponseDto>> {
-    let where = `id_sede = $1`;
-    const params: unknown[] = [user.id_sede!];
-    let idx = 2;
+    const countQb = this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(*)', 'total')
+      .from('v_cambio_detalle', 'c')
+      .where('c.id_sede = :id_sede', { id_sede: user.id_sede! });
+
+    const dataQb = this.dataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('v_cambio_detalle', 'c')
+      .where('c.id_sede = :id_sede', { id_sede: user.id_sede! })
+      .orderBy('c.fecha_cambio', 'DESC')
+      .limit(query.limit)
+      .offset((query.page - 1) * query.limit);
 
     // Los filtros de fecha se añaden dinámicamente solo si están presentes.
     if (query.fecha_desde) {
-      where += ` AND fecha_cambio >= $${idx++}`;
-      params.push(query.fecha_desde);
+      countQb.andWhere('c.fecha_cambio >= :fecha_desde', {
+        fecha_desde: query.fecha_desde,
+      });
+      dataQb.andWhere('c.fecha_cambio >= :fecha_desde', {
+        fecha_desde: query.fecha_desde,
+      });
     }
     if (query.fecha_hasta) {
       // Se añade 23:59:59 para incluir registros de todo el día final del rango.
-      where += ` AND fecha_cambio <= $${idx++}`;
-      params.push(`${query.fecha_hasta} 23:59:59`);
+      const hastaVal = `${query.fecha_hasta} 23:59:59`;
+      countQb.andWhere('c.fecha_cambio <= :fecha_hasta', {
+        fecha_hasta: hastaVal,
+      });
+      dataQb.andWhere('c.fecha_cambio <= :fecha_hasta', {
+        fecha_hasta: hastaVal,
+      });
     }
 
     // Conteo total y página de datos se lanzan en paralelo para reducir latencia.
-    const [[{ total }], rows] = await Promise.all([
-      this.dataSource.query<[{ total: string }]>(
-        `SELECT COUNT(*) AS total FROM v_cambio_detalle WHERE ${where}`,
-        params,
-      ),
-      this.dataSource.query<CambioRow[]>(
-        `SELECT * FROM v_cambio_detalle
-         WHERE ${where}
-         ORDER BY fecha_cambio DESC
-         LIMIT $${idx} OFFSET $${idx + 1}`,
-        [...params, query.limit, (query.page - 1) * query.limit],
-      ),
+    const [countRow, rows] = await Promise.all([
+      countQb.getRawOne<{ total: string }>(),
+      dataQb.getRawMany<CambioRow>(),
     ]);
+
+    const total = parseInt(countRow!.total, 10);
 
     return {
       items: rows.map((r) => this.toResponse(r)),
-      total: parseInt(total, 10),
+      total,
       page: query.page,
       limit: query.limit,
-      totalPages: Math.ceil(parseInt(total, 10) / query.limit),
+      totalPages: Math.ceil(total / query.limit),
     };
   }
 
   // Recupera un cambio concreto; lanza excepción si no pertenece a la sede del usuario.
   async findOne(id: number, user: JwtPayload): Promise<CambioResponseDto> {
-    const [row] = await this.dataSource.query<CambioRow[]>(
-      `SELECT * FROM v_cambio_detalle WHERE id_cambio = $1 AND id_sede = $2`,
-      [id, user.id_sede!],
-    );
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('v_cambio_detalle', 'c')
+      .where('c.id_cambio = :id', { id })
+      .andWhere('c.id_sede = :id_sede', { id_sede: user.id_sede! })
+      .getRawOne<CambioRow>();
     if (!row) throw new CambioNotFoundException(id);
     return this.toResponse(row);
   }

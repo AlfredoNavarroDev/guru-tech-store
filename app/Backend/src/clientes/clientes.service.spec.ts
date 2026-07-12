@@ -1,35 +1,36 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { ILike } from 'typeorm';
 import { ClientesService } from './clientes.service';
 import {
   ClienteNotFoundException,
   ClienteDuplicadoException,
 } from '../common/exceptions';
 import { Cliente } from './entities/cliente.entity';
+import { ClienteView } from './entities/cliente-view.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
-import { UpdateClienteDto } from './dto/update-cliente.dto';
 
-const createMockRepository = () => ({
+const createMockRepo = () => ({
   findOne: jest.fn(),
+  find: jest.fn(),
   create: jest.fn(),
   save: jest.fn(),
 });
 
 describe('ClientesService', () => {
   let service: ClientesService;
-  let clienteRepo: ReturnType<typeof createMockRepository>;
-  let dataSource: { query: jest.Mock };
+  let clienteRepo: ReturnType<typeof createMockRepo>;
+  let clienteViewRepo: ReturnType<typeof createMockRepo>;
 
   beforeEach(async () => {
-    clienteRepo = createMockRepository();
-    dataSource = { query: jest.fn() };
+    clienteRepo = createMockRepo();
+    clienteViewRepo = createMockRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClientesService,
         { provide: getRepositoryToken(Cliente), useValue: clienteRepo },
-        { provide: DataSource, useValue: dataSource },
+        { provide: getRepositoryToken(ClienteView), useValue: clienteViewRepo },
       ],
     }).compile();
 
@@ -39,65 +40,80 @@ describe('ClientesService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('findAll', () => {
-    it('valida', async () => {
+    it('returns all without filters', async () => {
       const rows = [{ id_cliente: 1, nombre_completo: 'Ana Lopez' }];
-      dataSource.query.mockResolvedValue(rows);
+      clienteViewRepo.find.mockResolvedValue(rows);
 
       const result = await service.findAll({});
-      const [sql, params] = dataSource.query.mock.calls[0];
-
       expect(result).toEqual(rows);
-      expect(sql).toContain('ORDER BY nombre_completo');
-      expect(params).toEqual([]);
+      expect(clienteViewRepo.find).toHaveBeenCalledWith({
+        where: {},
+        order: { nombre_completo: 'ASC' },
+      });
     });
 
-    it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+    it('filters by nombre with ILIKE', async () => {
+      clienteViewRepo.find.mockResolvedValue([]);
       await service.findAll({ nombre: 'Ana' });
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('ILIKE');
-      expect(params).toContain('%Ana%');
+      expect(clienteViewRepo.find).toHaveBeenCalledWith({
+        where: { nombre_completo: ILike('%Ana%') },
+        order: { nombre_completo: 'ASC' },
+      });
     });
 
-    it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+    it('filters by nro_documento', async () => {
+      clienteViewRepo.find.mockResolvedValue([]);
       await service.findAll({ nro_documento: '12345678' });
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('nro_documento');
-      expect(params).toContain('%12345678%');
+      expect(clienteViewRepo.find).toHaveBeenCalledWith({
+        where: { nro_documento: ILike('%12345678%') },
+        order: { nombre_completo: 'ASC' },
+      });
     });
 
-    it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+    it('filters by nombre and nro_documento combined', async () => {
+      clienteViewRepo.find.mockResolvedValue([]);
       await service.findAll({ nombre: 'Ana', nro_documento: '12345678' });
 
-      const [sql, params] = dataSource.query.mock.calls[0];
+      expect(clienteViewRepo.find).toHaveBeenCalledWith({
+        where: {
+          nombre_completo: ILike('%Ana%'),
+          nro_documento: ILike('%12345678%'),
+        },
+        order: { nombre_completo: 'ASC' },
+      });
+    });
 
-      expect(sql).toContain('ILIKE');
-      expect(params).toEqual(['%Ana%', '%12345678%']);
+    it('search uses OR across nombre and nro_documento', async () => {
+      clienteViewRepo.find.mockResolvedValue([]);
+      await service.findAll({ search: 'Ana' });
+
+      expect(clienteViewRepo.find).toHaveBeenCalledWith({
+        where: [
+          { nombre_completo: ILike('%Ana%') },
+          { nro_documento: ILike('%Ana%') },
+        ],
+        order: { nombre_completo: 'ASC' },
+      });
     });
   });
 
   describe('findOne', () => {
-    it('valida', async () => {
+    it('returns cliente by id from view', async () => {
       const row = { id_cliente: 1, nombre_completo: 'Ana Lopez' };
-      dataSource.query.mockResolvedValue([row]);
+      clienteViewRepo.findOne.mockResolvedValue(row);
 
       const result = await service.findOne(1);
 
       expect(result).toEqual(row);
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE id_cliente = $1'),
-        [1],
-      );
+      expect(clienteViewRepo.findOne).toHaveBeenCalledWith({
+        where: { id_cliente: 1 },
+      });
     });
 
-    it('valida', async () => {
-      dataSource.query.mockResolvedValue([]);
+    it('throws ClienteNotFoundException when not found', async () => {
+      clienteViewRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;
       try {
@@ -117,7 +133,7 @@ describe('ClientesService', () => {
       nombre_completo: 'Ana Lopez',
     };
 
-    it('valida', async () => {
+    it('creates client and returns saved entity', async () => {
       clienteRepo.findOne.mockResolvedValue(null);
       const newCliente = { id_cliente: 1, ...dto };
       clienteRepo.create.mockReturnValue(newCliente);
@@ -133,14 +149,12 @@ describe('ClientesService', () => {
       expect(clienteRepo.save).toHaveBeenCalledWith(newCliente);
     });
 
-    it('valida', async () => {
+    it('checks uniqueness before creating', async () => {
       clienteRepo.findOne.mockResolvedValue(null);
       clienteRepo.create.mockReturnValue({});
       clienteRepo.save.mockResolvedValue({});
 
       await service.create(dto);
-
-      const callArgs = clienteRepo.findOne.mock.calls[0][0];
 
       expect(clienteRepo.findOne).toHaveBeenCalledWith({
         where: {
@@ -150,7 +164,7 @@ describe('ClientesService', () => {
       });
     });
 
-    it('valida', async () => {
+    it('throws ClienteDuplicadoException on duplicate', async () => {
       clienteRepo.findOne.mockResolvedValue({ id_cliente: 99 });
 
       let caught: Error | undefined;
@@ -166,7 +180,7 @@ describe('ClientesService', () => {
   });
 
   describe('update', () => {
-    it('valida', async () => {
+    it('updates and returns patched entity', async () => {
       const existing: Partial<Cliente> = {
         id_cliente: 1,
         nombre_completo: 'Old Name',
@@ -177,14 +191,12 @@ describe('ClientesService', () => {
         nombre_completo: 'New Name',
       });
 
-      const result = await service.update(1, {
-        nombre_completo: 'New Name',
-      });
+      const result = await service.update(1, { nombre_completo: 'New Name' });
 
       expect(result.nombre_completo).toBe('New Name');
     });
 
-    it('valida', async () => {
+    it('throws ClienteNotFoundException when not found', async () => {
       clienteRepo.findOne.mockResolvedValue(null);
 
       let caught: Error | undefined;

@@ -2,13 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
 import { AuthService } from './auth.service';
 import {
   InvalidCredentialsException,
   InvalidRefreshTokenException,
 } from '../common/exceptions';
 import { Empleado } from './entities/empleado.entity';
+import { EmpleadoSesionView } from './entities/empleado-sesion-view.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 
 jest.mock('bcrypt', () => ({
@@ -29,31 +29,28 @@ describe('AuthService', () => {
   let service: AuthService;
   let empleadoRepo: ReturnType<typeof createMockRepository>;
   let refreshTokenRepo: ReturnType<typeof createMockRepository>;
+  let sesionViewRepo: { findOne: jest.Mock };
   let jwtService: { sign: jest.Mock; verify: jest.Mock };
   let configService: { get: jest.Mock };
-  let dataSource: { query: jest.Mock };
 
   beforeEach(async () => {
     empleadoRepo = createMockRepository();
     refreshTokenRepo = createMockRepository();
+    sesionViewRepo = { findOne: jest.fn() };
     jwtService = {
       sign: jest.fn(),
       verify: jest.fn(),
     };
     configService = { get: jest.fn().mockReturnValue('7d') };
-    dataSource = { query: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: getRepositoryToken(Empleado), useValue: empleadoRepo },
-        {
-          provide: getRepositoryToken(RefreshToken),
-          useValue: refreshTokenRepo,
-        },
+        { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepo },
+        { provide: getRepositoryToken(EmpleadoSesionView), useValue: sesionViewRepo },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
-        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -77,9 +74,7 @@ describe('AuthService', () => {
     it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      dataSource.query.mockResolvedValueOnce([
-        { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
-      ]);
+      sesionViewRepo.findOne.mockResolvedValue({ id_empleado: 1, nombre_rol: 'vendedor', nombre_sede: 'Sede Central' });
       jwtService.sign.mockReturnValueOnce('jwt-token');
 
       const result = await service.login(dto);
@@ -153,15 +148,14 @@ describe('AuthService', () => {
     it('valida', async () => {
       empleadoRepo.findOne.mockResolvedValue(empleado);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      dataSource.query.mockResolvedValueOnce([]);
+      sesionViewRepo.findOne.mockResolvedValue(null);
       jwtService.sign.mockReturnValueOnce('jwt-token');
 
-      await service.login(dto);
+      const result = await service.login(dto);
 
-      const [sql, params] = dataSource.query.mock.calls[0];
-
-      expect(sql).toContain('WHERE e.id_empleado = $1');
-      expect(params).toEqual([1]);
+      expect(sesionViewRepo.findOne).toHaveBeenCalledWith({ where: { id_empleado: 1 } });
+      expect(result.rol).toBe('desconocido');
+      expect(result.sede).toBe('Sin sede');
     });
   });
 
@@ -185,9 +179,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
-      dataSource.query.mockResolvedValueOnce([
-        { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
-      ]);
+      sesionViewRepo.findOne.mockResolvedValue({ id_empleado: 1, nombre_rol: 'vendedor', nombre_sede: 'Sede Central' });
       jwtService.sign.mockReturnValueOnce('new-access-token');
 
       const result = await service.refresh(token);
@@ -213,9 +205,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       refreshTokenRepo.save.mockResolvedValue({});
       empleadoRepo.findOne.mockResolvedValue(empleado);
-      dataSource.query.mockResolvedValueOnce([
-        { nombre_rol: 'vendedor', nombre_sede: 'Sede Central' },
-      ]);
+      sesionViewRepo.findOne.mockResolvedValue({ id_empleado: 1, nombre_rol: 'vendedor', nombre_sede: 'Sede Central' });
       jwtService.sign.mockReturnValueOnce('new-access-token');
 
       await service.refresh(token);

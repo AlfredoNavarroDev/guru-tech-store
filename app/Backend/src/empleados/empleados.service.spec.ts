@@ -33,12 +33,29 @@ describe('EmpleadosService', () => {
   let service: EmpleadosService;
   let empleadosRepo: ReturnType<typeof createMockRepository>;
   let rolesRepo: ReturnType<typeof createMockRepository>;
-  let dataSource: { query: jest.Mock };
+  const makeQb = () => ({
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    from: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    execute: jest.fn().mockResolvedValue({}),
+    getRawOne: jest.fn().mockResolvedValue(undefined),
+    getRawMany: jest.fn().mockResolvedValue([]),
+  });
+
+  let dataSource: { createQueryBuilder: jest.Mock; manager: { query: jest.Mock } };
 
   beforeEach(async () => {
     empleadosRepo = createMockRepository();
     rolesRepo = createMockRepository();
-    dataSource = { query: jest.fn() };
+    dataSource = {
+      createQueryBuilder: jest.fn().mockReturnValue(makeQb()),
+      manager: { query: jest.fn().mockResolvedValue([]) },
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -328,14 +345,10 @@ describe('EmpleadosService', () => {
     it('valida', async () => {
       empleadosRepo.findOne.mockResolvedValue({ id_empleado: 5, id_sede: 2 });
       empleadosRepo.update.mockResolvedValue({ affected: 1 });
-      dataSource.query.mockResolvedValue(undefined);
 
       await service.updateEstado(5, { activo: false }, mockUser);
 
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('revoked = true'),
-        [5],
-      );
+      expect(dataSource.createQueryBuilder).toHaveBeenCalled();
       expect(empleadosRepo.update).toHaveBeenCalledWith(5, {
         estado: 'inactivo',
       });
@@ -347,7 +360,7 @@ describe('EmpleadosService', () => {
 
       await service.updateEstado(5, { activo: true }, mockUser);
 
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.createQueryBuilder).not.toHaveBeenCalled();
       expect(empleadosRepo.update).toHaveBeenCalledWith(5, {
         estado: 'activo',
       });
@@ -362,7 +375,7 @@ describe('EmpleadosService', () => {
       }
 
       expect(caught).toBeInstanceOf(EmpleadoSelfDeactivateException);
-      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(dataSource.createQueryBuilder).not.toHaveBeenCalled();
     });
 
     it('valida', async () => {

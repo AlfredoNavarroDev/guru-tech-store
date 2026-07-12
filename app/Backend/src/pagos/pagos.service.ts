@@ -12,43 +12,32 @@ import {
 } from '../common/exceptions';
 import type { JwtPayload } from '../common/types';
 
-// Servicio de pagos. Permite cobro diferido y pagos mixtos con distintos métodos.
 @Injectable()
 export class PagosService {
   constructor(
     @InjectRepository(Pago)
     private readonly pagoRepo: Repository<Pago>,
-    // DataSource para assertVentaExists (SQL crudo, sin cargar entidad).
     private readonly dataSource: DataSource,
   ) {}
 
-  // Registra pago para venta. No valida cobertura total (regla de cierre futuro).
-  async createForVenta(
-    idVenta: number,
-    dto: CreatePagoVentaDto,
-    user: JwtPayload,
-  ): Promise<Pago> {
+  async createForVenta(idVenta: number, dto: CreatePagoVentaDto, user: JwtPayload): Promise<Pago> {
     await this.assertVentaOwnedByUser(idVenta, user.sub);
     const pago = this.pagoRepo.create({
       id_venta: idVenta,
-      // id_reparacion null: este método es exclusivo de ventas.
       id_reparacion: null,
       metodo_pago: dto.metodo_pago,
       monto: dto.monto,
-      // Adelantos solo en reparaciones.
       es_adelanto: false,
       referencia_transaccion: dto.referencia_transaccion ?? null,
     });
     return this.pagoRepo.save(pago);
   }
 
-  // Pagos de una venta (útil para cierre de caja).
   async findByVenta(idVenta: number, user: JwtPayload): Promise<Pago[]> {
     await this.assertVentaOwnedByUser(idVenta, user.sub);
     return this.pagoRepo.find({ where: { id_venta: idVenta } });
   }
 
-  // HU-19: Registra adelanto o pago final de reparación.
   async createForReparacion(
     idReparacion: number,
     dto: CreatePagoReparacionDto,
@@ -56,39 +45,31 @@ export class PagosService {
   ): Promise<Pago> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
 
-    // Obtiene precio de mano de obra, descuento y tipo de descuento de la reparación.
-    const [rep] = await this.dataSource.query<
-      {
-        monto_cotizado: string | null;
-        monto_descuento: string;
-        tipo_descuento: string | null;
-      }[]
-    >(
-      `SELECT monto_cotizado, monto_descuento, tipo_descuento FROM reparaciones WHERE id_reparacion = $1`,
-      [idReparacion],
-    );
+    const rep = await this.dataSource
+      .createQueryBuilder()
+      .select('r.monto_cotizado', 'monto_cotizado')
+      .addSelect('r.monto_descuento', 'monto_descuento')
+      .addSelect('r.tipo_descuento', 'tipo_descuento')
+      .from('reparaciones', 'r')
+      .where('r.id_reparacion = :id', { id: idReparacion })
+      .getRawOne<{ monto_cotizado: string | null; monto_descuento: string; tipo_descuento: string | null }>();
 
-    // Suma el coste de los repuestos usados para incluirlo en el total a cobrar.
-    const [{ repuestos_cost }] = await this.dataSource.query<
-      { repuestos_cost: string }[]
-    >(
-      `SELECT COALESCE(SUM(cantidad * precio_cobrado), 0) AS repuestos_cost
-       FROM reparacion_repuestos_usados WHERE id_reparacion = $1`,
-      [idReparacion],
-    );
+    const repRow = await this.dataSource
+      .createQueryBuilder()
+      .select('COALESCE(SUM(rru.cantidad * rru.precio_cobrado), 0)', 'repuestos_cost')
+      .from('reparacion_repuestos_usados', 'rru')
+      .where('rru.id_reparacion = :id', { id: idReparacion })
+      .getRawOne<{ repuestos_cost: string }>();
 
-    // monto_cotizado = mano de obra/servicio; el total a cobrar suma repuestos.
     const montoCotizado =
-      (rep?.monto_cotizado !== null && rep?.monto_cotizado !== undefined
-        ? parseFloat(rep.monto_cotizado)
-        : 0) + parseFloat(repuestos_cost);
+      (rep?.monto_cotizado != null ? parseFloat(rep.monto_cotizado) : 0) +
+      parseFloat(repRow?.repuestos_cost ?? '0');
 
     if (!rep || montoCotizado === 0) {
       throw new PagoSinPrecioException(idReparacion);
     }
 
     const montoDesc = parseFloat(rep.monto_descuento);
-    // Aplica el descuento según su tipo: porcentual o monto fijo; sin descuento si es null.
     let totalCobrar: number;
     if (rep.tipo_descuento === 'porcentaje') {
       totalCobrar = montoCotizado * (1 - montoDesc / 100);
@@ -98,17 +79,15 @@ export class PagosService {
       totalCobrar = montoCotizado;
     }
 
-    // Suma los pagos previos para calcular el saldo pendiente antes de aceptar el nuevo pago.
-    const [{ total_pagado }] = await this.dataSource.query<
-      { total_pagado: string }[]
-    >(
-      `SELECT COALESCE(SUM(monto), 0) AS total_pagado FROM pagos WHERE id_reparacion = $1`,
-      [idReparacion],
-    );
+    const pagoRow = await this.dataSource
+      .createQueryBuilder()
+      .select('COALESCE(SUM(p.monto), 0)', 'total_pagado')
+      .from('pagos', 'p')
+      .where('p.id_reparacion = :id', { id: idReparacion })
+      .getRawOne<{ total_pagado: string }>();
 
-    const saldo = totalCobrar - parseFloat(total_pagado);
+    const saldo = totalCobrar - parseFloat(pagoRow?.total_pagado ?? '0');
 
-    // Tolerancia de medio céntimo para evitar rechazos por redondeo de punto flotante.
     if (dto.monto > saldo + 0.005) {
       throw new PagoExcedeSaldoException(dto.monto, Math.max(0, saldo));
     }
@@ -124,36 +103,28 @@ export class PagosService {
     return this.pagoRepo.save(pago);
   }
 
-  // Pagos de una reparación (adelantos + pagos finales).
-  async findByReparacion(
-    idReparacion: number,
-    user: JwtPayload,
-  ): Promise<Pago[]> {
+  async findByReparacion(idReparacion: number, user: JwtPayload): Promise<Pago[]> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
     return this.pagoRepo.find({ where: { id_reparacion: idReparacion } });
   }
 
-  // Verifica existencia y ownership sin cargar entidad completa.
-  private async assertVentaOwnedByUser(
-    idVenta: number,
-    idEmpleado: number,
-  ): Promise<void> {
-    const rows = await this.dataSource.query<{ id_venta: number }[]>(
-      `SELECT id_venta FROM Ventas WHERE id_venta = $1 AND id_empleado = $2`,
-      [idVenta, idEmpleado],
-    );
-    if (!rows.length) throw new VentaNotFoundException(idVenta);
+  private async assertVentaOwnedByUser(idVenta: number, idEmpleado: number): Promise<void> {
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('v.id_venta', 'id_venta')
+      .from('ventas', 'v')
+      .where('v.id_venta = :idVenta AND v.id_empleado = :idEmpleado', { idVenta, idEmpleado })
+      .getRawOne<{ id_venta: number }>();
+    if (!row) throw new VentaNotFoundException(idVenta);
   }
 
-  // Confirma que la reparación existe en la sede del usuario antes de operar sobre ella.
-  private async assertReparacionInSede(
-    idReparacion: number,
-    idSede: number,
-  ): Promise<void> {
-    const rows = await this.dataSource.query<{ id_reparacion: number }[]>(
-      `SELECT id_reparacion FROM reparaciones WHERE id_reparacion = $1 AND id_sede = $2`,
-      [idReparacion, idSede],
-    );
-    if (!rows.length) throw new ReparacionNotFoundException(idReparacion);
+  private async assertReparacionInSede(idReparacion: number, idSede: number): Promise<void> {
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('r.id_reparacion', 'id_reparacion')
+      .from('reparaciones', 'r')
+      .where('r.id_reparacion = :idReparacion AND r.id_sede = :idSede', { idReparacion, idSede })
+      .getRawOne<{ id_reparacion: number }>();
+    if (!row) throw new ReparacionNotFoundException(idReparacion);
   }
 }

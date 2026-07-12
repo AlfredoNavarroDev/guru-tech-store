@@ -170,7 +170,39 @@ export class VentasService {
     user: JwtPayload,
     query: QueryVentasDto,
   ): Promise<PaginatedResult<VentaVista>> {
-    // Misma whereClause para COUNT y CTE → consistencia.
+    // COUNT via QueryBuilder con parámetros nombrados.
+    const countQb = this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(DISTINCT id_venta)', 'total')
+      .from('v_vendedor_ventas', 'vv')
+      .where('id_empleado = :emp', { emp: user.sub });
+
+    if (query.fecha_desde) {
+      countQb.andWhere('fecha_emision >= :desde', { desde: query.fecha_desde });
+    }
+    if (query.fecha_hasta) {
+      // 23:59:59 → rango inclusivo hasta fin del día.
+      countQb.andWhere('fecha_emision <= :hasta', {
+        hasta: `${query.fecha_hasta} 23:59:59`,
+      });
+    }
+    if (query.id_cliente !== undefined) {
+      countQb.andWhere(
+        'id_venta IN (SELECT id_venta FROM Ventas WHERE id_cliente = :cliente)',
+        { cliente: query.id_cliente },
+      );
+    }
+    if (query.nombre_cliente) {
+      countQb.andWhere('cliente ILIKE :nombre', {
+        nombre: `%${query.nombre_cliente}%`,
+      });
+    }
+
+    const countResult = await countQb.getRawOne<CountRow>();
+    const total = parseInt(countResult!.total, 10);
+
+    // CTE: pagina ventas distintas, no filas de detalle (bug fix).
+    // La CTE no es expresable con QueryBuilder → manager.query con parámetros posicionales.
     let whereClause = `id_empleado = $1`;
     const filterParams: (string | number)[] = [user.sub];
     let idx = 2;
@@ -180,7 +212,6 @@ export class VentasService {
       filterParams.push(query.fecha_desde);
     }
     if (query.fecha_hasta) {
-      // 23:59:59 → rango inclusivo hasta fin del día.
       whereClause += ` AND fecha_emision <= $${idx++}`;
       filterParams.push(`${query.fecha_hasta} 23:59:59`);
     }
@@ -193,14 +224,6 @@ export class VentasService {
       filterParams.push(`%${query.nombre_cliente}%`);
     }
 
-    const countSql = `SELECT COUNT(DISTINCT id_venta) AS total FROM v_vendedor_ventas WHERE ${whereClause}`;
-    const countResult = await this.dataSource.query<CountRow[]>(
-      countSql,
-      filterParams,
-    );
-    const total = parseInt(countResult[0].total, 10);
-
-    // CTE: pagina ventas distintas, no filas de detalle (bug fix).
     const pageParams = [
       ...filterParams,
       (query.page - 1) * query.limit,
@@ -220,7 +243,10 @@ export class VentasService {
       ORDER BY pv.fecha_emision DESC, vv.id_venta DESC
     `;
 
-    const items = await this.dataSource.query<VentaVista[]>(sql, pageParams);
+    const items = (await this.dataSource.manager.query(
+      sql,
+      pageParams,
+    )) as VentaVista[];
 
     return {
       items,
@@ -233,10 +259,13 @@ export class VentasService {
 
   // Detalle de una venta (múltiples filas de la vista, una por ítem). Filtra por vendedor.
   async findOne(id: number, user: JwtPayload): Promise<VentaVista[]> {
-    const rows = await this.dataSource.query<VentaVista[]>(
-      `SELECT * FROM v_vendedor_ventas WHERE id_venta = $1 AND id_empleado = $2`,
-      [id, user.sub],
-    );
+    const rows = (await this.dataSource
+      .createQueryBuilder()
+      .select('*')
+      .from('v_vendedor_ventas', 'vv')
+      .where('id_venta = :id', { id })
+      .andWhere('id_empleado = :emp', { emp: user.sub })
+      .getRawMany()) as VentaVista[];
     if (!rows.length) throw new VentaNotFoundException(id);
     return rows;
   }
@@ -252,7 +281,8 @@ export class VentasService {
       clientes_ayer: string;
     }
 
-    const [stats] = await this.dataSource.query<StatsRow[]>(
+    // Complejo COALESCE + FILTER → no expresable en QB, manager.query.
+    const [stats] = (await this.dataSource.manager.query(
       `SELECT
          COALESCE(SUM(ventas)             FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date),         0) AS ventas_hoy,
          COALESCE(SUM(ingresos)           FILTER (WHERE fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date),         0) AS ingresos_hoy,
@@ -264,9 +294,10 @@ export class VentasService {
        WHERE id_empleado = $1
          AND fecha IN ((CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date - 1)`,
       [user.sub],
-    );
+    )) as StatsRow[];
 
-    const recientes = await this.dataSource.query<VentaRecienteDto[]>(
+    // DISTINCT ON es específico de PostgreSQL y no expresable en QB → manager.query.
+    const recientes = (await this.dataSource.manager.query(
       `SELECT DISTINCT ON (id_venta)
          id_venta, cliente, total_venta_cabecera, fecha_emision
        FROM v_vendedor_ventas
@@ -275,7 +306,7 @@ export class VentasService {
        ORDER BY id_venta DESC
        LIMIT 5`,
       [user.sub],
-    );
+    )) as VentaRecienteDto[];
 
     return {
       ventas_hoy: parseInt(stats.ventas_hoy, 10),

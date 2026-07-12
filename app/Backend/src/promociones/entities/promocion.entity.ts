@@ -41,6 +41,9 @@ export class Promocion {
   @Column({ length: 20, default: 'activa' })
   estado: string;
 
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  created_by: number | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz', nullable: true })
   updated_at: Date | null;
 
