@@ -101,9 +101,17 @@ export async function seedReparaciones(qr: QueryRunner): Promise<void> {
   );
 
   console.log('  OK - 4 reparaciones (una por estado del flujo)');
-  console.log('    id=1  pendiente   Samsung Galaxy A54   sede 1  técnico DNI 10004001');
-  console.log('    id=2  reparacion  Apple iPhone 12      sede 1  técnico DNI 10004001');
-  console.log('    id=3  listo       Xiaomi Redmi Note 12 sede 2  técnico DNI 10004002');
-  console.log('    id=4  entregado   Samsung Galaxy A52   sede 1  técnico DNI 10004001');
+  console.log(
+    '    id=1  pendiente   Samsung Galaxy A54   sede 1  técnico DNI 10004001',
+  );
+  console.log(
+    '    id=2  reparacion  Apple iPhone 12      sede 1  técnico DNI 10004001',
+  );
+  console.log(
+    '    id=3  listo       Xiaomi Redmi Note 12 sede 2  técnico DNI 10004002',
+  );
+  console.log(
+    '    id=4  entregado   Samsung Galaxy A52   sede 1  técnico DNI 10004001',
+  );
   console.log('[Seed 07] Completado.\n');
 }

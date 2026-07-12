@@ -65,6 +65,7 @@ export class CambiosService {
     if (!venta) throw new VentaNotFoundException(id_venta);
 
     // Carga los ítems de la venta para que el vendedor pueda elegir cuál devolver.
+    // es_no_cambiable se resuelve: nivel ítem > nivel categoría > false (por defecto).
     const detalles = await this.dataSource.query<
       Array<{
         id_item: number;
@@ -72,11 +73,21 @@ export class CambiosService {
         sku: string;
         precio_unitario_momento: string;
         cantidad: number;
+        es_no_cambiable: boolean;
       }>
     >(
-      `SELECT dv.id_item, i.nombre, i.sku, dv.precio_unitario_momento, dv.cantidad
+      `SELECT dv.id_item, i.nombre, i.sku, dv.precio_unitario_momento, dv.cantidad,
+              COALESCE(
+                ir.es_no_cambiable,
+                (SELECT bool_or(cr.es_no_cambiable)
+                 FROM categoria_restricciones cr
+                 JOIN item_categorias ic ON ic.id_categoria = cr.id_categoria
+                 WHERE ic.id_item = dv.id_item),
+                false
+              ) AS es_no_cambiable
        FROM detalle_venta dv
        JOIN items i ON i.id_item = dv.id_item
+       LEFT JOIN item_restricciones ir ON ir.id_item = dv.id_item
        WHERE dv.id_venta = $1`,
       [id_venta],
     );
@@ -91,6 +102,7 @@ export class CambiosService {
         sku: d.sku,
         precio_unitario_momento: parseFloat(d.precio_unitario_momento),
         cantidad: d.cantidad,
+        es_no_cambiable: d.es_no_cambiable,
       })),
     };
   }

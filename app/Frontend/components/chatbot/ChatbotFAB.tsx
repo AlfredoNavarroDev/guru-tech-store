@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MessageSquare, X } from 'lucide-react'
+import { Bot, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChatbotPanel } from './ChatbotPanel'
 
@@ -54,7 +54,7 @@ export function ChatbotFAB() {
               exit={{ opacity: 0, rotate: -90, scale: 0.6 }}
               transition={{ duration: 0.18 }}
             >
-              <MessageSquare className="h-6 w-6" />
+              <Bot className="h-6 w-6" />
             </motion.span>
           )}
         </AnimatePresence>

@@ -197,23 +197,19 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
   // ─── INVENTARIO_SEDES ────────────────────────────────────────────────────
   console.log('  Insertando Inventario_Sedes...');
   const productos = [
-    1,  2,  3,  4,  5,  6,  7,  8,  9,
-    16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
-    34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+    28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
     47, 48, 49, 50, 51, 52, 53, 54, 55,
   ];
   const repuestos = [
-    10, 11, 12, 13, 14, 15,
-    56, 57, 58, 59, 60, 61, 62, 63, 64, 65,
-    66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
-    76, 77, 78, 79, 80,
+    10, 11, 12, 13, 14, 15, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
+    69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
   ];
   const sedes = [1, 2];
 
   for (const idSede of sedes) {
     for (const idItem of productos) {
-      const qty = ((idItem * 7) + (idSede - 1) * 11) % 19; // 0-18, deterministic
+      const qty = (idItem * 7 + (idSede - 1) * 11) % 19; // 0-18, deterministic
       await qr.query(
         `INSERT INTO Inventario_Sedes (id_sede, id_item, cantidad_actual, stock_minimo)
          VALUES ($1, $2, $3, 5)`,
@@ -221,7 +217,7 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
       );
     }
     for (const idItem of repuestos) {
-      const qty = ((idItem * 5) + (idSede - 1) * 9) % 19; // 0-18, deterministic
+      const qty = (idItem * 5 + (idSede - 1) * 9) % 19; // 0-18, deterministic
       await qr.query(
         `INSERT INTO Inventario_Sedes (id_sede, id_item, cantidad_actual, stock_minimo)
          VALUES ($1, $2, $3, 3)`,
@@ -294,5 +290,7 @@ export async function seedCatalogo(qr: QueryRunner): Promise<void> {
     `SELECT setval(pg_get_serial_sequence('Promociones', 'id_promocion'),  8)`,
   );
 
-  console.log('[Seed 04] Completado. Items: 49 productos + 31 repuestos = 80 total.\n');
+  console.log(
+    '[Seed 04] Completado. Items: 49 productos + 31 repuestos = 80 total.\n',
+  );
 }

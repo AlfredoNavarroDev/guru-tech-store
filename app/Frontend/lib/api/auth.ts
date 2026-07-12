@@ -1,5 +1,6 @@
 import { request } from './client'
 import { normalizeSession, type AuthSession, type StoredSession } from './session'
+import { setCookie, getCookie, deleteCookie } from './cookie'
 export { normalizeSession, type AuthSession } from './session'
 
 export interface LoginPayload {
@@ -24,20 +25,14 @@ let _cachedSession: AuthSession | null = null
 export function saveSession(session: AuthSession, refreshToken?: string): void {
   const normalized = normalizeSession(session)
   const raw = JSON.stringify(normalized)
-  localStorage.setItem('guru_auth', raw)
+  setCookie('guru_auth', raw)
   _cachedRaw = raw
   _cachedSession = normalized
-  setAuthCookie(normalized.access_token)
-  if (refreshToken) localStorage.setItem('guru_refresh_token', refreshToken)
-}
-
-export function setAuthCookie(token: string): void {
-  document.cookie = `guru_token=${token}; path=/; SameSite=Strict; max-age=604800`
+  if (refreshToken) setCookie('guru_refresh_token', refreshToken)
 }
 
 export function clearSession(): void {
-  // read id_empleado from current session before clearing
-  const raw = localStorage.getItem('guru_auth')
+  const raw = getCookie('guru_auth')
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as { id_empleado?: number }
@@ -46,16 +41,16 @@ export function clearSession(): void {
       }
     } catch { /* ignorar */ }
   }
-  localStorage.removeItem('guru_auth')
-  localStorage.removeItem('guru_refresh_token')
-  document.cookie = 'guru_token=; path=/; max-age=0'
+  deleteCookie('guru_auth')
+  deleteCookie('guru_refresh_token')
+  deleteCookie('guru_token')
   _cachedRaw = null
   _cachedSession = null
 }
 
 export function getSession(): AuthSession | null {
   if (typeof window === 'undefined') return null
-  const raw = localStorage.getItem('guru_auth')
+  const raw = getCookie('guru_auth')
   if (raw === _cachedRaw) return _cachedSession
   _cachedRaw = raw
   if (!raw) { _cachedSession = null; return null }

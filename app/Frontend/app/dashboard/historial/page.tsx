@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { cn, formatNum, fmtFecha, repId } from "@/lib/utils"
 import { ApiError } from "@/lib/api/client"
 import { getReparaciones, type ReparacionResponse } from "@/lib/api/reparaciones"
+import { DatePicker } from "@/components/ui/date-picker"
 
 const PAGE_SIZE = 20
 
@@ -70,13 +71,13 @@ export default function HistorialPage() {
     void load(page, fechaDesde, fechaHasta)
   }, [load, page, fechaDesde, fechaHasta])
 
-  function handleFechaDesde(v: string) {
-    setFechaDesde(v)
+  function handleFechaDesde(v: string | undefined) {
+    setFechaDesde(v ?? "")
     setPage(1)
   }
 
-  function handleFechaHasta(v: string) {
-    setFechaHasta(v)
+  function handleFechaHasta(v: string | undefined) {
+    setFechaHasta(v ?? "")
     setPage(1)
   }
 
@@ -171,20 +172,18 @@ export default function HistorialPage() {
             />
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={(e) => handleFechaDesde(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
-              title="Desde"
+            <DatePicker
+              value={fechaDesde || undefined}
+              onChange={handleFechaDesde}
+              placeholder="Desde"
+              align="right"
             />
             <span className="text-xs text-gray-400">—</span>
-            <input
-              type="date"
-              value={fechaHasta}
-              onChange={(e) => handleFechaHasta(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
-              title="Hasta"
+            <DatePicker
+              value={fechaHasta || undefined}
+              onChange={handleFechaHasta}
+              placeholder="Hasta"
+              align="right"
             />
             {hasDateFilter && (
               <button

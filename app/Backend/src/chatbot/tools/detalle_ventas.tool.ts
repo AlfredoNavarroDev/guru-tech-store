@@ -4,7 +4,10 @@ import { z } from 'zod';
 import { DataSource } from 'typeorm';
 
 // Herramienta que devuelve ventas individuales con cliente, productos y métodos de pago
-export const consultarDetalleVentasTool = (dataSource: DataSource, idSede: number) =>
+export const consultarDetalleVentasTool = (
+  dataSource: DataSource,
+  idSede: number,
+) =>
   tool({
     description:
       'Devuelve el detalle de ventas individuales: cliente, productos vendidos, cantidades, precios y métodos de pago. Úsalo cuando pregunten "qué vendimos", "a quién le vendimos", "cómo pagó el cliente", "detalle de ventas de hoy/semana/mes", "última venta".',
@@ -16,7 +19,9 @@ export const consultarDetalleVentasTool = (dataSource: DataSource, idSede: numbe
       fecha_inicio: z
         .string()
         .optional()
-        .describe('Fecha inicio ISO (YYYY-MM-DD) — solo si periodo=personalizado'),
+        .describe(
+          'Fecha inicio ISO (YYYY-MM-DD) — solo si periodo=personalizado',
+        ),
       fecha_fin: z
         .string()
         .optional()
@@ -33,31 +38,38 @@ export const consultarDetalleVentasTool = (dataSource: DataSource, idSede: numbe
         .default(10)
         .describe('Número máximo de ventas a devolver (1-20)'),
     }),
-    execute: async ({ periodo, fecha_inicio, fecha_fin, nombre_cliente, limite }) => {
+    execute: async ({
+      periodo,
+      fecha_inicio,
+      fecha_fin,
+      nombre_cliente,
+      limite,
+    }) => {
       try {
-        const now = new Date();
+        const limaHoy = new Date().toLocaleDateString('en-CA', {
+          timeZone: 'America/Lima',
+        });
         let desde: string;
         let hasta: string;
 
         if (periodo === 'hoy') {
-          desde = hasta = now.toISOString().slice(0, 10);
+          desde = hasta = limaHoy;
         } else if (periodo === 'semana') {
-          const d = new Date(now);
+          const d = new Date(limaHoy + 'T12:00:00');
           d.setDate(d.getDate() - 6);
-          desde = d.toISOString().slice(0, 10);
-          hasta = now.toISOString().slice(0, 10);
+          desde = d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+          hasta = limaHoy;
         } else if (periodo === 'mes') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1);
-          desde = d.toISOString().slice(0, 10);
-          hasta = now.toISOString().slice(0, 10);
+          desde = limaHoy.slice(0, 7) + '-01';
+          hasta = limaHoy;
         } else {
-          desde = fecha_inicio ?? now.toISOString().slice(0, 10);
-          hasta = fecha_fin ?? now.toISOString().slice(0, 10);
+          desde = fecha_inicio ?? limaHoy;
+          hasta = fecha_fin ?? limaHoy;
         }
 
         const ventaConditions: string[] = [
           'v.id_sede = $1',
-          `DATE(v.fecha_emision) BETWEEN $2 AND $3`,
+          `DATE(v.fecha_emision AT TIME ZONE 'America/Lima') BETWEEN $2 AND $3`,
         ];
         const ventaParams: (number | string)[] = [idSede, desde, hasta];
         let idx = 4;
@@ -155,8 +167,7 @@ export const consultarDetalleVentasTool = (dataSource: DataSource, idSede: numbe
 
         const pagosPorVenta = new Map<number, typeof pagos>();
         for (const p of pagos) {
-          if (!pagosPorVenta.has(p.id_venta))
-            pagosPorVenta.set(p.id_venta, []);
+          if (!pagosPorVenta.has(p.id_venta)) pagosPorVenta.set(p.id_venta, []);
           pagosPorVenta.get(p.id_venta)!.push(p);
         }
 
@@ -179,7 +190,8 @@ export const consultarDetalleVentasTool = (dataSource: DataSource, idSede: numbe
 
         return {
           message: null,
-          periodo: periodo === 'personalizado' ? `${desde} al ${hasta}` : periodo,
+          periodo:
+            periodo === 'personalizado' ? `${desde} al ${hasta}` : periodo,
           total_ventas: ventas.length,
           ventas: result,
         };

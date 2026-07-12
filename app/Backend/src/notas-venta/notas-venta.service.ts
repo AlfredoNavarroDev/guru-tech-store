@@ -15,7 +15,7 @@ import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
-import { Boleta } from './entities/boleta.entity';
+import { NotaVenta } from './entities/nota-venta.entity';
 import type { JwtPayload } from '../common/types';
 
 // Fila de v_boleta_venta: una por cada ítem de la venta.
@@ -185,10 +185,10 @@ interface BoletaReparacionTemplateData {
   pagos: { metodo: string; monto: string }[];
 }
 
-// Emite boletas de venta, genera PDF con Puppeteer y sube a Cloudflare R2.
+// Emite notas de venta, genera PDF con Puppeteer y sube a Cloudflare R2.
 @Injectable()
-export class BoletasService implements OnModuleInit {
-  private readonly logger = new Logger(BoletasService.name);
+export class NotasVentaService implements OnModuleInit {
+  private readonly logger = new Logger(NotasVentaService.name);
   private s3: S3Client;
   private templateFn: Handlebars.TemplateDelegate<BoletaTemplateData>;
   private cambioTemplateFn: Handlebars.TemplateDelegate<BoletaCambioTemplateData>;
@@ -196,8 +196,8 @@ export class BoletasService implements OnModuleInit {
   private logoBase64 = '';
 
   constructor(
-    @InjectRepository(Boleta)
-    private readonly boletaRepo: Repository<Boleta>,
+    @InjectRepository(NotaVenta)
+    private readonly boletaRepo: Repository<NotaVenta>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {
@@ -259,8 +259,8 @@ export class BoletasService implements OnModuleInit {
     }
   }
 
-  // Emite boleta para una venta. Idempotente: una venta → una boleta.
-  async emitir(idVenta: number, user: JwtPayload): Promise<Boleta> {
+  // Emite nota de venta para una venta. Idempotente: una venta → una nota de venta.
+  async emitir(idVenta: number, user: JwtPayload): Promise<NotaVenta> {
     await this.assertVentaOwnedByUser(idVenta, user.sub);
 
     const existing = await this.boletaRepo.findOne({
@@ -286,9 +286,9 @@ export class BoletasService implements OnModuleInit {
       url_pdf: null,
     });
 
-    // Transacción: si falla PDF o R2, hace rollback y la boleta no persiste.
+    // Transacción: si falla PDF o R2, hace rollback y la nota no persiste.
     await this.dataSource.transaction(async (manager) => {
-      boleta = await manager.save(Boleta, boleta);
+      boleta = await manager.save(NotaVenta, boleta);
       try {
         const data = this.buildTemplateData(
           numero,
@@ -311,7 +311,7 @@ export class BoletasService implements OnModuleInit {
           }),
         );
         boleta.url_pdf = `${r2Config.publicUrl}/${key}`;
-        await manager.save(Boleta, boleta);
+        await manager.save(NotaVenta, boleta);
       } catch (err) {
         this.logger.error('Error generando PDF o subiendo a R2', err);
         throw err;
@@ -344,7 +344,7 @@ export class BoletasService implements OnModuleInit {
       sedeNombre: 'Sede Central - Miraflores',
       sedeDireccion: 'Av. Larco 345, Miraflores, Lima',
       sedeTelefono: '01-234-5678',
-      numero: 'B001-0000001',
+      numero: 'NV001-0000001',
       fechaEmision: new Date().toLocaleString('es-PE', {
         timeZone: 'America/Lima',
         day: '2-digit',
@@ -432,11 +432,11 @@ export class BoletasService implements OnModuleInit {
     return this.cambioTemplateFn(data);
   }
 
-  // Emite boleta para reparación. Idempotente: una reparación → una boleta.
+  // Emite nota de venta para reparación. Idempotente: una reparación → una nota de venta.
   async emitirParaReparacion(
     idReparacion: number,
     user: JwtPayload,
-  ): Promise<Boleta> {
+  ): Promise<NotaVenta> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
 
     const existing = await this.boletaRepo.findOne({
@@ -463,7 +463,7 @@ export class BoletasService implements OnModuleInit {
     });
 
     await this.dataSource.transaction(async (manager) => {
-      boleta = await manager.save(Boleta, boleta);
+      boleta = await manager.save(NotaVenta, boleta);
       try {
         const data = this.buildTemplateDataForReparacion(
           numero,
@@ -486,7 +486,7 @@ export class BoletasService implements OnModuleInit {
           }),
         );
         boleta.url_pdf = `${r2Config.publicUrl}/${key}`;
-        await manager.save(Boleta, boleta);
+        await manager.save(NotaVenta, boleta);
       } catch (err) {
         this.logger.error('Error generando PDF o subiendo a R2', err);
         throw err;
@@ -496,11 +496,11 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  // Busca boleta de una reparación. Lanza 404 si no existe.
+  // Busca nota de venta de una reparación. Lanza 404 si no existe.
   async findByReparacion(
     idReparacion: number,
     user: JwtPayload,
-  ): Promise<Boleta> {
+  ): Promise<NotaVenta> {
     await this.assertReparacionInSede(idReparacion, user.id_sede!);
     const boleta = await this.boletaRepo.findOne({
       where: { id_reparacion: idReparacion },
@@ -512,8 +512,11 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  // Emite boleta de cambio (prefijo C). Idempotente: un cambio → una boleta.
-  async emitirParaCambio(idCambio: number, user: JwtPayload): Promise<Boleta> {
+  // Emite nota de venta de cambio (prefijo C). Idempotente: un cambio → una nota de venta.
+  async emitirParaCambio(
+    idCambio: number,
+    user: JwtPayload,
+  ): Promise<NotaVenta> {
     await this.assertCambioInSede(idCambio, user.id_sede!);
 
     const [cambioRow] = await this.dataSource.query<CambioBolRow[]>(
@@ -546,7 +549,7 @@ export class BoletasService implements OnModuleInit {
     });
 
     await this.dataSource.transaction(async (manager) => {
-      boleta = await manager.save(Boleta, boleta);
+      boleta = await manager.save(NotaVenta, boleta);
       try {
         const templateData = this.buildTemplateDataForCambio(
           numero,
@@ -565,7 +568,7 @@ export class BoletasService implements OnModuleInit {
           }),
         );
         boleta.url_pdf = `${r2Config.publicUrl}/${key}`;
-        await manager.save(Boleta, boleta);
+        await manager.save(NotaVenta, boleta);
       } catch (err) {
         this.logger.error('Error generando PDF de cambio o subiendo a R2', err);
         throw err;
@@ -575,8 +578,8 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  // Busca boleta de un cambio. Lanza 404 si no existe.
-  async findByCambio(idCambio: number, user: JwtPayload): Promise<Boleta> {
+  // Busca nota de venta de un cambio. Lanza 404 si no existe.
+  async findByCambio(idCambio: number, user: JwtPayload): Promise<NotaVenta> {
     await this.assertCambioInSede(idCambio, user.id_sede!);
 
     const boleta = await this.boletaRepo.findOne({
@@ -587,8 +590,8 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  // Busca boleta por venta. Lanza 404 si no existe.
-  async findByVenta(idVenta: number, user: JwtPayload): Promise<Boleta> {
+  // Busca nota de venta por venta. Lanza 404 si no existe.
+  async findByVenta(idVenta: number, user: JwtPayload): Promise<NotaVenta> {
     await this.assertVentaOwnedByUser(idVenta, user.sub);
 
     const boleta = await this.boletaRepo.findOne({
@@ -599,7 +602,7 @@ export class BoletasService implements OnModuleInit {
     return boleta;
   }
 
-  // Extrae y calcula todos los datos de la venta necesarios para la boleta.
+  // Extrae y calcula todos los datos de la venta necesarios para la nota de venta.
   private async queryDatosVenta(
     idVenta: number,
     idEmpleado?: number,
@@ -945,14 +948,14 @@ export class BoletasService implements OnModuleInit {
     };
   }
 
-  // Genera número correlativo {prefijo}{sede}-{secuencial} (ej: B001-0000001, C001-0000001).
+  // Genera número correlativo {prefijo}{sede}-{secuencial} (ej: NV001-0000001, C001-0000001).
   private async generarNumero(
     idSede: number,
-    prefijo: 'B' | 'C' = 'B',
+    prefijo: 'NV' | 'C' = 'NV',
   ): Promise<string> {
     const prefix = `${prefijo}${String(idSede).padStart(3, '0')}`;
     const rows = await this.dataSource.query<{ total: string }[]>(
-      `SELECT COUNT(*) AS total FROM Boletas WHERE numero LIKE $1`,
+      `SELECT COUNT(*) AS total FROM notas_venta WHERE numero LIKE $1`,
       [`${prefix}-%`],
     );
     const seq = parseInt(rows[0].total, 10) + 1;

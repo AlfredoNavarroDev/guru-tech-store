@@ -139,6 +139,7 @@ describe('ReparacionesService', () => {
           marca: 'Samsung',
           modelo: 'Galaxy S21',
           monto_cotizado: 120,
+          tipo_accion: 'reparacion',
         },
         mockUser,
       );

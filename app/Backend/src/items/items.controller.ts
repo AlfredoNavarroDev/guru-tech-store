@@ -32,6 +32,7 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
 import { ItemResponseDto } from './dto/item-response.dto';
+import { UploadImagenItemDto } from './dto/upload-imagen-item.dto';
 
 // Controlador REST para el módulo de ítems (productos y repuestos).
 // Por defecto solo el rol 'abastecedor' puede acceder; algunos endpoints amplían el acceso a 'tecnico'.
@@ -56,7 +57,7 @@ export class ItemsController {
 
   // Lista ítems con filtros opcionales; el stock devuelto corresponde a la sede del usuario.
   @Get()
-  @Roles('abastecedor', 'tecnico')
+  @Roles('abastecedor', 'tecnico', 'administrador', 'propietario', 'vendedor')
   @ApiOperation({
     summary:
       'HU-13 / HU-14 — Listar ítems con filtros (tipo, nombre, sku, categoria)',
@@ -68,6 +69,7 @@ export class ItemsController {
 
   // Devuelve el catálogo de categorías para poblar selectores en el frontend.
   @Get('categorias')
+  @Roles('abastecedor', 'tecnico', 'administrador', 'propietario', 'vendedor')
   @ApiOperation({ summary: 'Listar todas las categorías disponibles' })
   @ApiOkResponse({
     schema: {
@@ -104,6 +106,25 @@ export class ItemsController {
   })
   findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
     return this.itemsService.findMarcas();
+  }
+
+  @Get('sedes')
+  @Roles('abastecedor', 'administrador', 'propietario', 'vendedor', 'tecnico')
+  @ApiOperation({ summary: 'Listar todas las sedes disponibles' })
+  @ApiOkResponse({
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id_sede: { type: 'number' },
+          nombre: { type: 'string' },
+        },
+      },
+    },
+  })
+  findSedes(): Promise<{ id_sede: number; nombre: string }[]> {
+    return this.itemsService.findSedes();
   }
 
   // Recupera un único ítem por su clave primaria; lanza 404 si no existe.
@@ -150,5 +171,16 @@ export class ItemsController {
   @ApiNotFoundResponse()
   remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.itemsService.remove(id);
+  }
+
+  @Post(':id/imagen')
+  @ApiOperation({ summary: 'Subir o actualizar imagen del ítem en R2' })
+  @ApiOkResponse({ schema: { properties: { url: { type: 'string' } } } })
+  @ApiNotFoundResponse({ description: 'Ítem no encontrado' })
+  uploadImagen(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UploadImagenItemDto,
+  ): Promise<{ url: string }> {
+    return this.itemsService.uploadImagen(id, dto);
   }
 }

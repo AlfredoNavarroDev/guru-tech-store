@@ -11,7 +11,7 @@ import { ClientesModule } from './clientes/clientes.module';
 import { CatalogoModule } from './catalogo/catalogo.module';
 import { EmpleadosModule } from './empleados/empleados.module';
 import { VentasModule } from './ventas/ventas.module';
-import { BoletasModule } from './boletas/boletas.module';
+import { NotasVentaModule } from './notas-venta/notas-venta.module';
 import { PagosModule } from './pagos/pagos.module';
 import { ItemsModule } from './items/items.module';
 import { StockModule } from './stock/stock.module';
@@ -20,7 +20,11 @@ import { ComprasModule } from './compras/compras.module';
 import { ReparacionesModule } from './reparaciones/reparaciones.module';
 import { CambiosModule } from './cambios/cambios.module';
 import { GarantiasModule } from './garantias/garantias.module';
+import { PropietarioModule } from './propietario/propietario.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
+import { RestriccionesModule } from './restricciones/restricciones.module';
+import { PromocionesModule } from './promociones/promociones.module';
+import { SedesModule } from './sedes/sedes.module';
 
 @Module({
   imports: [
@@ -68,7 +72,7 @@ import { ChatbotModule } from './chatbot/chatbot.module';
     CatalogoModule,
     EmpleadosModule,
     VentasModule,
-    BoletasModule,
+    NotasVentaModule,
     PagosModule,
 
     // Módulos del Sprint 2.
@@ -86,6 +90,12 @@ import { ChatbotModule } from './chatbot/chatbot.module';
 
     // Módulos del Sprint 5.
     GarantiasModule,
+    PropietarioModule,
+
+    // Módulos del Sprint 6.
+    RestriccionesModule,
+    PromocionesModule,
+    SedesModule,
   ],
   controllers: [AppController],
   providers: [

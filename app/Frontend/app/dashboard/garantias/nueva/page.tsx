@@ -17,7 +17,7 @@ const inputCls =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10)
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" })
 }
 
 export default function NuevaGarantiaPage() {

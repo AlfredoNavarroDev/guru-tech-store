@@ -45,6 +45,7 @@ export class ProveedoresController {
 
   // Devuelve la lista paginada de proveedores ordenada por razón social.
   @Get()
+  @Roles('abastecedor', 'propietario')
   @ApiOperation({ summary: 'Listar proveedores paginados' })
   @ApiOkResponse({ type: ProveedorResponseDto, isArray: true })
   findAll(@Query() query: PaginationDto) {
@@ -53,6 +54,7 @@ export class ProveedoresController {
 
   // Recupera un proveedor por su PK; lanza 404 si no existe.
   @Get(':id')
+  @Roles('abastecedor', 'propietario')
   @ApiOperation({ summary: 'Obtener proveedor por ID' })
   @ApiOkResponse({ type: ProveedorResponseDto })
   @ApiNotFoundResponse()

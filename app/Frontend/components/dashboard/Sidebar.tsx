@@ -8,13 +8,14 @@ import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
   Boxes, ClipboardList, ShieldCheck, Wrench, Truck,
-  ArrowLeftRight, History,
+  ArrowLeftRight, History, Lock, Tag, ShoppingCart, BarChart2,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { AuthSession } from "@/lib/api/auth"
+import { SedePicker } from "@/components/dashboard/SedePicker"
 
 const vendedorNavLinks = [
   { href: "/dashboard",           label: "Resumen",    icon: LayoutDashboard },
@@ -26,24 +27,29 @@ const vendedorNavLinks = [
 ]
 
 const propietarioNavLinks = [
-  { href: "/dashboard",            label: "Resumen",    icon: LayoutDashboard },
-  { href: "/dashboard/ventas",     label: "Ventas",     icon: Receipt },
-  { href: "/dashboard/clientes",   label: "Clientes",   icon: UserRound },
-  { href: "/dashboard/empleados",  label: "Empleados",  icon: UserRound },
-  { href: "/dashboard/stock",      label: "Inventario", icon: Boxes },
-  { href: "/dashboard/catalogo",   label: "Catálogo",   icon: Grid3X3 },
-  { href: "/dashboard/cambios",    label: "Cambios",    icon: ArrowLeftRight },
-  { href: "/dashboard/garantias",  label: "Garantías",  icon: ShieldCheck },
+  { href: "/dashboard",               label: "Resumen",       icon: LayoutDashboard },
+  { href: "/dashboard/reportes",      label: "Reportes",      icon: BarChart2 },
+  { href: "/dashboard/clientes",      label: "Clientes",      icon: UserRound },
+  { href: "/dashboard/stock",         label: "Inventario",    icon: Boxes },
+  { href: "/dashboard/proveedores",   label: "Proveedores",   icon: Truck },
+  { href: "/dashboard/restricciones", label: "Restricciones", icon: Lock },
+  { href: "/dashboard/promociones",   label: "Promociones",   icon: Tag },
 ]
 
 const roleNavLinks = {
   admin: [
-    { href: "/dashboard", label: "Admin", icon: ShieldCheck },
-    { href: "/dashboard/empleados", label: "Empleados", icon: UserRound },
+    { href: "/dashboard",               label: "Resumen",       icon: ShieldCheck },
+    { href: "/dashboard/empleados",     label: "Empleados",     icon: UserRound },
+    { href: "/dashboard/restricciones", label: "Restricciones", icon: Lock },
+    { href: "/dashboard/promociones",   label: "Promociones",   icon: Tag },
+    { href: "/dashboard/reportes",      label: "Reportes",      icon: BarChart2 },
   ],
   administrador: [
-    { href: "/dashboard", label: "Admin", icon: ShieldCheck },
-    { href: "/dashboard/empleados", label: "Empleados", icon: UserRound },
+    { href: "/dashboard",               label: "Resumen",       icon: ShieldCheck },
+    { href: "/dashboard/empleados",     label: "Empleados",     icon: UserRound },
+    { href: "/dashboard/restricciones", label: "Restricciones", icon: Lock },
+    { href: "/dashboard/promociones",   label: "Promociones",   icon: Tag },
+    { href: "/dashboard/reportes",      label: "Reportes",      icon: BarChart2 },
   ],
   abastecedor: [
     { href: "/dashboard",             label: "Overview",    icon: LayoutDashboard },
@@ -83,9 +89,10 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
   const [isDesktop, setIsDesktop] = useState(false)
   const sessionLabel = session ? `${session.nombre} · ${session.sede}` : "Sesión no cargada"
   const navLinks = session ? (roleNavLinks[session.rol as keyof typeof roleNavLinks] ?? vendedorNavLinks) : []
-  const showSalesCta = session ? ["vendedor", "propietario", "gerente"].includes(session.rol) : false
+  const showSalesCta = session ? ["vendedor", "gerente"].includes(session.rol) : false
   const showComprasCta = session ? session.rol === "abastecedor" : false
   const showReparacionCta = session ? session.rol === "tecnico" : false
+  const showSedePicker = session ? session.rol === "propietario" : false
   const activeNavIndex = navLinks.reduce((bestIndex, link, index) => {
     if (!matchesRoute(pathname, link.href)) return bestIndex
     if (bestIndex === -1) return index
@@ -349,6 +356,12 @@ export function Sidebar({ session, onLogout, mobileOpen = false, onMobileClose }
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      )}
+
+      {showSedePicker && (
+        <div className="pt-2 pb-0">
+          <SedePicker isCollapsed={isCollapsed} />
         </div>
       )}
 

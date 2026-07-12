@@ -29,7 +29,7 @@ export class ClientesController {
 
   // Lista clientes con filtros por nombre o documento.
   @Get()
-  @Roles('vendedor', 'tecnico')
+  @Roles('vendedor', 'tecnico', 'propietario')
   @ApiOperation({ summary: 'HU-07 — Buscar clientes por nombre o documento' })
   findAll(@Query() query: QueryClienteDto): Promise<object[]> {
     return this.clientesService.findAll(query);
@@ -37,7 +37,7 @@ export class ClientesController {
 
   // Obtiene detalle de un cliente con su total de compras.
   @Get(':id')
-  @Roles('vendedor', 'tecnico')
+  @Roles('vendedor', 'tecnico', 'propietario')
   @ApiOperation({ summary: 'HU-07 — Detalle de cliente con total compras' })
   findOne(@Param('id', ParseIntPipe) id: number): Promise<object> {
     return this.clientesService.findOne(id);

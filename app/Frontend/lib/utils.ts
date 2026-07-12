@@ -28,3 +28,12 @@ export function fmtFecha(iso: string | null | undefined): string {
 export function repId(id: number): string {
   return `REP-${String(id).padStart(3, "0")}`
 }
+
+export function limaToday(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" })
+}
+
+export function limaDate(iso: string | Date | null | undefined): string {
+  if (!iso) return ""
+  return new Date(String(iso)).toLocaleDateString("en-CA", { timeZone: "America/Lima" })
+}

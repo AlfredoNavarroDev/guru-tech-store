@@ -17,7 +17,7 @@ import {
 import { motion, AnimatePresence } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog } from "@/components/ui/dialog"
 import { getCompras, getCompra, type Compra } from "@/lib/api/compras"
 import { ApiError } from "@/lib/api/client"
 import { cn } from "@/lib/utils"
@@ -585,18 +585,14 @@ export default function ComprasPage() {
         </div>
       </BlurFade>
 
-      <BottomSheet
+      <Dialog
         open={selectedId !== null}
         onClose={closePanel}
-        wrapperClassName="lg:hidden"
       >
         <div
           className="flex flex-col rounded-t-2xl border border-b-0 border-x-0 border-gray-200 bg-white shadow-xl"
           style={{ maxHeight: "85dvh" }}
         >
-          <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="h-1 w-10 rounded-full bg-gray-200" />
-          </div>
           {selectedId !== null && (
             <DetailPanel
               compra={currentDetail}
@@ -608,7 +604,7 @@ export default function ComprasPage() {
             />
           )}
         </div>
-      </BottomSheet>
+      </Dialog>
     </div>
   )
 }

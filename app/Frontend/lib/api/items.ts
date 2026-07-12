@@ -113,3 +113,24 @@ export function getCategorias() {
 export function getMarcas() {
   return authRequest<Marca[]>('items/marcas')
 }
+
+export interface Sede {
+  id_sede: number
+  nombre: string
+}
+
+export function getSedes() {
+  return authRequest<Sede[]>('items/sedes')
+}
+
+export interface UploadImagenItemPayload {
+  imagen_base64: string
+  content_type: 'image/jpeg' | 'image/png' | 'image/webp'
+}
+
+export function uploadImagenItem(id: number, payload: UploadImagenItemPayload) {
+  return authRequest<{ url: string }>(`items/${id}/imagen`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}

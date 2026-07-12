@@ -6,7 +6,8 @@ import { Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { ChatbotFAB } from "@/components/chatbot/ChatbotFAB"
-import { getSession, clearSession, setAuthCookie, type AuthSession } from "@/lib/api/auth"
+import { getSession, clearSession, type AuthSession } from "@/lib/api/auth"
+import { getCookie } from "@/lib/api/cookie"
 
 const SEGMENT_TITLES: Record<string, string> = {
   dashboard: "Resumen",
@@ -28,6 +29,8 @@ const SEGMENT_TITLES: Record<string, string> = {
   "compras/:id": "Detalle de compra",
   garantias: "Garantías",
   "garantias/nueva": "Nueva garantía",
+  restricciones: "Restricciones",
+  promociones: "Promociones",
 }
 
 function getPageTitle(pathname: string): string {
@@ -53,13 +56,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     // Razonamiento: diferir lectura de sesión evita setState síncrono dentro del efecto inicial.
     const sessionTimeout = window.setTimeout(() => {
-      const raw = localStorage.getItem("guru_auth")
-      if (!raw) { router.push("/login"); return }
+      if (!getCookie("guru_auth")) { router.push("/login"); return }
       try {
         const currentSession = getSession()
         if (!currentSession) { router.push("/login"); return }
         setSession(currentSession)
-        setAuthCookie(currentSession.access_token)
       } catch {
         router.push("/login")
       }
@@ -70,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = async () => {
     // Call logout API if available
     try {
-      const refreshToken = localStorage.getItem("guru_refresh_token")
+      const refreshToken = getCookie("guru_refresh_token")
       if (refreshToken) {
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
           method: "POST",

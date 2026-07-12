@@ -94,6 +94,10 @@ export class CreateReparacionDto {
   @IsIn(['software', 'hardware', 'mixto'])
   tipo_servicio?: 'software' | 'hardware' | 'mixto';
 
+  @ApiProperty({ enum: ['diagnostico', 'reparacion'], example: 'reparacion' })
+  @IsIn(['diagnostico', 'reparacion'])
+  tipo_accion: 'diagnostico' | 'reparacion';
+
   // Formato estricto YYYY-MM-DD; se valida con regex para coherencia con el campo `date` en BD.
   @ApiPropertyOptional({
     example: '2026-06-28',

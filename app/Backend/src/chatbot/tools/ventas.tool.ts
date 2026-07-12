@@ -50,27 +50,28 @@ export const consultarVentasTool = (dataSource: DataSource, idSede: number) =>
         // Calcula el rango de fechas según el periodo elegido; "mes" comienza el 1 del mes en curso
         let desde: string;
         let hasta: string;
-        const now = new Date();
+        const limaHoy = new Date().toLocaleDateString('en-CA', {
+          timeZone: 'America/Lima',
+        });
         if (periodo === 'hoy') {
-          desde = hasta = now.toISOString().slice(0, 10);
+          desde = hasta = limaHoy;
         } else if (periodo === 'semana') {
-          const d = new Date(now);
+          const d = new Date(limaHoy + 'T12:00:00');
           d.setDate(d.getDate() - 6);
-          desde = d.toISOString().slice(0, 10);
-          hasta = now.toISOString().slice(0, 10);
+          desde = d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+          hasta = limaHoy;
         } else if (periodo === 'mes') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1);
-          desde = d.toISOString().slice(0, 10);
-          hasta = now.toISOString().slice(0, 10);
+          desde = limaHoy.slice(0, 7) + '-01';
+          hasta = limaHoy;
         } else {
           // Modo personalizado: usa las fechas recibidas o el día de hoy como fallback
-          desde = fecha_inicio ?? now.toISOString().slice(0, 10);
-          hasta = fecha_fin ?? now.toISOString().slice(0, 10);
+          desde = fecha_inicio ?? limaHoy;
+          hasta = fecha_fin ?? limaHoy;
         }
 
         const conditions: string[] = [
           'v.id_sede = $1',
-          `DATE(v.fecha_emision) BETWEEN $2 AND $3`,
+          `DATE(v.fecha_emision AT TIME ZONE 'America/Lima') BETWEEN $2 AND $3`,
         ];
         const params: (number | string)[] = [idSede, desde, hasta];
         let idx = 4;

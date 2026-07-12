@@ -28,7 +28,7 @@ import { getClientes, createCliente, type ClienteVista } from "@/lib/api/cliente
 import { createVenta, createPago, emitirBoleta, type CreatePagoInput } from "@/lib/api/ventas"
 import { cn, formatNum } from "@/lib/utils"
 import { toast } from "sonner"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog } from "@/components/ui/dialog"
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button"
 import { ItemSpecsContent } from "@/components/vendedor/ItemSpecsSidebar"
 import { ProductCard } from "@/components/catalogo/ProductCard"
@@ -568,20 +568,14 @@ export default function CatalogoPage() {
     <div className="bg-bg-main min-h-full">
 
       {/* ══════════ SALE REGISTRATION MODAL ══════════ */}
-      <BottomSheet
+      <Dialog
         open={showSaleModal}
         onClose={() => !submitting && setShowSaleModal(false)}
-        disabled={submitting}
       >
               <div
                 className="relative w-full bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col"
                 style={{ maxHeight: "92dvh" }}
               >
-                {/* Mobile handle */}
-                <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-                  <div className="h-1 w-10 rounded-full bg-gray-200" />
-                </div>
-
                 {/* Header */}
                 <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
                   <div className="flex items-center gap-2.5">
@@ -628,10 +622,10 @@ export default function CatalogoPage() {
                           className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
                         >
                           <Receipt className="h-4 w-4" />
-                          Ver boleta PDF
+                          Ver nota de venta PDF
                         </a>
                       ) : (
-                        <p className="text-xs text-gray-400">Boleta disponible en historial de ventas</p>
+                        <p className="text-xs text-gray-400">Nota de venta disponible en historial de ventas</p>
                       )}
                     </motion.div>
                   )}
@@ -1009,7 +1003,7 @@ export default function CatalogoPage() {
                   </Button>
                 </div>
               </div>
-      </BottomSheet>
+      </Dialog>
 
       <div className="flex relative overflow-x-clip">
         {/* ══════════ CENTER: product grid ══════════ */}
@@ -1246,7 +1240,7 @@ export default function CatalogoPage() {
         </div>
 
         {/* ══════════ RIGHT: filter sidebar (desktop only) ══════════ */}
-        <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100 relative">
+        <div className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 h-[calc(100vh-5rem)] bg-gray-100">
           <AnimatePresence>
             {loading ? (
               <motion.div
@@ -1308,7 +1302,7 @@ export default function CatalogoPage() {
       </div>
 
       {/* Product specs modal (all breakpoints) */}
-      <BottomSheet
+      <Dialog
         open={!!specItem}
         onClose={() => setSpecItem(null)}
       >
@@ -1317,7 +1311,7 @@ export default function CatalogoPage() {
             <ItemSpecsContent item={specItem} onClose={() => setSpecItem(null)} />
           )}
         </div>
-      </BottomSheet>
+      </Dialog>
     </div>
   )
 }

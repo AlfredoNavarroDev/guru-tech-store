@@ -16,7 +16,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 import { VentasService } from './ventas.service';
 import { PagosService } from '../pagos/pagos.service';
-import { BoletasService } from '../boletas/boletas.service';
+import { NotasVentaService } from '../notas-venta/notas-venta.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { QueryVentasDto } from './dto/query-ventas.dto';
 import { ResumenHoyDto, VentaResponseDto } from './dto/venta-response.dto';
@@ -33,7 +33,7 @@ export class VentasController {
   constructor(
     private readonly ventasService: VentasService,
     private readonly pagosService: PagosService,
-    private readonly boletasService: BoletasService,
+    private readonly notasVentaService: NotasVentaService,
   ) {}
 
   // ── Ventas ────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ export class VentasController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.boletasService.emitir(id, user);
+    return this.notasVentaService.emitir(id, user);
   }
 
   // HU-08: Obtiene la boleta ya emitida de una venta.
@@ -118,6 +118,6 @@ export class VentasController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.boletasService.findByVenta(id, user);
+    return this.notasVentaService.findByVenta(id, user);
   }
 }

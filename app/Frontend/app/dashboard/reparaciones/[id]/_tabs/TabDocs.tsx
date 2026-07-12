@@ -74,7 +74,7 @@ export function TabDocs({
       onBoletaEmitida(b)
       toast.success(`Comprobante ${b.numero} generado`)
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Error emitiendo boleta")
+      toast.error(e instanceof ApiError ? e.message : "Error emitiendo nota de venta")
     } finally {
       setEmittingBoleta(false)
     }

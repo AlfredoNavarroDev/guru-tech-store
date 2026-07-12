@@ -4,10 +4,15 @@ import { GarantiasController } from './garantias.controller';
 import { GarantiasService } from './garantias.service';
 import { Garantia } from './entities/garantia.entity';
 import { ReparacionesModule } from '../reparaciones/reparaciones.module';
+import { RestriccionesModule } from '../restricciones/restricciones.module';
 
-// Módulo de garantías. Importa ReparacionesModule para poder crear reparaciones al reclamar.
+// Módulo de garantías. Importa ReparacionesModule para reclamos y RestriccionesModule para validar max_dias_garantia.
 @Module({
-  imports: [TypeOrmModule.forFeature([Garantia]), ReparacionesModule],
+  imports: [
+    TypeOrmModule.forFeature([Garantia]),
+    ReparacionesModule,
+    RestriccionesModule,
+  ],
   controllers: [GarantiasController],
   providers: [GarantiasService],
 })

@@ -1,3 +1,4 @@
+import { plainToInstance } from 'class-transformer';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -18,6 +19,8 @@ import { UpdatePasswordEmpleadoDto } from './dto/update-password-empleado.dto';
 import { UpdateEstadoEmpleadoDto } from './dto/update-estado-empleado.dto';
 import { QueryEmpleadosDto } from './dto/query-empleados.dto';
 import { EmpleadoResponseDto } from './dto/empleado-response.dto';
+import { EmpleadoRendimientoDto } from './dto/empleado-rendimiento.dto';
+import { RendimientoHoyDto } from './dto/rendimiento-hoy.dto';
 
 // Servicio de empleados. Scoped por sede — ninguna operación cruza sedes.
 @Injectable()
@@ -201,5 +204,151 @@ export class EmpleadosService {
         'Documento inválido: DNI 8 dígitos, CE 12 dígitos, pasaporte 6 a 9 caracteres alfanuméricos.',
       );
     }
+  }
+
+  async getRendimiento(user: JwtPayload): Promise<EmpleadoRendimientoDto[]> {
+    const idSede = user.id_sede!;
+
+    // ── Vendedores ──────────────────────────────────────────────────────────
+    const vendedoresSQL = `
+      WITH this_month AS (
+        SELECT id_empleado, fecha, ingresos
+        FROM   v_vendedor_resumen_diario
+        WHERE  DATE_TRUNC('month', fecha)
+               = DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
+      ),
+      best AS (
+        SELECT
+          id_empleado,
+          MAX(ingresos) AS ingresos_mejor_dia_mes,
+          (ARRAY_AGG(fecha ORDER BY ingresos DESC))[1] AS fecha_mejor_dia_mes
+        FROM  this_month
+        GROUP BY id_empleado
+      ),
+      today AS (
+        SELECT id_empleado, ingresos AS ingresos_hoy
+        FROM   this_month
+        WHERE  fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+      )
+      SELECT
+        e.id_empleado,
+        e.nombre_completo,
+        'vendedor'                                            AS rol_nombre,
+        COALESCE(t.ingresos_hoy, 0)::numeric                  AS ingresos_hoy,
+        COALESCE(b.ingresos_mejor_dia_mes, 0)::numeric        AS ingresos_mejor_dia_mes,
+        TO_CHAR(b.fecha_mejor_dia_mes, 'YYYY-MM-DD')         AS fecha_mejor_dia_mes
+      FROM  empleados e
+      JOIN  roles     r ON r.id_rol = e.id_rol AND LOWER(r.nombre_rol) = 'vendedor'
+      LEFT JOIN today t ON t.id_empleado = e.id_empleado
+      LEFT JOIN best  b ON b.id_empleado = e.id_empleado
+      WHERE e.id_sede = $1 AND e.estado = 'activo'
+      ORDER BY ingresos_hoy DESC
+    `;
+
+    // ── Técnicos ────────────────────────────────────────────────────────────
+    const tecnicosSQL = `
+      WITH this_month AS (
+        SELECT
+          r.id_tecnico                                       AS id_empleado,
+          DATE(p.fecha_pago AT TIME ZONE 'America/Lima')     AS fecha,
+          SUM(p.monto::numeric)                              AS ingresos
+        FROM  pagos p
+        JOIN  reparaciones r ON r.id_reparacion = p.id_reparacion
+        WHERE r.id_sede = $1
+          AND DATE_TRUNC('month', DATE(p.fecha_pago AT TIME ZONE 'America/Lima'))
+              = DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
+        GROUP BY r.id_tecnico, DATE(p.fecha_pago AT TIME ZONE 'America/Lima')
+      ),
+      best AS (
+        SELECT
+          id_empleado,
+          MAX(ingresos)                                      AS ingresos_mejor_dia_mes,
+          (ARRAY_AGG(fecha ORDER BY ingresos DESC))[1]       AS fecha_mejor_dia_mes
+        FROM  this_month
+        GROUP BY id_empleado
+      ),
+      today AS (
+        SELECT id_empleado, ingresos AS ingresos_hoy
+        FROM   this_month
+        WHERE  fecha = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+      )
+      SELECT
+        e.id_empleado,
+        e.nombre_completo,
+        'tecnico'                                            AS rol_nombre,
+        COALESCE(t.ingresos_hoy, 0)::numeric                 AS ingresos_hoy,
+        COALESCE(b.ingresos_mejor_dia_mes, 0)::numeric       AS ingresos_mejor_dia_mes,
+        TO_CHAR(b.fecha_mejor_dia_mes, 'YYYY-MM-DD')        AS fecha_mejor_dia_mes
+      FROM  empleados e
+      JOIN  roles     r ON r.id_rol = e.id_rol AND LOWER(r.nombre_rol) = 'tecnico'
+      LEFT JOIN today t ON t.id_empleado = e.id_empleado
+      LEFT JOIN best  b ON b.id_empleado = e.id_empleado
+      WHERE e.id_sede = $1 AND e.estado = 'activo'
+      ORDER BY ingresos_hoy DESC
+    `;
+
+    const [vendedores, tecnicos] = await Promise.all([
+      this.dataSource.query(vendedoresSQL, [idSede]),
+      this.dataSource.query(tecnicosSQL, [idSede]),
+    ]);
+
+    return plainToInstance(
+      EmpleadoRendimientoDto,
+      [...vendedores, ...tecnicos].map((row) => ({
+        id_empleado: Number(row.id_empleado),
+        nombre_completo: row.nombre_completo,
+        rol_nombre: row.rol_nombre as 'vendedor' | 'tecnico',
+        ingresos_hoy: Number(row.ingresos_hoy),
+        ingresos_mejor_dia_mes: Number(row.ingresos_mejor_dia_mes),
+        fecha_mejor_dia_mes: row.fecha_mejor_dia_mes ?? null,
+      })),
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  async getRendimientoHoy(user: JwtPayload): Promise<RendimientoHoyDto> {
+    let total_hoy = 0;
+
+    if (user.rol === 'vendedor') {
+      const [row] = await this.dataSource.query<{ total: string }[]>(
+        `SELECT COALESCE(SUM(dv.importe), 0) AS total
+         FROM detalle_venta dv
+         JOIN ventas v ON v.id_venta = dv.id_venta
+         WHERE v.id_empleado = $1
+           AND DATE(v.fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`,
+        [user.sub],
+      );
+      total_hoy = parseFloat(row.total);
+    } else if (user.rol === 'tecnico') {
+      const [row] = await this.dataSource.query<{ total: string }[]>(
+        `SELECT COALESCE(SUM(monto_cotizado), 0) AS total
+         FROM reparaciones
+         WHERE id_tecnico = $1
+           AND DATE(fecha_terminado AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+           AND fecha_terminado IS NOT NULL`,
+        [user.sub],
+      );
+      total_hoy = parseFloat(row.total);
+    }
+
+    const [metaRow] = await this.dataSource.query<
+      { meta_ventas_diaria: string | null }[]
+    >(
+      `SELECT cmr.meta_ventas_diaria
+       FROM config_metas_rol cmr
+       JOIN roles r ON r.id_rol = cmr.id_rol
+       WHERE r.nombre_rol = $1`,
+      [user.rol],
+    );
+
+    const meta_diaria = metaRow?.meta_ventas_diaria
+      ? parseFloat(metaRow.meta_ventas_diaria)
+      : null;
+
+    const porcentaje = meta_diaria
+      ? Math.round((total_hoy / meta_diaria) * 100)
+      : null;
+
+    return { total_hoy, meta_diaria, porcentaje };
   }
 }

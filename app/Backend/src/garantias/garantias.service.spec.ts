@@ -207,7 +207,11 @@ describe('GarantiasService', () => {
         id_garantia_reclamada: 1,
       });
 
-      const result = await service.crearReclamo(1, {}, mockTecnico);
+      const result = await service.crearReclamo(
+        1,
+        { tipo_accion: 'reparacion' as const },
+        mockTecnico,
+      );
 
       expect(result.id_reparacion).toBe(55);
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
@@ -215,18 +219,26 @@ describe('GarantiasService', () => {
     });
 
     it('lanza ForbiddenException si rol=vendedor', async () => {
-      await expect(service.crearReclamo(1, {}, mockVendedor)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.crearReclamo(
+          1,
+          { tipo_accion: 'reparacion' as const },
+          mockVendedor,
+        ),
+      ).rejects.toThrow(ForbiddenException);
       expect(dataSource.query).not.toHaveBeenCalled();
     });
 
     it('lanza GarantiaNotFoundException si no existe', async () => {
       dataSource.query.mockResolvedValueOnce([]);
 
-      await expect(service.crearReclamo(999, {}, mockTecnico)).rejects.toThrow(
-        GarantiaNotFoundException,
-      );
+      await expect(
+        service.crearReclamo(
+          999,
+          { tipo_accion: 'reparacion' as const },
+          mockTecnico,
+        ),
+      ).rejects.toThrow(GarantiaNotFoundException);
     });
 
     it('lanza GarantiaNotFoundException si la reparacion es de otra sede', async () => {
@@ -234,9 +246,13 @@ describe('GarantiasService', () => {
         { ...garantiaReclamableRow, id_sede: 99 },
       ]);
 
-      await expect(service.crearReclamo(1, {}, mockTecnico)).rejects.toThrow(
-        GarantiaNotFoundException,
-      );
+      await expect(
+        service.crearReclamo(
+          1,
+          { tipo_accion: 'reparacion' as const },
+          mockTecnico,
+        ),
+      ).rejects.toThrow(GarantiaNotFoundException);
     });
 
     it('lanza GarantiaTipoInvalidoException si la garantia es de venta', async () => {
@@ -249,9 +265,13 @@ describe('GarantiasService', () => {
         },
       ]);
 
-      await expect(service.crearReclamo(1, {}, mockTecnico)).rejects.toThrow(
-        GarantiaTipoInvalidoException,
-      );
+      await expect(
+        service.crearReclamo(
+          1,
+          { tipo_accion: 'reparacion' as const },
+          mockTecnico,
+        ),
+      ).rejects.toThrow(GarantiaTipoInvalidoException);
     });
 
     it('lanza GarantiaNoActivaException si la garantia esta vencida', async () => {
@@ -259,9 +279,13 @@ describe('GarantiasService', () => {
         { ...garantiaReclamableRow, estado: 'vencida' },
       ]);
 
-      await expect(service.crearReclamo(1, {}, mockTecnico)).rejects.toThrow(
-        GarantiaNoActivaException,
-      );
+      await expect(
+        service.crearReclamo(
+          1,
+          { tipo_accion: 'reparacion' as const },
+          mockTecnico,
+        ),
+      ).rejects.toThrow(GarantiaNoActivaException);
     });
 
     it('lanza GarantiaNoActivaException si la garantia ya esta invalidada', async () => {
@@ -269,9 +293,13 @@ describe('GarantiasService', () => {
         { ...garantiaReclamableRow, estado: 'invalidada' },
       ]);
 
-      await expect(service.crearReclamo(1, {}, mockTecnico)).rejects.toThrow(
-        GarantiaNoActivaException,
-      );
+      await expect(
+        service.crearReclamo(
+          1,
+          { tipo_accion: 'reparacion' as const },
+          mockTecnico,
+        ),
+      ).rejects.toThrow(GarantiaNoActivaException);
     });
   });
 });

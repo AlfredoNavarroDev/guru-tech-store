@@ -1,12 +1,12 @@
 import { Controller, Get, Header, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { BoletasService } from './boletas.service';
+import { NotasVentaService } from './notas-venta.service';
 
-// Rutas públicas de boletas (sin JWT) para previsualizar templates en el navegador.
+// Rutas públicas de notas de venta (sin JWT) para previsualizar templates en el navegador.
 @ApiTags('boletas')
 @Controller('boletas')
-export class BoletasController {
-  constructor(private readonly boletasService: BoletasService) {}
+export class NotasVentaController {
+  constructor(private readonly notasVentaService: NotasVentaService) {}
 
   // Preview con datos mock, sin BD. Para iterar el template rápidamente.
   @Get('preview')
@@ -15,7 +15,7 @@ export class BoletasController {
     summary: 'Preview HTML con datos mock (dev, sin auth, sin BD)',
   })
   previewMock(): string {
-    return this.boletasService.renderPreviewMock();
+    return this.notasVentaService.renderPreviewMock();
   }
 
   // Preview de boleta de cambio con datos mock, sin BD. Para iterar el template.
@@ -25,7 +25,7 @@ export class BoletasController {
     summary: 'Preview HTML de boleta de cambio con datos mock (dev, sin auth)',
   })
   previewCambioMock(): string {
-    return this.boletasService.renderPreviewMockCambio();
+    return this.notasVentaService.renderPreviewMockCambio();
   }
 
   // Renderiza HTML del comprobante con datos reales de una venta (sin PDF ni R2).
@@ -33,6 +33,6 @@ export class BoletasController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({ summary: 'Preview HTML del comprobante (dev, sin auth)' })
   previewBoleta(@Param('id', ParseIntPipe) id: number): Promise<string> {
-    return this.boletasService.renderPreview(id);
+    return this.notasVentaService.renderPreview(id);
   }
 }

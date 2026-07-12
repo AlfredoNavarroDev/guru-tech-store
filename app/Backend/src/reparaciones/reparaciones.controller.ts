@@ -20,7 +20,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 import { ReparacionesService } from './reparaciones.service';
 import { PagosService } from '../pagos/pagos.service';
-import { BoletasService } from '../boletas/boletas.service';
+import { NotasVentaService } from '../notas-venta/notas-venta.service';
 import { CreateReparacionDto } from './dto/create-reparacion.dto';
 import { UpdateEstadoReparacionDto } from './dto/update-estado-reparacion.dto';
 import { AddRepuestoReparacionDto } from './dto/add-repuesto-reparacion.dto';
@@ -38,7 +38,7 @@ export class ReparacionesController {
   constructor(
     private readonly reparacionesService: ReparacionesService,
     private readonly pagosService: PagosService,
-    private readonly boletasService: BoletasService,
+    private readonly notasVentaService: NotasVentaService,
   ) {}
 
   // ── Reparaciones ───────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ export class ReparacionesController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.boletasService.emitirParaReparacion(id, user);
+    return this.notasVentaService.emitirParaReparacion(id, user);
   }
 
   // Devuelve boleta existente de una reparación.
@@ -161,6 +161,6 @@ export class ReparacionesController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.boletasService.findByReparacion(id, user);
+    return this.notasVentaService.findByReparacion(id, user);
   }
 }

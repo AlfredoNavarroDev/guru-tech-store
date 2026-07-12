@@ -13,15 +13,26 @@ import {
 
 const MARCAS_PREDEFINIDAS = ["Samsung", "Huawei", "Motorola", "Xiaomi", "iPhone"]
 
-const CHECKLIST_ITEMS = [
-  { key: "pantalla" as ChecklistKey, label: "Pantalla" },
-  { key: "touch" as ChecklistKey, label: "Touch" },
-  { key: "bateria" as ChecklistKey, label: "Batería" },
-  { key: "camara" as ChecklistKey, label: "Cámara" },
-  { key: "altavoz" as ChecklistKey, label: "Altavoz" },
-  { key: "microfono" as ChecklistKey, label: "Micrófono" },
-  { key: "zocalo" as ChecklistKey, label: "Zócalo" },
-  { key: "carcasa" as ChecklistKey, label: "Carcasa" },
+const CHECKLIST_ITEMS: { key: ChecklistKey; label: string }[] = [
+  { key: "pantalla",       label: "Pantalla" },
+  { key: "bateria",        label: "Batería" },
+  { key: "zocalo",         label: "Zócalo" },
+  { key: "carcasa",        label: "Carcasa" },
+  { key: "camara_frontal", label: "Cámara frontal" },
+  { key: "camara_trasera", label: "Cámara trasera" },
+  { key: "altavoz",        label: "Altavoz" },
+  { key: "microfono",      label: "Micrófono" },
+  { key: "tactil",         label: "Táctil" },
+  { key: "brillo_pantalla",label: "Brillo/pantalla" },
+  { key: "wifi",           label: "WiFi" },
+  { key: "bluetooth",      label: "Bluetooth" },
+  { key: "huella",         label: "Huella" },
+  { key: "face_id",        label: "Face ID" },
+]
+
+const CHECKS_REQUIRE_ENCENDIDO: ChecklistKey[] = [
+  "camara_frontal", "camara_trasera", "altavoz", "microfono",
+  "tactil", "brillo_pantalla", "wifi", "bluetooth", "huella", "face_id",
 ]
 
 export function Step2EquipoFoto() {
@@ -201,13 +212,20 @@ export function Step2EquipoFoto() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {CHECKLIST_ITEMS.map(({ key, label }) => {
             const estado = checklist[key]
+            const isBlocked = estaEncendido === false && CHECKS_REQUIRE_ENCENDIDO.includes(key)
             return (
-              <div key={key} className="flex items-center justify-between gap-2">
+              <div
+                key={key}
+                className={cn("flex items-center justify-between gap-2", isBlocked && "opacity-40")}
+                title={isBlocked ? "Requiere equipo encendido" : undefined}
+              >
                 <span className="text-xs font-medium text-gray-700">{label}</span>
                 <div className="relative">
                   <select
                     value={estado ?? ""}
+                    disabled={isBlocked}
                     onChange={(e) => {
+                      if (isBlocked) return
                       const v = e.target.value as ChecklistEstado | ""
                       if (v === "") {
                         setChecklist((prev) => {
@@ -221,13 +239,15 @@ export function Step2EquipoFoto() {
                     }}
                     className={cn(
                       "appearance-none rounded-lg border px-2 py-1.5 pr-6 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#020617]/10",
-                      estado === "ok"
-                        ? "border-green-200 bg-green-50 text-green-700"
-                        : estado === "dañado"
-                          ? "border-red-200 bg-red-50 text-red-600"
-                          : estado === "no aplica"
-                            ? "border-gray-200 bg-gray-50 text-gray-400"
-                            : "border-gray-200 bg-white text-gray-500",
+                      isBlocked
+                        ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400"
+                        : estado === "ok"
+                          ? "border-green-200 bg-green-50 text-green-700"
+                          : estado === "dañado"
+                            ? "border-red-200 bg-red-50 text-red-600"
+                            : estado === "no aplica"
+                              ? "border-gray-200 bg-gray-50 text-gray-400"
+                              : "border-gray-200 bg-white text-gray-500",
                     )}
                   >
                     <option value="">—</option>

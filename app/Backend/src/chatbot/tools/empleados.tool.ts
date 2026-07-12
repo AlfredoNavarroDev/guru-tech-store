@@ -25,19 +25,19 @@ export const consultarRendimientoEmpleadosTool = (
       try {
         // Calcula la fecha de inicio del periodo; "mes" toma el primer día del mes en curso
         let desde: string;
-        const now = new Date();
+        const limaHoy = new Date().toLocaleDateString('en-CA', {
+          timeZone: 'America/Lima',
+        });
         if (periodo === 'hoy') {
-          desde = now.toISOString().slice(0, 10);
+          desde = limaHoy;
         } else if (periodo === 'semana') {
-          const d = new Date(now);
+          const d = new Date(limaHoy + 'T12:00:00');
           d.setDate(d.getDate() - 6);
-          desde = d.toISOString().slice(0, 10);
+          desde = d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
         } else {
-          desde = new Date(now.getFullYear(), now.getMonth(), 1)
-            .toISOString()
-            .slice(0, 10);
+          desde = limaHoy.slice(0, 7) + '-01';
         }
-        const hasta = now.toISOString().slice(0, 10);
+        const hasta = limaHoy;
 
         // Cláusula opcional que restringe el resultado a un rol concreto
         const rolCondition =
@@ -63,7 +63,7 @@ export const consultarRendimientoEmpleadosTool = (
              )::text AS rep_activas,
              COUNT(DISTINCT rep.id_reparacion) FILTER (
                WHERE rep.id_reparacion IS NOT NULL AND er.es_final = true
-                 AND DATE(rep.fecha_terminado) BETWEEN $2 AND $3
+                 AND DATE(rep.fecha_terminado AT TIME ZONE 'America/Lima') BETWEEN $2 AND $3
              )::text AS rep_finalizadas,
              COUNT(DISTINCT v.id_venta)::text AS ventas_periodo,
              COALESCE(SUM(dv.importe), 0)::text AS ingresos_periodo
@@ -75,7 +75,7 @@ export const consultarRendimientoEmpleadosTool = (
              ON er.id_estado = rep.id_estado
            LEFT JOIN ventas v
              ON v.id_empleado = e.id_empleado AND v.id_sede = $1
-               AND DATE(v.fecha_emision) BETWEEN $2 AND $3
+               AND DATE(v.fecha_emision AT TIME ZONE 'America/Lima') BETWEEN $2 AND $3
            LEFT JOIN detalle_venta dv ON dv.id_venta = v.id_venta
            WHERE e.id_sede = $1
              AND e.estado = 'activo'

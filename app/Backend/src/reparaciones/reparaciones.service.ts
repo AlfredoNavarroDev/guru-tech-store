@@ -52,6 +52,7 @@ interface ReparacionRow {
   tipo_descuento: string | null;
   justificacion_descuento: string | null;
   tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
+  tipo_accion: 'diagnostico' | 'reparacion';
   repuestos_cost?: string;
   created_at: Date;
   updated_at: Date | null;
@@ -142,6 +143,7 @@ export class ReparacionesService {
       tipo_descuento: dto.tipo_descuento ?? null,
       justificacion_descuento: dto.justificacion_descuento ?? null,
       tipo_servicio: dto.tipo_servicio ?? null,
+      tipo_accion: dto.tipo_accion,
     });
 
     const saved = await this.reparacionRepo.save(reparacion);
@@ -565,6 +567,7 @@ export class ReparacionesService {
       tipo_descuento: row.tipo_descuento ?? null,
       justificacion_descuento: row.justificacion_descuento ?? null,
       tipo_servicio: row.tipo_servicio ?? null,
+      tipo_accion: row.tipo_accion ?? 'reparacion',
       created_at: row.created_at,
       updated_at: row.updated_at ?? null,
       fotos: row.fotos ?? null,

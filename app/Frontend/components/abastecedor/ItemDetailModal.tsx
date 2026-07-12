@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils"
 import { ItemImage } from "@/components/ui/item-image"
 import {
-  Dialog,
+  DialogBase,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -19,7 +19,7 @@ export function ItemDetailModal({ item, open, onClose }: ItemDetailModalProps) {
   if (!item) return null
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+    <DialogBase open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent
         className="sm:max-w-lg p-0 overflow-hidden"
         showCloseButton
@@ -110,6 +110,6 @@ export function ItemDetailModal({ item, open, onClose }: ItemDetailModalProps) {
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </DialogBase>
   )
 }

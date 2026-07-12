@@ -13,6 +13,7 @@ const TIPOS = [
 
 export function Step3TipoServicio() {
   const {
+    tipoAccion, setTipoAccion,
     tipoServicio, setTipoServicio,
     diagnostico, setDiagnostico,
     fechaEst, setFechaEst,
@@ -26,6 +27,30 @@ export function Step3TipoServicio() {
 
   return (
     <div className="space-y-4">
+      {/* Tipo de acción */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <label className="mb-2 block text-xs font-medium text-text-muted uppercase tracking-wider">
+          Tipo de acción <span className="text-red-400">*</span>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {(["reparacion", "diagnostico"] as const).map((val) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setTipoAccion(val)}
+              className={cn(
+                "rounded-xl border py-2.5 text-sm font-medium transition-colors",
+                tipoAccion === val
+                  ? "border-[#020617] bg-[#020617]/5 text-[#020617]"
+                  : "border-gray-200 text-gray-600 hover:border-[#020617]/25 hover:bg-[#020617]/5",
+              )}
+            >
+              {val === "reparacion" ? "Reparación" : "Diagnóstico"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tipo de servicio */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-text-muted">

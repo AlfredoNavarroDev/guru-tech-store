@@ -14,7 +14,7 @@ import {
   User,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog } from "@/components/ui/dialog"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -203,7 +203,7 @@ function VentaRow({ v, selected, delay, onClick }: VentaRowProps) {
               {v.nro_boleta}
             </span>
           ) : (
-            <span className="text-xs text-gray-300">Sin boleta</span>
+            <span className="text-xs text-gray-300">Sin nota de venta</span>
           )}
         </div>
 
@@ -662,19 +662,15 @@ export default function VentasPage() {
 
       </BlurFade>
 
-      {/* Detail panel — mobile bottom sheet (at root to escape BlurFade stacking context) */}
-      <BottomSheet
+      {/* Detail panel — mobile dialog (at root to escape BlurFade stacking context) */}
+      <Dialog
         open={selectedVentaId !== null}
         onClose={() => setSelectedVentaId(null)}
-        wrapperClassName="lg:hidden"
       >
         <div
           className="flex flex-col bg-white rounded-t-2xl border border-gray-200 border-b-0 border-x-0 shadow-xl"
           style={{ maxHeight: "85dvh" }}
         >
-          <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="h-1 w-10 rounded-full bg-gray-200" />
-          </div>
           <DetailPanel
             v={selectedVenta}
             ventaId={selectedVentaId!}
@@ -683,7 +679,7 @@ export default function VentasPage() {
             className="w-full flex-1 min-h-0 rounded-none border-none shadow-none bg-transparent"
           />
         </div>
-      </BottomSheet>
+      </Dialog>
     </div>
   )
 }

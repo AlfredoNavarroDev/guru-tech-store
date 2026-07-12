@@ -42,7 +42,7 @@ function WizardContent() {
     idCliente,
     marca, modelo, imei, estaEncendido, checklist,
     fotoBase64, fotoContentType,
-    tipoServicio, diagnostico, fechaEst, cotizado,
+    tipoAccion, tipoServicio, diagnostico, fechaEst, cotizado,
     repuestos,
     tipoDescuento, valorDescuento, justificacionDescuento,
     pagos,
@@ -114,6 +114,7 @@ function WizardContent() {
         imei: imei.trim() || undefined,
         esta_encendido: estaEncendido ?? undefined,
         checklist_estado: checklistJsonb,
+        tipo_accion: tipoAccion,
         tipo_servicio: tipoServicio ?? undefined,
         diagnostico_tecnico: diagnostico.trim() || undefined,
         fecha_estimada: fechaEst || undefined,
@@ -184,12 +185,12 @@ function WizardContent() {
         const boleta = await emitirBoletaReparacion(id)
         boletaNumero = boleta.numero
       } catch {
-        toast.warning("Boleta no generada. Puedes emitirla desde el detalle.")
+        toast.warning("Nota de venta no generada. Puedes emitirla desde el detalle.")
       }
 
       toast.success(
         boletaNumero
-          ? `Reparación REP-${String(id).padStart(3, "0")} registrada · Boleta ${boletaNumero} emitida`
+          ? `Reparación REP-${String(id).padStart(3, "0")} registrada · Nota de Venta ${boletaNumero} emitida`
           : `Reparación REP-${String(id).padStart(3, "0")} registrada`,
       )
       router.push(`/dashboard/reparaciones/${id}`)

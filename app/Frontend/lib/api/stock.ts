@@ -49,6 +49,7 @@ export function getStock(params?: {
   requiere_reposicion?: boolean
   page?: number
   limit?: number
+  id_sede?: number | null
 }) {
   const qs = new URLSearchParams()
   if (params?.tipo)     qs.set('tipo',     params.tipo)
@@ -57,10 +58,12 @@ export function getStock(params?: {
     qs.set('requiere_reposicion', String(params.requiere_reposicion))
   if (params?.page)  qs.set('page',  String(params.page))
   if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.id_sede != null) qs.set('id_sede', String(params.id_sede))
   const query = qs.toString()
   return authRequest<StockResponse>(`stock${query ? `?${query}` : ''}`)
 }
 
-export function getStockCritico() {
-  return authRequest<StockCritico[]>('stock/critico')
+export function getStockCritico(idSede?: number | null) {
+  const qs = idSede != null ? `?id_sede=${idSede}` : ''
+  return authRequest<StockCritico[]>(`stock/critico${qs}`)
 }

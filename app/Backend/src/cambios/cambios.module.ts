@@ -3,11 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CambioProducto } from './entities/cambio-producto.entity';
 import { CambiosService } from './cambios.service';
 import { CambiosController } from './cambios.controller';
-import { BoletasModule } from '../boletas/boletas.module';
+import { NotasVentaModule } from '../notas-venta/notas-venta.module';
 
-// Módulo de cambios: importa BoletasModule para poder emitir boletas desde el controlador.
+// Módulo de cambios: importa NotasVentaModule para emitir notas de venta desde el controlador.
 @Module({
-  imports: [TypeOrmModule.forFeature([CambioProducto]), BoletasModule],
+  imports: [TypeOrmModule.forFeature([CambioProducto]), NotasVentaModule],
   controllers: [CambiosController],
   providers: [CambiosService],
 })

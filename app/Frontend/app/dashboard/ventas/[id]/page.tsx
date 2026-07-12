@@ -136,10 +136,10 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
     try {
       const result = await emitirBoleta(ventaId)
       setBoleta(result)
-      toast.success(`Boleta ${result.numero} emitida correctamente`)
+      toast.success(`Nota de Venta ${result.numero} emitida correctamente`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido"
-      toast.error(`No se pudo emitir la boleta: ${msg}`)
+      toast.error(`No se pudo emitir la nota de venta: ${msg}`)
       console.error("emitirBoleta error:", err)
     } finally {
       setEmitting(false)
@@ -310,7 +310,7 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
           </SectionCard>
 
           {/* Boleta */}
-          <SectionCard icon={FileText} title="Boleta" accent="#10b981" delay={0.2}>
+          <SectionCard icon={FileText} title="Nota de Venta" accent="#10b981" delay={0.2}>
             {boletaLoading ? (
               <SkeletonSection rows={1} />
             ) : boleta ? (
@@ -320,7 +320,7 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
                     <FileText className="h-4 w-4 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Número de boleta</p>
+                    <p className="text-xs text-gray-500">Número de nota de venta</p>
                     <p className="font-mono text-sm font-semibold text-gray-900">{boleta.numero}</p>
                   </div>
                 </div>
@@ -350,7 +350,7 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-gray-500">
                   <Ban className="h-4 w-4" />
-                  <p className="text-sm">Sin boleta registrada</p>
+                  <p className="text-sm">Sin nota de venta registrada</p>
                 </div>
                 <button
                   onClick={handleEmitir}
@@ -365,7 +365,7 @@ export default function VentaDetailPage({ params }: { params: Promise<{ id: stri
                   ) : (
                     <>
                       <FileText className="h-4 w-4" />
-                      Emitir Boleta
+                      Emitir Nota de Venta
                     </>
                   )}
                 </button>

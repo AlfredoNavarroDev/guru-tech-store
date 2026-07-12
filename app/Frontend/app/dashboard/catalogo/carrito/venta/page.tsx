@@ -85,6 +85,7 @@ export default function VentaPage() {
   const [clienteSearch, setClienteSearch] = useState("")
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
   const [selectedCliente, setSelectedCliente] = useState<ClienteVista | null>(null)
+  const [sinCliente, setSinCliente] = useState(false)
   const clienteDropdownRef = useRef<HTMLDivElement>(null)
   const clientesLoadedRef = useRef(false)
 
@@ -104,6 +105,7 @@ export default function VentaPage() {
 
   // submission
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [saleSuccess, setSaleSuccess] = useState(false)
   const [boletaUrl, setBoletaUrl] = useState<string | null>(null)
 
@@ -200,9 +202,9 @@ export default function VentaPage() {
   }
 
   async function handleConfirmSale() {
-    if (cartItems.length === 0 || submitting) return
+    if (cartItems.length === 0 || submittingRef.current) return
 
-    if (!selectedCliente) {
+    if (!sinCliente && !selectedCliente) {
       toast.error("Selecciona o crea un cliente para registrar la venta")
       return
     }
@@ -221,6 +223,7 @@ export default function VentaPage() {
       return
     }
 
+    submittingRef.current = true
     setSubmitting(true)
     try {
       const descuentoPayload =
@@ -233,7 +236,7 @@ export default function VentaPage() {
           : {}
 
       const venta = await createVenta({
-        id_cliente: selectedCliente?.id_cliente,
+        ...(!sinCliente && selectedCliente ? { id_cliente: selectedCliente.id_cliente } : {}),
         items: cartItems.map((item) => ({
           id_item: item.id_item,
           cantidad: Number(item.cantidad),
@@ -263,6 +266,7 @@ export default function VentaPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al registrar la venta")
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -295,10 +299,10 @@ export default function VentaPage() {
                 className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
               >
                 <Receipt className="h-4 w-4" />
-                Ver boleta PDF
+                Ver nota de venta PDF
               </a>
             ) : (
-              <p className="text-xs text-gray-400">Boleta disponible en historial de ventas</p>
+              <p className="text-xs text-gray-400">Nota de venta disponible en historial de ventas</p>
             )}
             <button
               onClick={() => router.push("/dashboard/catalogo")}
@@ -460,10 +464,30 @@ export default function VentaPage() {
             <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <div className="mb-3 flex items-center gap-2">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Cliente</h2>
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-500">Requerido</span>
+                {!sinCliente && (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-500">Requerido</span>
+                )}
               </div>
 
-              {selectedCliente ? (
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSinCliente(prev => !prev)
+                    if (!sinCliente) setSelectedCliente(null)
+                  }}
+                  className={cn(
+                    "text-xs px-3 py-1.5 rounded-full border transition-colors",
+                    sinCliente
+                      ? "bg-muted border-muted-foreground/30 text-foreground"
+                      : "border-border text-muted-foreground hover:border-muted-foreground/50"
+                  )}
+                >
+                  {sinCliente ? "✓ Sin cliente registrado" : "Sin cliente registrado"}
+                </button>
+              </div>
+
+              {!sinCliente && selectedCliente ? (
                 <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 uppercase">
                     {selectedCliente.nombre_completo.charAt(0)}
@@ -485,7 +509,7 @@ export default function VentaPage() {
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-              ) : (
+              ) : !sinCliente ? (
                 <div className="flex flex-col gap-2">
                   <div className="relative" ref={clienteDropdownRef}>
                     <div className="relative">
@@ -612,7 +636,7 @@ export default function VentaPage() {
                     )}
                   </AnimatePresence>
                 </div>
-              )}
+              ) : null}
             </div>
           </BlurFade>
 

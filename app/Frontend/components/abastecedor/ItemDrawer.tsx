@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { X, Loader2 } from "lucide-react"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog } from "@/components/ui/dialog"
 import {
   type Item,
   type CreateItemPayload,
@@ -12,6 +12,7 @@ import {
   updateItem,
   getCategorias,
   getMarcas,
+  uploadImagenItem,
 } from "@/lib/api/items"
 import { ApiError } from "@/lib/api/client"
 import { toast } from "sonner"
@@ -21,6 +22,7 @@ interface ItemDrawerProps {
   onClose: () => void
   item?: Item | null
   onSaved: (created?: Item) => void
+  initialNombre?: string   // pre-fills nombre when opening from combobox "Crear X" option
 }
 
 function generateSku(tipo: 'producto' | 'repuesto'): string {
@@ -57,7 +59,7 @@ function buildForm(item: Item | null | undefined, categorias: Categoria[]): Crea
   }
 }
 
-export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
+export function ItemDrawer({ open, onClose, item, onSaved, initialNombre }: ItemDrawerProps) {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [marcas, setMarcas] = useState<Marca[]>([])
 
@@ -73,6 +75,7 @@ export function ItemDrawer({ open, onClose, item, onSaved }: ItemDrawerProps) {
       onClose={onClose}
       item={item}
       onSaved={onSaved}
+      initialNombre={initialNombre}
       categorias={categorias}
       marcas={marcas}
     />
@@ -84,9 +87,31 @@ interface ItemDrawerFormProps extends ItemDrawerProps {
   marcas: Marca[]
 }
 
-function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: ItemDrawerFormProps) {
-  const [form, setForm] = useState<CreateItemPayload>(() => buildForm(item, categorias))
+function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categorias, marcas }: ItemDrawerFormProps) {
+  const [form, setForm] = useState<CreateItemPayload>(() => {
+    const base = buildForm(item, categorias)
+    if (!item && initialNombre) base.nombre = initialNombre
+    return base
+  })
   const [saving, setSaving] = useState(false)
+  const [pendingPhoto, setPendingPhoto] = useState<{ base64: string; contentType: string; preview: string } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      setPendingPhoto({
+        base64: dataUrl.split(',')[1],
+        contentType: file.type,
+        preview: dataUrl,
+      })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
 
   function set<K extends keyof CreateItemPayload>(key: K, value: CreateItemPayload[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -113,11 +138,24 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
     setSaving(true)
     try {
       if (item) {
+        if (pendingPhoto) {
+          await uploadImagenItem(item.id_item, {
+            imagen_base64: pendingPhoto.base64,
+            content_type: pendingPhoto.contentType as 'image/jpeg' | 'image/png' | 'image/webp',
+          })
+        }
         await updateItem(item.id_item, form)
         toast.success("Ítem actualizado")
         onSaved()
       } else {
         const created = await createItem(form)
+        if (pendingPhoto) {
+          const { url } = await uploadImagenItem(created.id_item, {
+            imagen_base64: pendingPhoto.base64,
+            content_type: pendingPhoto.contentType as 'image/jpeg' | 'image/png' | 'image/webp',
+          })
+          created.imagen_url = url
+        }
         toast.success("Ítem creado")
         onSaved(created)
       }
@@ -130,12 +168,12 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
     onClose()
   }
 
-  const inputCls = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text-heading placeholder:text-text-muted focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+  const inputCls = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text-heading placeholder:text-text-muted focus:border-lime-dark focus:outline-none focus:ring-2 focus:ring-lime-dark/10"
   const labelCls = "block text-xs text-text-muted mb-1"
 
   return (
-    <BottomSheet open={open} onClose={onClose}>
-      <div className="max-h-[90vh] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white sm:rounded-2xl">
+    <Dialog open={open} onClose={onClose} size="md">
+      <div className="max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <h2 className="text-base font-semibold text-text-heading">
             {item ? "Editar ítem" : "Nuevo ítem"}
@@ -146,6 +184,45 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Photo upload */}
+          <div className="flex items-center gap-4">
+            <div
+              className="relative h-20 w-20 shrink-0 cursor-pointer overflow-hidden rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center group"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {pendingPhoto ? (
+                <img src={pendingPhoto.preview} alt="" className="h-full w-full object-cover" />
+              ) : item?.imagen_url ? (
+                <img src={item.imagen_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-2xl">📷</span>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="text-xs font-medium text-white">Cambiar</span>
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Foto del producto</p>
+              <p className="text-xs text-gray-400">JPG, PNG o WebP · opcional</p>
+              {pendingPhoto && (
+                <button
+                  type="button"
+                  onClick={() => setPendingPhoto(null)}
+                  className="mt-1 text-xs text-red-500 hover:underline"
+                >
+                  Quitar foto
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Nombre *</label>
@@ -269,7 +346,7 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
                       onClick={() => toggleCategoria(c.id_categoria)}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         selected
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-lime-dark text-lime'
                           : 'bg-gray-100 text-text-muted hover:bg-gray-200'
                       }`}
                     >
@@ -293,13 +370,13 @@ function ItemDrawerForm({ open, onClose, item, onSaved, categorias, marcas }: It
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-[#020617] px-4 py-2 text-sm font-medium text-white hover:bg-[#0f172a] disabled:opacity-50 transition-colors"
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {saving ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </div>
-    </BottomSheet>
+    </Dialog>
   )
 }

@@ -2,22 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2, ArrowLeft, Loader2, ShoppingBag, PackagePlus } from "lucide-react"
+import { AlertCircle, ArrowLeft, Loader2, Plus, ShoppingBag, Truck, X } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
+import { Dialog } from "@/components/ui/dialog"
+import { ItemLineCard, type LineItem } from "@/components/compras/ItemLineCard"
 import { ItemDrawer } from "@/components/abastecedor/ItemDrawer"
-import { getProveedores, type Proveedor } from "@/lib/api/proveedores"
+import { getProveedores, createProveedor, type Proveedor } from "@/lib/api/proveedores"
 import { getItems, type Item } from "@/lib/api/items"
 import { createCompra, addItemToCompra } from "@/lib/api/compras"
 import { ApiError } from "@/lib/api/client"
 import { toast } from "sonner"
-
-interface LineItem {
-  id: string
-  item: Item | null
-  cantidad: number
-  costo_unidad: number
-  precio_venta_sugerido: number
-}
 
 function newLine(): LineItem {
   return {
@@ -35,8 +29,7 @@ function loadDraft(): { idProveedor: number | ""; lines: LineItem[] } | null {
   if (typeof window === "undefined") return null
   try {
     const raw = localStorage.getItem(DRAFT_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
+    return raw ? JSON.parse(raw) : null
   } catch {
     return null
   }
@@ -57,13 +50,20 @@ export default function NuevaCompraPage() {
   const [initialDraft] = useState(loadDraft)
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [items, setItems] = useState<Item[]>([])
-  const [idProveedor, setIdProveedor] = useState<number | "">(initialDraft?.idProveedor ?? "")
+  const [idProveedor, setIdProveedor] = useState<number | "">(
+    initialDraft?.idProveedor ?? "",
+  )
   const [lines, setLines] = useState<LineItem[]>(
     initialDraft?.lines.length ? initialDraft.lines : [newLine()],
   )
   const [submitting, setSubmitting] = useState(false)
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false)
   const [drawerForLineId, setDrawerForLineId] = useState<string | null>(null)
+  const [drawerInitialNombre, setDrawerInitialNombre] = useState<string>("")
+  const [proveedorDialogOpen, setProveedorDialogOpen] = useState(false)
+  const [proveedorForm, setProveedorForm] = useState({ ruc: "", razon_social: "", contacto_nombre: "", telefono: "" })
+  const [proveedorSaving, setProveedorSaving] = useState(false)
+  const [proveedorError, setProveedorError] = useState<string | null>(null)
 
   useEffect(() => {
     saveDraft(idProveedor, lines)
@@ -83,9 +83,23 @@ export default function NuevaCompraPage() {
     setLines((ls) => ls.filter((l) => l.id !== id))
   }
 
-  function openItemDrawerForLine(lineId: string) {
+  function handleCreateNew(lineId: string, nombre: string) {
     setDrawerForLineId(lineId)
+    setDrawerInitialNombre(nombre)
     setItemDrawerOpen(true)
+  }
+
+  function handleItemPhotoUpdated(itemId: number, url: string) {
+    setItems((prev) =>
+      prev.map((i) => (i.id_item === itemId ? { ...i, imagen_url: url } : i)),
+    )
+    setLines((ls) =>
+      ls.map((l) =>
+        l.item?.id_item === itemId
+          ? { ...l, item: { ...l.item, imagen_url: url } }
+          : l,
+      ),
+    )
   }
 
   function handleItemCreated(created?: Item) {
@@ -97,31 +111,62 @@ export default function NuevaCompraPage() {
       precio_venta_sugerido: created.precio_venta_actual,
     })
     setDrawerForLineId(null)
+    setDrawerInitialNombre("")
+  }
+
+  async function handleProveedorSave() {
+    setProveedorError(null)
+    if (!proveedorForm.ruc.trim()) { setProveedorError("RUC es requerido"); return }
+    if (!proveedorForm.razon_social.trim()) { setProveedorError("Razón social es requerida"); return }
+    setProveedorSaving(true)
+    try {
+      const payload = {
+        ruc: proveedorForm.ruc.trim(),
+        razon_social: proveedorForm.razon_social.trim(),
+        ...(proveedorForm.contacto_nombre.trim() ? { contacto_nombre: proveedorForm.contacto_nombre.trim() } : {}),
+        ...(proveedorForm.telefono.trim() ? { telefono: proveedorForm.telefono.trim() } : {}),
+      }
+      const created = await createProveedor(payload)
+      setProveedores((prev) => [...prev, created])
+      setIdProveedor(created.id_proveedor)
+      toast.success(`Proveedor "${created.razon_social}" creado`)
+      setProveedorDialogOpen(false)
+      setProveedorForm({ ruc: "", razon_social: "", contacto_nombre: "", telefono: "" })
+    } catch (e) {
+      setProveedorError(e instanceof ApiError ? e.message : "Error al crear proveedor")
+    } finally {
+      setProveedorSaving(false)
+    }
   }
 
   const total = lines.reduce((acc, l) => acc + l.cantidad * l.costo_unidad, 0)
+  const totalUnits = lines.reduce((acc, l) => acc + l.cantidad, 0)
 
   async function handleSubmit() {
     if (!idProveedor) {
       toast.error("Selecciona un proveedor")
       return
     }
-    const validLines = lines.filter((l) => l.item && l.cantidad > 0 && l.costo_unidad > 0)
+    const validLines = lines.filter(
+      (l) => l.item && l.cantidad > 0 && l.costo_unidad > 0,
+    )
     if (validLines.length === 0) {
-      toast.error("Agrega al menos un item con cantidad y costo validos")
+      toast.error("Agrega al menos un ítem con cantidad y costo válidos")
       return
     }
     setSubmitting(true)
     try {
       const compra = await createCompra(Number(idProveedor))
-      // sort por id_item ASC para prevenir deadlocks en inserts concurrentes
-      const sorted = [...validLines].sort((a, b) => a.item!.id_item - b.item!.id_item)
+      const sorted = [...validLines].sort(
+        (a, b) => a.item!.id_item - b.item!.id_item,
+      )
       for (const line of sorted) {
         await addItemToCompra(compra.id_compra, {
           id_item: line.item!.id_item,
           cantidad_comprada: line.cantidad,
           costo_unidad: line.costo_unidad,
-          precio_venta_sugerido: line.precio_venta_sugerido || line.item!.precio_venta_actual,
+          precio_venta_sugerido:
+            line.precio_venta_sugerido || line.item!.precio_venta_actual,
         })
       }
       clearDraft()
@@ -130,7 +175,7 @@ export default function NuevaCompraPage() {
     } catch (e) {
       if (e instanceof ApiError && e.statusCode === 409) {
         if (e.errorCode === "DEADLOCK_DETECTADO") {
-          toast.warning("Conflicto de concurrencia. Intente de nuevo en unos segundos.")
+          toast.warning("Conflicto de concurrencia. Intente de nuevo.")
           return
         }
         toast.error(e.message ?? "Conflicto al registrar la compra")
@@ -141,9 +186,6 @@ export default function NuevaCompraPage() {
       setSubmitting(false)
     }
   }
-
-  const selectCls =
-    "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
 
   return (
     <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
@@ -161,23 +203,40 @@ export default function NuevaCompraPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
                   <ShoppingBag className="h-4 w-4 text-gray-900" />
                 </div>
-                <h1 className="text-2xl font-bold text-text-heading">Nueva compra</h1>
+                <h1 className="text-2xl font-bold text-text-heading">
+                  Nueva compra
+                </h1>
               </div>
-              <p className="mt-1 text-sm text-gray-500">Registrar orden de reposicion</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Registrar orden de reposición
+              </p>
             </div>
           </div>
         </BlurFade>
 
         <BlurFade delay={0.06} duration={0.4}>
           <div className="space-y-6">
+            {/* Proveedor */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Proveedor <span className="text-red-500">*</span>
-              </label>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">
+                  Proveedor <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setProveedorDialogOpen(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-lime-dark hover:underline"
+                >
+                  <Plus className="h-3 w-3" />
+                  Nuevo proveedor
+                </button>
+              </div>
               <select
-                className={selectCls}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-lime-dark focus:outline-none focus:ring-2 focus:ring-lime-dark/10"
                 value={idProveedor}
-                onChange={(e) => setIdProveedor(e.target.value ? Number(e.target.value) : "")}
+                onChange={(e) =>
+                  setIdProveedor(e.target.value ? Number(e.target.value) : "")
+                }
               >
                 <option value="">Seleccionar proveedor...</option>
                 {proveedores.map((p) => (
@@ -188,131 +247,66 @@ export default function NuevaCompraPage() {
               </select>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">Items de la compra</label>
-                <button
-                  onClick={() => setLines((ls) => [...ls, newLine()])}
-                  className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar item
-                </button>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-gray-100">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500">Item</th>
-                      <th className="w-20 px-3 py-2.5 text-right text-xs font-medium text-gray-500">Cant.</th>
-                      <th className="w-28 px-3 py-2.5 text-right text-xs font-medium text-gray-500">Costo unit.</th>
-                      <th className="w-28 px-3 py-2.5 text-right text-xs font-medium text-gray-500">P. Venta</th>
-                      <th className="w-10" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {lines.map((line) => (
-                      <tr key={line.id} className="hover:bg-gray-50/50">
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <select
-                              className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                              value={line.item?.id_item ?? ""}
-                              onChange={(e) => {
-                                const found =
-                                  items.find((i) => i.id_item === Number(e.target.value)) ?? null
-                                updateLine(line.id, {
-                                  item: found,
-                                  costo_unidad: found?.precio_compra_actual ?? 0,
-                                  precio_venta_sugerido: found?.precio_venta_actual ?? 0,
-                                })
-                              }}
-                            >
-                              <option value="">Seleccionar...</option>
-                              {items.map((i) => (
-                                <option key={i.id_item} value={i.id_item}>
-                                  {i.nombre} ({i.sku})
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              title="Crear nuevo ítem"
-                              onClick={() => openItemDrawerForLine(line.id)}
-                              className="shrink-0 rounded-lg border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                            >
-                              <PackagePlus className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="1"
-                            className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                            value={line.cantidad}
-                            onChange={(e) =>
-                              updateLine(line.id, { cantidad: parseInt(e.target.value) || 1 })
-                            }
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                            value={line.costo_unidad}
-                            onChange={(e) =>
-                              updateLine(line.id, {
-                                costo_unidad: parseFloat(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-right text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                            value={line.precio_venta_sugerido}
-                            onChange={(e) =>
-                              updateLine(line.id, {
-                                precio_venta_sugerido: parseFloat(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <button
-                            onClick={() => removeLine(line.id)}
-                            disabled={lines.length === 1}
-                            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-20"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 rounded-xl bg-blue-50 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-blue-500">
-                  Total estimado
+            {/* Line items */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  Ítems de la compra
                 </p>
-                <p className="mt-1 font-mono text-xl font-bold text-blue-700">
-                  S/ {total.toFixed(2)}
+                <span className="text-xs text-gray-400">
+                  {lines.length} línea{lines.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {lines.map((line) => (
+                <ItemLineCard
+                  key={line.id}
+                  line={line}
+                  items={items}
+                  canRemove={lines.length > 1}
+                  onUpdate={(patch) => updateLine(line.id, patch)}
+                  onRemove={() => removeLine(line.id)}
+                  onCreateNew={(name) => handleCreateNew(line.id, name)}
+                  onItemPhotoUpdated={handleItemPhotoUpdated}
+                />
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setLines((ls) => [...ls, newLine()])}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 bg-white py-3 text-sm font-medium text-gray-500 transition-colors hover:border-lime-dark hover:text-lime-dark"
+              >
+                <Plus className="h-4 w-4" />
+                Agregar línea
+              </button>
+            </div>
+
+            {/* Total */}
+            <div className="rounded-2xl bg-bg-dark p-4">
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-lime/60">
+                    Total estimado
+                  </p>
+                  <p className="mt-1 font-mono text-2xl font-bold text-lime">
+                    S/ {total.toFixed(2)}
+                  </p>
+                </div>
+                <p className="text-xs text-white/30">
+                  {lines.filter((l) => l.item).length} ítem
+                  {lines.filter((l) => l.item).length !== 1 ? "s" : ""} ·{" "}
+                  {totalUnits} unidad{totalUnits !== 1 ? "es" : ""}
                 </p>
               </div>
             </div>
 
+            {/* Actions */}
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { clearDraft(); router.back() }}
+                onClick={() => {
+                  clearDraft()
+                  router.back()
+                }}
                 className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
               >
                 Cancelar
@@ -329,12 +323,83 @@ export default function NuevaCompraPage() {
           </div>
         </BlurFade>
       </div>
+
       <ItemDrawer
         open={itemDrawerOpen}
-        onClose={() => { setItemDrawerOpen(false); setDrawerForLineId(null) }}
+        onClose={() => {
+          setItemDrawerOpen(false)
+          setDrawerForLineId(null)
+          setDrawerInitialNombre("")
+        }}
         item={null}
         onSaved={handleItemCreated}
+        initialNombre={drawerInitialNombre}
       />
+
+      <Dialog
+        open={proveedorDialogOpen}
+        onClose={() => { setProveedorDialogOpen(false); setProveedorError(null) }}
+        size="sm"
+      >
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-gray-500" />
+              <h2 className="text-base font-semibold text-text-heading">Nuevo proveedor</h2>
+            </div>
+            <button
+              onClick={() => { setProveedorDialogOpen(false); setProveedorError(null) }}
+              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-gray-100 hover:text-text-heading"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-5 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "RUC *", key: "ruc", placeholder: "20100070970", type: "text" },
+                { label: "Razón social *", key: "razon_social", placeholder: "Distribuidora Tech SAC", type: "text" },
+                { label: "Contacto", key: "contacto_nombre", placeholder: "Juan López", type: "text" },
+                { label: "Teléfono", key: "telefono", placeholder: "999 888 777", type: "tel" },
+              ].map(({ label, key, placeholder, type }) => (
+                <div key={key}>
+                  <label className="block text-xs text-text-muted mb-1">{label}</label>
+                  <input
+                    type={type}
+                    value={proveedorForm[key as keyof typeof proveedorForm]}
+                    onChange={(e) => setProveedorForm((f) => ({ ...f, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    disabled={proveedorSaving}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text-heading placeholder:text-text-muted focus:border-lime-dark focus:outline-none focus:ring-2 focus:ring-lime-dark/10 disabled:opacity-50"
+                  />
+                </div>
+              ))}
+            </div>
+            {proveedorError && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {proveedorError}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+            <button
+              onClick={() => { setProveedorDialogOpen(false); setProveedorError(null) }}
+              className="rounded-lg px-4 py-2 text-sm text-text-muted hover:bg-gray-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleProveedorSave}
+              disabled={proveedorSaving}
+              className="flex items-center gap-2 rounded-lg bg-[#020617] px-4 py-2 text-sm font-medium text-white hover:bg-[#0f172a] disabled:opacity-50 transition-colors"
+            >
+              {proveedorSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {proveedorSaving ? "Creando..." : "Crear proveedor"}
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }

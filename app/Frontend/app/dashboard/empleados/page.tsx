@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { BlurFade } from "@/components/ui/blur-fade"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -683,15 +683,12 @@ export default function AdminEmpleadosPage() {
         )}
       </AnimatePresence>
 
-      {/* BottomSheet: edit */}
-      <BottomSheet open={panelMode === "edit" && selected !== null} onClose={closePanel}>
+      {/* Dialog: edit */}
+      <Dialog open={panelMode === "edit" && selected !== null} onClose={closePanel}>
         <div
           className="relative flex w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
           style={{ maxHeight: "92dvh" }}
         >
-          <div className="flex shrink-0 justify-center pb-1 pt-3 sm:hidden">
-            <div className="h-1 w-10 rounded-full bg-gray-200" />
-          </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
             {panelMode === "edit" && selected && (
               <EmployeeForm
@@ -705,24 +702,21 @@ export default function AdminEmpleadosPage() {
             )}
           </div>
         </div>
-      </BottomSheet>
+      </Dialog>
 
-      {/* BottomSheet: password */}
-      <BottomSheet open={panelMode === "password" && selected !== null} onClose={closePanel}>
+      {/* Dialog: password */}
+      <Dialog open={panelMode === "password" && selected !== null} onClose={closePanel}>
         <div
           className="relative flex w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
           style={{ maxHeight: "92dvh" }}
         >
-          <div className="flex shrink-0 justify-center pb-1 pt-3 sm:hidden">
-            <div className="h-1 w-10 rounded-full bg-gray-200" />
-          </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
             {panelMode === "password" && selected && (
               <PasswordPanel empleado={selected} onCancel={closePanel} onSaved={closePanel} />
             )}
           </div>
         </div>
-      </BottomSheet>
+      </Dialog>
 
       {/* Filters */}
       <BlurFade delay={0.08} duration={0.45}>

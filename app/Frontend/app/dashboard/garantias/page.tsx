@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Wrench,
   Loader2,
+  X,
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -77,11 +78,20 @@ export default function GarantiasPage() {
   }, [])
 
   const [reclamando, setReclamando] = useState<number | null>(null)
+  const [reclamoModalId, setReclamoModalId] = useState<number | null>(null)
+  const [reclamoTipoAccion, setReclamoTipoAccion] = useState<"reparacion" | "diagnostico">("reparacion")
 
-  const handleUsarGarantia = async (idGarantia: number) => {
-    setReclamando(idGarantia)
+  const handleUsarGarantia = (idGarantia: number) => {
+    setReclamoTipoAccion("reparacion")
+    setReclamoModalId(idGarantia)
+  }
+
+  const handleConfirmReclamo = async () => {
+    if (!reclamoModalId) return
+    setReclamando(reclamoModalId)
+    setReclamoModalId(null)
     try {
-      const nueva = await crearReclamoGarantia(idGarantia)
+      const nueva = await crearReclamoGarantia(reclamoModalId, { tipo_accion: reclamoTipoAccion })
       toast.success("Reclamo creado, reparación lista para trabajar")
       router.push(`/dashboard/reparaciones/${nueva.id_reparacion}`)
     } catch (e) {
@@ -124,6 +134,7 @@ export default function GarantiasPage() {
   }
 
   return (
+    <>
     <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <BlurFade delay={0} duration={0.4}>
@@ -283,5 +294,65 @@ export default function GarantiasPage() {
         )}
       </BlurFade>
     </div>
+
+    {/* Modal tipo de acción para reclamo */}
+
+    {reclamoModalId !== null && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={() => setReclamoModalId(null)}
+        />
+        <div className="relative w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+          <button
+            onClick={() => setReclamoModalId(null)}
+            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
+              <Wrench className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Usar garantía</h3>
+              <p className="text-xs text-gray-500">¿Qué tipo de acción se realizará?</p>
+            </div>
+          </div>
+          <div className="mb-5 grid grid-cols-2 gap-2">
+            {(["reparacion", "diagnostico"] as const).map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setReclamoTipoAccion(val)}
+                className={`rounded-xl border py-2.5 text-sm font-medium transition-colors ${
+                  reclamoTipoAccion === val
+                    ? "border-[#020617] bg-[#020617]/5 text-[#020617]"
+                    : "border-gray-200 text-gray-600 hover:border-[#020617]/25 hover:bg-[#020617]/5"
+                }`}
+              >
+                {val === "reparacion" ? "Reparación" : "Diagnóstico"}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setReclamoModalId(null)}
+              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => void handleConfirmReclamo()}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+            >
+              <Wrench className="h-4 w-4" />
+              Confirmar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

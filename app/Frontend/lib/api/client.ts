@@ -1,4 +1,5 @@
 import { normalizeSession } from './session'
+import { getCookie, setCookie, deleteCookie } from './cookie'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'
 
@@ -34,9 +35,10 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T
 }
 
-async function tryRefresh(): Promise<string | null> {
-  const refreshToken =
-    typeof window !== 'undefined' ? localStorage.getItem('guru_refresh_token') : null
+let _refreshPromise: Promise<string | null> | null = null
+
+async function _doRefresh(): Promise<string | null> {
+  const refreshToken = typeof window !== 'undefined' ? getCookie('guru_refresh_token') : null
   if (!refreshToken) return null
 
   try {
@@ -49,14 +51,13 @@ async function tryRefresh(): Promise<string | null> {
 
     const data = await res.json()
 
-    const raw = localStorage.getItem('guru_auth')
+    const raw = getCookie('guru_auth')
     if (raw) {
       const session = normalizeSession(JSON.parse(raw))
       session.access_token = data.access_token
-      localStorage.setItem('guru_auth', JSON.stringify(session))
-      document.cookie = `guru_token=${data.access_token}; path=/; SameSite=Strict; max-age=604800`
+      setCookie('guru_auth', JSON.stringify(session))
     }
-    localStorage.setItem('guru_refresh_token', data.refresh_token)
+    setCookie('guru_refresh_token', data.refresh_token)
 
     return data.access_token as string
   } catch {
@@ -64,9 +65,15 @@ async function tryRefresh(): Promise<string | null> {
   }
 }
 
+function tryRefresh(): Promise<string | null> {
+  if (_refreshPromise) return _refreshPromise
+  _refreshPromise = _doRefresh().finally(() => { _refreshPromise = null })
+  return _refreshPromise
+}
+
 export async function authRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const getToken = (): string => {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('guru_auth') : null
+    const raw = typeof window !== 'undefined' ? getCookie('guru_auth') : null
     return raw ? (JSON.parse(raw) as { access_token: string }).access_token : ''
   }
 
@@ -86,8 +93,8 @@ export async function authRequest<T>(path: string, init?: RequestInit): Promise<
     const newToken = await tryRefresh()
     if (!newToken) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('guru_auth')
-        localStorage.removeItem('guru_refresh_token')
+        deleteCookie('guru_auth')
+        deleteCookie('guru_refresh_token')
         window.location.href = '/login'
       }
       throw new ApiError(401, 'UNAUTHORIZED', 'Sesión expirada')

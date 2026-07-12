@@ -115,3 +115,26 @@ export function updateEmpleadoEstado(id: number, activo: boolean): Promise<void>
     body: JSON.stringify({ activo }),
   });
 }
+
+export interface EmpleadoRendimiento {
+  id_empleado:            number;
+  nombre_completo:        string;
+  rol_nombre:             'vendedor' | 'tecnico';
+  ingresos_hoy:           number;
+  ingresos_mejor_dia_mes: number;
+  fecha_mejor_dia_mes:    string | null;
+}
+
+export function getEmpleadosRendimiento(): Promise<EmpleadoRendimiento[]> {
+  return authRequest<EmpleadoRendimiento[]>('empleados/rendimiento');
+}
+
+export interface RendimientoHoy {
+  total_hoy: number;
+  meta_diaria: number | null;
+  porcentaje: number | null;
+}
+
+export function getRendimientoHoy(): Promise<RendimientoHoy> {
+  return authRequest<RendimientoHoy>('empleados/rendimiento-hoy');
+}

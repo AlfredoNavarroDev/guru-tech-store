@@ -8,12 +8,14 @@ import {
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DatePicker } from "@/components/ui/date-picker"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import {
   getVentaDetalle,
   searchVentas,
   createCambio,
+  emitirBoletaCambio,
   type VentaDetalle,
   type VentaDetalleItem,
   type VentaListItem,
@@ -41,7 +43,7 @@ const STEP_DESCRIPTIONS = [
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-lime-dark focus:outline-none focus:ring-2 focus:ring-lime-dark/10"
 
 // ─── Step 1: Buscar venta ────────────────────────────────────────────────────
 
@@ -88,7 +90,7 @@ function Step1({
         <button
           onClick={onSearch}
           disabled={loading || !ventaId.trim()}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-lime-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-lime-dark/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Buscar
@@ -125,20 +127,16 @@ function Step1({
 
       {/* Date search */}
       <div className="flex gap-2">
-        <div className="relative flex-1">
-          <CalendarDays className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="date"
-            className={cn(inputCls, "pl-8")}
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            disabled={loadingLista}
-          />
-        </div>
+        <DatePicker
+          value={fecha || undefined}
+          onChange={(v) => setFecha(v ?? "")}
+          placeholder="Seleccionar fecha"
+          className="flex-1"
+        />
         <button
           onClick={onListar}
           disabled={loadingLista || !fecha}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-lime-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-lime-dark/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loadingLista ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
           Listar
@@ -166,8 +164,8 @@ function Step1({
                   className={cn(
                     "w-full rounded-xl border p-3 text-left transition-all",
                     ventaData?.id_venta === v.id_venta
-                      ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
-                      : "border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/50",
+                      ? "border-lime-dark bg-lime-dark/5 ring-2 ring-lime-dark/20"
+                      : "border-gray-200 bg-white hover:border-lime-dark/30 hover:bg-lime-dark/5",
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -223,8 +221,8 @@ function Step2({
             className={cn(
               "w-full rounded-xl border p-3 text-left transition-all",
               selected?.id_item === item.id_item
-                ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
-                : "border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/50",
+                ? "border-lime-dark bg-lime-dark/5 ring-2 ring-lime-dark/20"
+                : "border-gray-200 bg-white hover:border-lime-dark/30 hover:bg-lime-dark/5",
             )}
           >
             <div className="flex items-center justify-between">
@@ -296,7 +294,7 @@ function Step3({
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
         <input
-          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-8 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-8 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-lime-dark focus:outline-none focus:ring-2 focus:ring-lime-dark/10"
           placeholder="Buscar producto..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -318,8 +316,8 @@ function Step3({
               className={cn(
                 "w-full rounded-xl border p-3 text-left transition-all",
                 selected?.id_item === item.id_item
-                  ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
-                  : "border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/50",
+                  ? "border-lime-dark bg-lime-dark/5 ring-2 ring-lime-dark/20"
+                  : "border-gray-200 bg-white hover:border-lime-dark/30 hover:bg-lime-dark/5",
               )}
             >
               <div className="flex items-center justify-between">
@@ -398,12 +396,11 @@ function Step4({
           className={cn(
             "mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold",
             diferencia > 0
-              ? "text-[var(--color-lime)]"
+              ? "bg-bg-dark text-lime"
               : diferencia < 0
                 ? "bg-green-50 text-green-700"
                 : "bg-gray-100 text-gray-600",
           )}
-          style={diferencia > 0 ? { background: "var(--color-bg-dark)" } : undefined}
         >
           <span>
             {diferencia > 0
@@ -428,7 +425,7 @@ function Step4({
                 className={cn(
                   "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
                   metodoPago === m
-                    ? "border-blue-400 bg-blue-50 text-blue-700"
+                    ? "border-lime-dark bg-lime-dark/5 text-lime-dark"
                     : "border-gray-200 bg-white text-gray-600 hover:border-gray-300",
                 )}
               >
@@ -481,7 +478,7 @@ export default function NuevoCambioPage() {
   const [ventaData, setVentaData] = useState<VentaDetalle | null>(null)
 
   // Step 1 — date search
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Lima" })
   const [fechaBusqueda, setFechaBusqueda] = useState(today)
   const [listaVentas, setListaVentas] = useState<VentaListItem[]>([])
   const [loadingLista, setLoadingLista] = useState(false)
@@ -580,7 +577,7 @@ export default function NuevoCambioPage() {
 
     setSaving(true)
     try {
-      await createCambio({
+      const cambio = await createCambio({
         id_venta_origen: ventaData.id_venta,
         id_item_devuelto: itemDevuelto.id_item,
         cantidad: cantidadDevuelta,
@@ -592,8 +589,14 @@ export default function NuevoCambioPage() {
         motivo: motivo.trim(),
         detalle: detalle.trim() || undefined,
       })
-      toast.success("Cambio registrado correctamente")
-      router.push("/dashboard/cambios")
+      try {
+        const boleta = await emitirBoletaCambio(cambio.id_cambio)
+        toast.success(`Cambio registrado · Nota de Venta ${boleta.numero} emitida`)
+      } catch {
+        toast.success("Cambio registrado")
+        toast.warning("No se pudo emitir la nota de venta automáticamente")
+      }
+      router.push(`/dashboard/cambios/${cambio.id_cambio}`)
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : "Error al registrar el cambio")
     } finally {
@@ -619,7 +622,7 @@ export default function NuevoCambioPage() {
         </div>
         <div className="h-1 w-full overflow-hidden rounded-full bg-gray-200">
           <div
-            className="h-1 rounded-full bg-blue-600 transition-all duration-300"
+            className="h-1 rounded-full bg-lime transition-all duration-300"
             style={{ width: `${((step + 1) / 4) * 100}%` }}
           />
         </div>
@@ -644,9 +647,9 @@ export default function NuevoCambioPage() {
                     className={cn(
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                       i < step
-                        ? "bg-blue-600 text-white"
+                        ? "bg-lime text-lime-dark"
                         : i === step
-                          ? "bg-blue-100 text-blue-700 ring-2 ring-blue-400"
+                          ? "bg-lime-dark/10 text-lime-dark ring-2 ring-lime-dark"
                           : "bg-gray-100 text-gray-400",
                     )}
                   >
@@ -656,7 +659,7 @@ export default function NuevoCambioPage() {
                     className={cn(
                       "text-sm font-medium",
                       i === step
-                        ? "text-blue-700"
+                        ? "text-lime-dark"
                         : i < step
                           ? "text-gray-600"
                           : "text-gray-400",
@@ -761,7 +764,7 @@ export default function NuevoCambioPage() {
                   <button
                     onClick={() => setStep((s) => s + 1)}
                     disabled={!canNext()}
-                    className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex items-center gap-1.5 rounded-lg bg-lime-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-lime-dark/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Siguiente
                     <ArrowRight className="h-4 w-4" />
@@ -770,7 +773,7 @@ export default function NuevoCambioPage() {
                   <button
                     onClick={handleSubmit}
                     disabled={saving}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-lime-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-lime-dark/90 disabled:opacity-50"
                   >
                     {saving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

@@ -28,6 +28,8 @@ import { UpdatePasswordEmpleadoDto } from './dto/update-password-empleado.dto';
 import { UpdateEstadoEmpleadoDto } from './dto/update-estado-empleado.dto';
 import { QueryEmpleadosDto } from './dto/query-empleados.dto';
 import { EmpleadoResponseDto } from './dto/empleado-response.dto';
+import { EmpleadoRendimientoDto } from './dto/empleado-rendimiento.dto';
+import { RendimientoHoyDto } from './dto/rendimiento-hoy.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -60,6 +62,32 @@ export class EmpleadosController {
   @ApiOkResponse({ description: 'Lista paginada de empleados' })
   findAll(@Query() query: QueryEmpleadosDto, @CurrentUser() user: JwtPayload) {
     return this.empleadosService.findAll(user, query);
+  }
+
+  @Get('rendimiento')
+  @Roles('administrador', 'propietario')
+  @ApiOperation({
+    summary:
+      'Admin — Rendimiento del equipo de la sede (vendedores y técnicos)',
+  })
+  @ApiOkResponse({
+    type: [EmpleadoRendimientoDto],
+    description: 'Array ordenado por ingresos_hoy desc',
+  })
+  getRendimiento(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<EmpleadoRendimientoDto[]> {
+    return this.empleadosService.getRendimiento(user);
+  }
+
+  @Get('rendimiento-hoy')
+  @Roles('vendedor', 'tecnico')
+  @ApiOperation({ summary: 'Total vendido hoy vs meta del rol' })
+  @ApiOkResponse({ type: RendimientoHoyDto })
+  getRendimientoHoy(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<RendimientoHoyDto> {
+    return this.empleadosService.getRendimientoHoy(user);
   }
 
   // Devuelve el detalle de un empleado (scoped a la sede del admin).

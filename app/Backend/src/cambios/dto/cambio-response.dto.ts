@@ -6,6 +6,8 @@ export interface VentaDetalleItem {
   // Precio al que se vendió el ítem en el momento de la venta original.
   precio_unitario_momento: number;
   cantidad: number;
+  // true si la restricción de ítem o categoría impide devoluciones/cambios.
+  es_no_cambiable: boolean;
 }
 
 // Respuesta con la cabecera y los ítems de una venta; se usa para mostrar qué puede devolver el cliente.

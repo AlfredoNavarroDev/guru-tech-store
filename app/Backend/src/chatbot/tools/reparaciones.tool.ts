@@ -7,7 +7,7 @@ import { DataSource } from 'typeorm';
 export const consultarReparacionesTool = (
   dataSource: DataSource,
   idSede: number,
-  idTecnico: number | null,   // ID del técnico en sesión; usado cuando solo_mias=true
+  idTecnico: number | null, // ID del técnico en sesión; usado cuando solo_mias=true
 ) =>
   tool({
     description:

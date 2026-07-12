@@ -13,11 +13,11 @@ import type { JwtPayload } from '../common/types';
 import { StockService } from './stock.service';
 import { QueryStockDto } from './dto/query-stock.dto';
 
-// Endpoints de consulta de stock para el rol 'abastecedor' (HU-12).
+// Endpoints de consulta de stock para el rol 'abastecedor' (HU-12); 'propietario' tiene acceso de solo lectura.
 @ApiTags('stock')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('abastecedor')
+@Roles('abastecedor', 'propietario')
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
@@ -31,7 +31,10 @@ export class StockController {
     description: 'PaginatedResult desde v_abastecedor_stock_actual',
   })
   findAll(@Query() query: QueryStockDto, @CurrentUser() user: JwtPayload) {
-    return this.stockService.findAll(user.id_sede!, query);
+    // El propietario no tiene sede fija: usa la elegida vía ?id_sede (o todas si se omite).
+    const idSede =
+      user.rol === 'propietario' ? (query.id_sede ?? null) : user.id_sede!;
+    return this.stockService.findAll(idSede, query);
   }
 
   // Devuelve los ítems por debajo del stock mínimo, ordenados por urgencia descendente.
@@ -40,7 +43,16 @@ export class StockController {
     summary: 'HU-12 — Ítems bajo stock mínimo ordenados por urgencia',
   })
   @ApiOkResponse({ description: 'Datos de v_abastecedor_stock_critico' })
-  findCritico(@CurrentUser() user: JwtPayload): Promise<object[]> {
-    return this.stockService.findCritico(user.id_sede!);
+  findCritico(
+    @CurrentUser() user: JwtPayload,
+    @Query('id_sede') idSede?: string,
+  ): Promise<object[]> {
+    const sede =
+      user.rol === 'propietario'
+        ? idSede
+          ? parseInt(idSede, 10)
+          : null
+        : user.id_sede!;
+    return this.stockService.findCritico(sede);
   }
 }

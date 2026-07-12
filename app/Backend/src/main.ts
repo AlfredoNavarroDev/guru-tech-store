@@ -26,8 +26,11 @@ async function bootstrap() {
   // Filtro global que unifica el formato JSON de errores.
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Habilita CORS para el frontend Next.js.
-  app.enableCors();
+  // Habilita CORS solo para el origen del frontend.
+  app.enableCors({
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3001',
+    credentials: true,
+  });
 
   // Prefijo /api con versionado URI v1 por defecto.
   app.setGlobalPrefix('api');

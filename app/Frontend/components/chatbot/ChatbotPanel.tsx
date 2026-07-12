@@ -2,10 +2,10 @@
 
 import { useChat, type Message } from 'ai/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Send, X, RotateCcw, MessageSquare, Mic } from 'lucide-react'
+import { Send, X, RotateCcw, Bot, Mic } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { getSession } from '@/lib/api/auth'
-import { CHAT_HISTORY_KEY, getSuggestions, getResumenDiario } from '@/lib/api/chatbot'
+import { CHAT_HISTORY_KEY, getSuggestions, getResumenDiario, loadDraft, saveDraft } from '@/lib/api/chatbot'
 import { cn } from '@/lib/utils'
 import { ChatMessage } from './ChatMessage'
 
@@ -98,6 +98,16 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    const draft = loadDraft(idEmpleado)
+    if (draft) setInput(draft)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    saveDraft(idEmpleado, input)
+  }, [input, idEmpleado])
+
   function handleNewChat() {
     setMessages([])
     localStorage.removeItem(CHAT_HISTORY_KEY(idEmpleado))
@@ -160,7 +170,7 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between bg-sidebar-bg px-4 py-3">
         <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-lime" />
+          <Bot className="h-4 w-4 text-lime" />
           <span className="text-sm font-semibold text-white">Asistente Guru</span>
         </div>
         <div className="flex items-center gap-1">
@@ -235,6 +245,7 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
           if (!trimmed || isLoading) return
           append({ role: 'user', content: trimmed })
           setInput('')
+          saveDraft(idEmpleado, '')
           if (textareaRef.current) textareaRef.current.style.height = 'auto'
         }}
         className="shrink-0 border-t border-gray-200 bg-white p-3"
@@ -258,6 +269,7 @@ export function ChatbotPanel({ onClose }: ChatbotPanelProps) {
                 if (!trimmed || isLoading) return
                 append({ role: 'user', content: trimmed })
                 setInput('')
+                saveDraft(idEmpleado, '')
                 if (textareaRef.current) textareaRef.current.style.height = 'auto'
               }
             }}

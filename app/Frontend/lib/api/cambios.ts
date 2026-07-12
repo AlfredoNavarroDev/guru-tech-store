@@ -90,14 +90,14 @@ export function createCambio(dto: CreateCambioInput): Promise<CambioResponse> {
   })
 }
 
-export function getCambios(query?: QueryCambios): Promise<PaginatedCambios> {
+export function getCambios(query?: QueryCambios, signal?: AbortSignal): Promise<PaginatedCambios> {
   const params = new URLSearchParams()
   if (query?.page) params.set('page', String(query.page))
   if (query?.limit) params.set('limit', String(query.limit))
   if (query?.fecha_desde) params.set('fecha_desde', query.fecha_desde)
   if (query?.fecha_hasta) params.set('fecha_hasta', query.fecha_hasta)
   const qs = params.toString()
-  return authRequest<PaginatedCambios>(`cambios${qs ? `?${qs}` : ''}`)
+  return authRequest<PaginatedCambios>(`cambios${qs ? `?${qs}` : ''}`, { signal })
 }
 
 export function getCambio(id: number): Promise<CambioResponse> {

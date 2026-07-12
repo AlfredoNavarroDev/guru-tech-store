@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
+function DialogBase({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
@@ -147,7 +147,7 @@ function DialogDescription({
 }
 
 export {
-  Dialog,
+  DialogBase,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -157,4 +157,52 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+}
+
+import { AnimatePresence, motion } from "motion/react"
+
+const sizeClass = {
+  sm: "max-w-sm",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+} as const
+
+interface DialogProps {
+  open: boolean
+  onClose: () => void
+  children: React.ReactNode
+  size?: keyof typeof sizeClass
+}
+
+export function Dialog({ open, onClose, children, size = "md" }: DialogProps) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            key="dialog-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              key="dialog-content"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.18 }}
+              className={cn("pointer-events-auto w-full", sizeClass[size])}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {children}
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  )
 }

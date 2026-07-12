@@ -65,6 +65,7 @@ export function getReparacionPreview(id: number): Promise<ReparacionPreview> {
 }
 
 export interface CreateReclamoGarantiaInput {
+  tipo_accion?: 'diagnostico' | 'reparacion'
   marca?: string
   modelo?: string
   imei?: string

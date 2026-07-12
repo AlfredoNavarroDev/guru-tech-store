@@ -1,12 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   Layers,
   ChevronLeft,
   ChevronRight,
   AlertCircle,
   FileX,
+  MapPin,
 } from "lucide-react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -14,10 +16,10 @@ import { StockBadge } from "@/components/abastecedor/StockBadge"
 import { StockAjusteModal } from "@/components/abastecedor/StockAjusteModal"
 import { getStock, type StockActual } from "@/lib/api/stock"
 import { ApiError } from "@/lib/api/client"
+import { getSession } from "@/lib/api/auth"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 20
-const REPOSICION_LIMIT = 200
 
 export default function StockPage() {
   const [stock, setStock] = useState<StockActual[]>([])
@@ -28,11 +30,18 @@ export default function StockPage() {
   const [soloReposicion, setSoloReposicion] = useState(false)
   const [selected, setSelected] = useState<StockActual | null>(null)
 
+  const searchParams = useSearchParams()
+  const sedeParam = searchParams.get("sede")
+  const idSede = sedeParam ? parseInt(sedeParam, 10) : null
+  // El propietario tiene acceso de solo lectura: no puede ajustar stock.
+  const isPropietario = getSession()?.rol === "propietario"
+
   const stockParams = useMemo(() => ({
     requiere_reposicion: soloReposicion || undefined,
-    page: soloReposicion ? 1 : page,
-    limit: soloReposicion ? REPOSICION_LIMIT : PAGE_SIZE,
-  }), [page, soloReposicion])
+    page,
+    limit: PAGE_SIZE,
+    id_sede: idSede,
+  }), [page, soloReposicion, idSede])
 
   useEffect(() => {
     let ignore = false
@@ -40,10 +49,7 @@ export default function StockPage() {
     void getStock(stockParams)
       .then((res) => {
         if (ignore) return
-        const items = soloReposicion
-          ? [...res.items].sort((a, b) => a.diferencia_stock - b.diferencia_stock)
-          : res.items
-        setStock(items)
+        setStock(res.items)
         setTotal(res.total)
         setError(null)
       })
@@ -66,10 +72,7 @@ export default function StockPage() {
     setError(null)
     try {
       const res = await getStock(stockParams)
-      const items = soloReposicion
-        ? [...res.items].sort((a, b) => a.diferencia_stock - b.diferencia_stock)
-        : res.items
-      setStock(items)
+      setStock(res.items)
       setTotal(res.total)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Error cargando stock")
@@ -92,7 +95,7 @@ export default function StockPage() {
           </div>
           <p className="mt-1.5 text-sm text-gray-500">
             {soloReposicion
-              ? `${stock.length} items bajo mínimo`
+              ? `${total} items bajo mínimo`
               : `${total} items en inventario`}
           </p>
         </div>
@@ -174,12 +177,13 @@ export default function StockPage() {
             {stock.map((s, i) => (
               <BlurFade key={s.id_inventario} delay={Math.min(i * 0.03, 0.3)} duration={0.3}>
                 <div
-                  onClick={() => setSelected(s)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === "Enter" && setSelected(s)}
+                  onClick={() => !isPropietario && setSelected(s)}
+                  role={isPropietario ? undefined : "button"}
+                  tabIndex={isPropietario ? undefined : 0}
+                  onKeyDown={(e) => !isPropietario && e.key === "Enter" && setSelected(s)}
                   className={cn(
-                    "flex cursor-pointer items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-all duration-200 hover:shadow-sm",
+                    "flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-all duration-200 hover:shadow-sm",
+                    !isPropietario && "cursor-pointer",
                     soloReposicion
                       ? "hover:border-rose-200 hover:bg-rose-50/40"
                       : "hover:border-blue-200 hover:bg-blue-50/60",
@@ -188,6 +192,12 @@ export default function StockPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-900">{s.item}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {idSede == null && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
+                          <MapPin className="h-3 w-3" />
+                          {s.sede}
+                        </span>
+                      )}
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 text-xs font-medium",
@@ -236,7 +246,7 @@ export default function StockPage() {
           </div>
         )}
 
-        {!loading && !error && !soloReposicion && totalPages > 1 && (
+        {!loading && !error && totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between">
             <button
               disabled={page <= 1}
@@ -268,11 +278,13 @@ export default function StockPage() {
         )}
       </BlurFade>
 
-      <StockAjusteModal
-        item={selected}
-        onClose={() => setSelected(null)}
-        onSaved={loadStock}
-      />
+      {!isPropietario && (
+        <StockAjusteModal
+          item={selected}
+          onClose={() => setSelected(null)}
+          onSaved={loadStock}
+        />
+      )}
     </div>
   )
 }

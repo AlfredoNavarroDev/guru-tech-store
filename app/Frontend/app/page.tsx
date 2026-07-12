@@ -467,13 +467,13 @@ export default function LandingPage() {
                   Punto de venta ágil
                 </h2>
                 <p className="mt-4 max-w-md text-base leading-relaxed text-text-muted">
-                  Opera el punto de venta. Registra ventas, gestiona clientes y emite boletas de manera rápida y eficiente.
+                  Opera el punto de venta. Registra ventas, gestiona clientes y emite notas de venta de manera rápida y eficiente.
                 </p>
                 <div className="mt-6 space-y-3">
                   {[
                     "Registrar ventas en el POS",
                     "Buscar y crear clientes",
-                    "Emitir boletas de venta",
+                    "Emitir notas de venta",
                     "Consultar catálogo de productos",
                   ].map((cap) => (
                     <div key={cap} className="flex items-center gap-2 text-sm text-text-muted">

@@ -1,6 +1,7 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsIn,
   IsObject,
   IsOptional,
   IsString,
@@ -56,6 +57,10 @@ export class CreateReclamoGarantiaDto {
   @IsOptional()
   @IsString()
   diagnostico_tecnico?: string;
+
+  @ApiProperty({ enum: ['diagnostico', 'reparacion'], example: 'reparacion' })
+  @IsIn(['diagnostico', 'reparacion'])
+  tipo_accion: 'diagnostico' | 'reparacion';
 
   @ApiPropertyOptional({
     example: '2026-07-05',

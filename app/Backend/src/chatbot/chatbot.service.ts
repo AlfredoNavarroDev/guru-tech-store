@@ -21,6 +21,8 @@ import { consultarRendimientoEmpleadosTool } from './tools/empleados.tool';
 import { consultarReposicionTool } from './tools/reposicion.tool';
 import { consultarRepuestosUsadosTool } from './tools/repuestos_usados.tool';
 import { consultarResumenGlobalTool } from './tools/resumen_global.tool';
+import { consultarProveedoresTool } from './tools/proveedores.tool';
+import { consultarComprasTool } from './tools/compras.tool';
 
 @Injectable()
 export class ChatbotService {
@@ -42,8 +44,8 @@ export class ChatbotService {
     const isPropietario = user.rol === 'propietario';
     const idSede = user.id_sede;
 
-    // Herramientas disponibles solo si el usuario pertenece a una sede concreta
-    const sedeTools =
+    // Herramientas completas para roles de sede (excluye abastecedor)
+    const sedeToolsBase =
       idSede != null
         ? {
             buscar_productos: buscarProductosTool(this.dataSource, idSede),
@@ -61,7 +63,10 @@ export class ChatbotService {
               idSede,
             ),
             consultar_ventas: consultarVentasTool(this.dataSource, idSede),
-            consultar_detalle_ventas: consultarDetalleVentasTool(this.dataSource, idSede),
+            consultar_detalle_ventas: consultarDetalleVentasTool(
+              this.dataSource,
+              idSede,
+            ),
             cotizar_reparacion: cotizarReparacionTool(this.dataSource, idSede),
             consultar_rendimiento_empleados: consultarRendimientoEmpleadosTool(
               this.dataSource,
@@ -78,6 +83,29 @@ export class ChatbotService {
           }
         : {};
 
+    // Subconjunto de herramientas orientado al abastecedor
+    const abastecedorTools =
+      idSede != null
+        ? {
+            buscar_productos: buscarProductosTool(this.dataSource, idSede),
+            consultar_stock: consultarStockTool(this.dataSource, idSede),
+            buscar_repuestos: buscarRepuestosTool(this.dataSource, idSede),
+            consultar_reposicion: consultarReposicionTool(
+              this.dataSource,
+              idSede,
+            ),
+            consultar_proveedores: consultarProveedoresTool(
+              this.dataSource,
+              idSede,
+            ),
+            consultar_compras: consultarComprasTool(this.dataSource, idSede),
+          }
+        : {};
+
+    // El abastecedor solo accede a herramientas de gestión de stock y compras
+    const sedeTools =
+      user.rol === 'abastecedor' ? abastecedorTools : sedeToolsBase;
+
     // Solo el propietario tiene acceso a la vista global de todas las sedes
     const globalTools = isPropietario
       ? {
@@ -85,10 +113,14 @@ export class ChatbotService {
         }
       : {};
 
+    const safeMessages = dto.messages.filter(
+      (m) => m.role === 'user' || m.role === 'assistant',
+    );
+
     const result = streamText({
       model: openai('gpt-4o'),
       system: this.buildSystemPrompt(user, dto.context_page),
-      messages: dto.messages,
+      messages: safeMessages,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tools: { ...sedeTools, ...globalTools } as any,
       // Permite hasta 5 rondas de tool-calling antes de devolver la respuesta final
@@ -156,7 +188,7 @@ export class ChatbotService {
                   COALESCE(SUM(dv.importe), 0)::text AS ingresos
            FROM ventas v
            JOIN detalle_venta dv ON dv.id_venta = v.id_venta
-           WHERE v.id_sede = $1 AND DATE(v.fecha_emision) = CURRENT_DATE`,
+           WHERE v.id_sede = $1 AND DATE(v.fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`,
           [user.id_sede],
         );
         const totalHoy = parseInt(ventas?.total ?? '0', 10);
@@ -229,6 +261,7 @@ export class ChatbotService {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
+      timeZone: 'America/Lima',
     });
 
     try {
@@ -323,7 +356,7 @@ export class ChatbotService {
                   COALESCE(SUM(dv.importe), 0)::text AS ingresos
            FROM ventas v
            JOIN detalle_venta dv ON dv.id_venta = v.id_venta
-           WHERE v.id_sede = $1 AND DATE(v.fecha_emision) = CURRENT_DATE`,
+           WHERE v.id_sede = $1 AND DATE(v.fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`,
           [user.id_sede],
         );
         const ventas = parseInt(v?.ventas ?? '0', 10);
@@ -374,7 +407,7 @@ export class ChatbotService {
            COALESCE(SUM(dv.importe), 0)::text AS ingresos_hoy
          FROM ventas v
          JOIN detalle_venta dv ON dv.id_venta = v.id_venta
-         WHERE v.id_sede = $1 AND DATE(v.fecha_emision) = CURRENT_DATE`,
+         WHERE v.id_sede = $1 AND DATE(v.fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date`,
         [user.id_sede],
       );
       const repActivas = parseInt(r?.rep_activas ?? '0', 10);
@@ -401,10 +434,21 @@ export class ChatbotService {
     };
     const rolLabel = rolDescripcion[user.rol] ?? user.rol;
     const isPropietario = user.rol === 'propietario';
+    const isAbastecedor = user.rol === 'abastecedor';
 
-    // Sanitiza la página activa para evitar inyección en el prompt
+    const PAGE_LABELS: Record<string, string> = {
+      '/dashboard': 'Panel principal',
+      '/dashboard/cambios': 'Historial de cambios',
+      '/dashboard/cambios/nuevo': 'Nuevo cambio',
+      '/dashboard/ventas': 'Ventas',
+      '/dashboard/reparaciones': 'Reparaciones',
+      '/dashboard/clientes': 'Clientes',
+      '/dashboard/catalogo': 'Catálogo',
+      '/dashboard/empleados': 'Empleados',
+      '/dashboard/reposicion': 'Reposición de stock',
+    };
     const safeContext = contextPage
-      ? contextPage.replace(/["\n\r]/g, '').slice(0, 100)
+      ? (PAGE_LABELS[contextPage] ?? undefined)
       : undefined;
 
     const contextLine = safeContext
@@ -415,11 +459,19 @@ export class ChatbotService {
       ? 'Tienes acceso global a todas las sedes del negocio.'
       : 'Todos los datos que consultes pertenecen exclusivamente a su sede.';
 
-    // El bloque de herramientas varía según si es propietario (global) o empleado de sede
+    // El bloque de herramientas varía según si es propietario (global), abastecedor o empleado de sede
     const herramientas = isPropietario
       ? `HERRAMIENTAS DISPONIBLES:
 - consultar_resumen_global: muestra resumen de todas las sedes — ventas, reparaciones, ingresos y empleados activos. Con incluir_empleados=true lista empleados por sede. Úsalo para comparar sedes, ver el estado general del negocio o preguntas sobre rendimiento global.`
-      : `HERRAMIENTAS DISPONIBLES:
+      : isAbastecedor
+        ? `HERRAMIENTAS DISPONIBLES:
+- buscar_productos: busca productos del catálogo de la sede por nombre, marca o modelo. Devuelve precio, stock y foto. Cuando el usuario pida ver una imagen del producto, muéstrala en markdown: ![nombre](imagen_url).
+- consultar_stock: consulta el stock actual de un ítem por SKU.
+- buscar_repuestos: busca repuestos disponibles en la sede.
+- consultar_reposicion: consulta ítems con stock bajo o agotado. Con ver_historial=true muestra las últimas 5 compras. Úsalo para saber qué comprar, qué falta o cuánto costó la última reposición.
+- consultar_proveedores: lista los proveedores registrados y sus métricas en esta sede (órdenes realizadas, total comprado, última compra). Filtra por nombre o RUC. Úsalo cuando pregunten qué proveedores hay, cuál se usa más o cuánto se les ha comprado.
+- consultar_compras: historial de compras de reposición de la sede. Filtra por proveedor, ítem y periodo (hoy/semana/mes/año). Con ver_detalle=true muestra los ítems línea a línea. Úsalo para saber qué se compró, cuánto se gastó o compras por proveedor.`
+        : `HERRAMIENTAS DISPONIBLES:
 - buscar_productos: busca productos del catálogo de la sede. Devuelve imagen_url — cuando el usuario pida ver el producto o imagen, inclúyela en markdown: ![nombre](imagen_url). Solo muestra imagen si imagen_url no es null.
 - consultar_stock: consulta niveles de stock en la sede.
 - buscar_repuestos: busca repuestos disponibles.

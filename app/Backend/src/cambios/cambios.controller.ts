@@ -21,7 +21,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 import { CambiosService } from './cambios.service';
-import { BoletasService } from '../boletas/boletas.service';
+import { NotasVentaService } from '../notas-venta/notas-venta.service';
 import { CreateCambioDto } from './dto/create-cambio.dto';
 import { QueryCambiosDto } from './dto/query-cambios.dto';
 import { QueryVentasDto } from './dto/query-ventas.dto';
@@ -35,8 +35,8 @@ import { QueryVentasDto } from './dto/query-ventas.dto';
 export class CambiosController {
   constructor(
     private readonly cambiosService: CambiosService,
-    // BoletasService se inyecta aquí para emitir/consultar la boleta del cambio.
-    private readonly boletasService: BoletasService,
+    // NotasVentaService se inyecta aquí para emitir/consultar la nota de venta del cambio.
+    private readonly notasVentaService: NotasVentaService,
   ) {}
 
   // Devuelve ventas de la sede filtradas por fecha; limitado a 20 resultados para el selector de cambios.
@@ -103,7 +103,7 @@ export class CambiosController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.boletasService.emitirParaCambio(id, user);
+    return this.notasVentaService.emitirParaCambio(id, user);
   }
 
   // Recupera la boleta previamente emitida para el cambio indicado.
@@ -114,6 +114,6 @@ export class CambiosController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.boletasService.findByCambio(id, user);
+    return this.notasVentaService.findByCambio(id, user);
   }
 }

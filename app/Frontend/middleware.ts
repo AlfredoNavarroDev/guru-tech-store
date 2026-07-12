@@ -19,8 +19,8 @@ function decodeJwt(token: string): JwtPayload | null {
 const ROUTE_ROLES: [string, string[]][] = [
   ['/dashboard/empleados',   ['admin', 'administrador']],
   ['/dashboard/compras',     ['abastecedor']],
-  ['/dashboard/proveedores', ['abastecedor']],
-  ['/dashboard/stock',       ['abastecedor']],
+  ['/dashboard/proveedores', ['abastecedor', 'propietario']],
+  ['/dashboard/stock',       ['abastecedor', 'propietario']],
   ['/dashboard/items',       ['abastecedor']],
   ['/dashboard/ventas',      ['vendedor', 'propietario', 'gerente']],
   ['/dashboard/clientes',    ['vendedor', 'propietario', 'gerente', 'tecnico']],
@@ -28,12 +28,23 @@ const ROUTE_ROLES: [string, string[]][] = [
 ]
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('guru_token')
-  if (!token?.value) {
+  const authRaw = request.cookies.get('guru_auth')?.value
+  let jwtToken: string | null = null
+  if (authRaw) {
+    try {
+      const decoded = decodeURIComponent(authRaw)
+      const parsed = JSON.parse(decoded) as { access_token?: string }
+      jwtToken = parsed.access_token ?? null
+    } catch {
+      jwtToken = null
+    }
+  }
+
+  if (!jwtToken) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const payload = decodeJwt(token.value)
+  const payload = decodeJwt(jwtToken)
   if (!payload?.rol) {
     return NextResponse.redirect(new URL('/login', request.url))
   }

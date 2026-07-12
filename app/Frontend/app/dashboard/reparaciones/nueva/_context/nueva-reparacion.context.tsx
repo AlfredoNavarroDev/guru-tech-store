@@ -4,13 +4,19 @@ import { createContext, useContext, useState, type ReactNode } from "react"
 
 export type ChecklistKey =
   | "pantalla"
-  | "touch"
   | "bateria"
-  | "camara"
-  | "altavoz"
-  | "microfono"
   | "zocalo"
   | "carcasa"
+  | "camara_frontal"
+  | "camara_trasera"
+  | "altavoz"
+  | "microfono"
+  | "tactil"
+  | "brillo_pantalla"
+  | "wifi"
+  | "bluetooth"
+  | "huella"
+  | "face_id"
 
 export type ChecklistEstado = "ok" | "dañado" | "no aplica"
 
@@ -52,6 +58,8 @@ type NuevaReparacionContextType = {
   fotoContentType: "image/jpeg" | "image/png" | "image/webp" | null
   setFotoContentType: (v: "image/jpeg" | "image/png" | "image/webp" | null) => void
   // Step 3
+  tipoAccion: "diagnostico" | "reparacion"
+  setTipoAccion: (v: "diagnostico" | "reparacion") => void
   tipoServicio: "software" | "hardware" | "mixto" | null
   setTipoServicio: (v: "software" | "hardware" | "mixto" | null) => void
   diagnostico: string
@@ -87,6 +95,7 @@ export function NuevaReparacionProvider({ children }: { children: ReactNode }) {
   const [fotoContentType, setFotoContentType] = useState<
     "image/jpeg" | "image/png" | "image/webp" | null
   >(null)
+  const [tipoAccion, setTipoAccion] = useState<"diagnostico" | "reparacion">("reparacion")
   const [tipoServicio, setTipoServicio] = useState<"software" | "hardware" | "mixto" | null>(null)
   const [diagnostico, setDiagnostico] = useState("")
   const [fechaEst, setFechaEst] = useState("")
@@ -108,6 +117,7 @@ export function NuevaReparacionProvider({ children }: { children: ReactNode }) {
         checklist, setChecklist,
         fotoBase64, setFotoBase64,
         fotoContentType, setFotoContentType,
+        tipoAccion, setTipoAccion,
         tipoServicio, setTipoServicio,
         diagnostico, setDiagnostico,
         fechaEst, setFechaEst,

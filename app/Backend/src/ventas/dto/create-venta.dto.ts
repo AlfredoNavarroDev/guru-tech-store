@@ -15,13 +15,14 @@ import { CreateDetalleVentaDto } from './create-detalle-venta.dto';
 
 // DTO para crear venta (cabecera + detalles en un solo request). id_empleado e id_sede vienen del JWT.
 export class CreateVentaDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 5,
-    description: 'ID del cliente; requerido para registrar la venta',
+    description: 'ID del cliente; omitir para venta anónima (Consumidor Final)',
   })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
-  id_cliente: number;
+  id_cliente?: number;
 
   // Al menos un ítem requerido, cada uno validado anidado.
   @ApiProperty({ type: [CreateDetalleVentaDto], description: 'Mínimo 1 item' })

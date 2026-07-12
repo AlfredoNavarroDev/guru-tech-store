@@ -324,6 +324,18 @@ export default function ReparacionDetailPage({
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <EstadoBadge estado={rep.estado} size="md" />
+                  {rep.tipo_accion && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        rep.tipo_accion === "diagnostico"
+                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                      )}
+                    >
+                      {rep.tipo_accion === "diagnostico" ? "Diagnóstico" : "Reparación"}
+                    </span>
+                  )}
                   <p className="text-[11px] text-gray-500 max-w-[180px] text-right leading-snug">
                     {ESTADO_DESC[rep.estado ?? ""] ?? ""}
                   </p>
@@ -415,7 +427,7 @@ export default function ReparacionDetailPage({
                   <span>{tab.label}</span>
                   {tab.id === "docs" && !boleta && (
                     <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400">
-                      <span className="sr-only">Boleta pendiente</span>
+                      <span className="sr-only">Nota de venta pendiente</span>
                     </span>
                   )}
                   {tab.id === "servicio" && rep.estado !== "entregado" && !(rep.fotos ?? []).some(f => f.etapa === rep.estado) && (

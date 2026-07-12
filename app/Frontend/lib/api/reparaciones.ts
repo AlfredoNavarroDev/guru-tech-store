@@ -43,6 +43,7 @@ export interface ReparacionResponse {
   created_at: string
   updated_at: string | null
   tipo_servicio: 'software' | 'hardware' | 'mixto' | null
+  tipo_accion: 'diagnostico' | 'reparacion' | null
   repuestos?: RepuestoUsadoResponse[]
   pagos?: PagoReparacionResponse[]
   total_pagado?: number
@@ -81,6 +82,7 @@ export interface CreateReparacionInput {
   diagnostico_tecnico?: string
   monto_cotizado?: number
   fecha_estimada?: string
+  tipo_accion?: 'diagnostico' | 'reparacion'
   tipo_servicio?: 'software' | 'hardware' | 'mixto'
   monto_descuento?: number
   tipo_descuento?: 'porcentaje' | 'monto_fijo'

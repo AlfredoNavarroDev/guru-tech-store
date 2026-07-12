@@ -53,6 +53,8 @@ export class ReparacionResponseDto {
     | 'hardware'
     | 'mixto'
     | null;
+  @ApiProperty({ enum: ['diagnostico', 'reparacion'] })
+  tipo_accion: 'diagnostico' | 'reparacion';
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date | null;
   // Solo presente en la respuesta de detalle (findOne); ausente en el listado paginado.

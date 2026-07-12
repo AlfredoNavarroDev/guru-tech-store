@@ -7,8 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { BoletasService } from './boletas.service';
-import { Boleta } from './entities/boleta.entity';
+import { NotasVentaService } from './notas-venta.service';
+import { NotaVenta } from './entities/nota-venta.entity';
 import type { JwtPayload } from '../common/types';
 
 jest.mock(
@@ -108,8 +108,8 @@ const reparacionRows = [
   },
 ];
 
-describe('BoletasService', () => {
-  let service: BoletasService;
+describe('NotasVentaService', () => {
+  let service: NotasVentaService;
   let boletaRepo: ReturnType<typeof createMockRepository>;
   let dataSource: { query: jest.Mock; transaction: jest.Mock };
   let configService: { get: jest.Mock };
@@ -132,14 +132,14 @@ describe('BoletasService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        BoletasService,
-        { provide: getRepositoryToken(Boleta), useValue: boletaRepo },
+        NotasVentaService,
+        { provide: getRepositoryToken(NotaVenta), useValue: boletaRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: ConfigService, useValue: configService },
       ],
     }).compile();
 
-    service = module.get<BoletasService>(BoletasService);
+    service = module.get<NotasVentaService>(NotasVentaService);
     await service.onModuleInit();
     mockS3Send.mockClear();
   });
@@ -162,7 +162,7 @@ describe('BoletasService', () => {
   function mockTransaction(overrides: Record<string, unknown> = {}) {
     const saved = {
       id_boleta: 1,
-      numero: 'B002-0000001',
+      numero: 'NV002-0000001',
       id_venta: 1,
       total: 1000,
       estado: 'emitida',
@@ -227,14 +227,14 @@ describe('BoletasService', () => {
 
       expect(boletaRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          numero: 'B002-0000001',
+          numero: 'NV002-0000001',
           id_venta: 1,
           total: 1000,
         }),
       );
       expect(result).toBe(saved);
       expect(result.url_pdf).toBe(
-        'https://cdn.test.com/boletas/ventas/B002-0000001.pdf',
+        'https://cdn.test.com/boletas/ventas/NV002-0000001.pdf',
       );
       expect(mockS3Send).toHaveBeenCalledTimes(1);
     });

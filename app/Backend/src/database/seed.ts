@@ -113,7 +113,9 @@ async function main(): Promise<void> {
     console.log('    ids 1-4: ventas del flujo de cambios (seed-08)');
     console.log('    ids 5-10: ventas directas con pagos (seed-09)');
     console.log('\n  REPARACIONES (4 reparaciones, un estado por reparación)');
-    console.log('    id=1  pendiente   Samsung Galaxy A54  + adelanto S/60 pagado');
+    console.log(
+      '    id=1  pendiente   Samsung Galaxy A54  + adelanto S/60 pagado',
+    );
     console.log('    id=2  reparacion  Apple iPhone 12     (sin pago aún)');
     console.log('    id=3  listo       Xiaomi Redmi Note 12  sede 2');
     console.log('    id=4  entregado   Samsung Galaxy A52');

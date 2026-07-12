@@ -19,6 +19,7 @@ import type { QueryGarantiasDto } from './dto/query-garantias.dto';
 import type { GarantiaResponseDto } from './dto/garantia-response.dto';
 import type { ReparacionResponseDto } from '../reparaciones/dto/reparacion-response.dto';
 import { ReparacionesService } from '../reparaciones/reparaciones.service';
+import { RestriccionesService } from '../restricciones/restricciones.service';
 
 // Forma cruda de una fila de garantía devuelta por SQL (antes de mapear a DTO).
 interface GarantiaRow {
@@ -78,6 +79,7 @@ export class GarantiasService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly reparacionesService: ReparacionesService,
+    private readonly restriccionesService: RestriccionesService,
   ) {}
 
   // Crea una garantía de reparación; verifica que la reparación pertenezca a la sede del técnico.
@@ -108,6 +110,35 @@ export class GarantiasService {
       [dto.id_reparacion],
     );
     if (existing.length) throw new GarantiaYaExisteException(dto.id_reparacion);
+
+    // Valida max_dias_garantia contra los repuestos usados en la reparación (si existen).
+    // Si un repuesto tiene restricción de días, la garantía no puede superarla.
+    const [repuesto] = await this.dataSource.query<{ id_item: number }[]>(
+      `SELECT id_item FROM reparacion_repuestos_usados
+       WHERE id_reparacion = $1 LIMIT 1`,
+      [dto.id_reparacion],
+    );
+    if (repuesto) {
+      const restriction =
+        await this.restriccionesService.resolveItemRestriction(
+          repuesto.id_item,
+        );
+      if (
+        restriction?.max_dias_garantia !== null &&
+        restriction?.max_dias_garantia !== undefined
+      ) {
+        const dias = Math.ceil(
+          (new Date(dto.fecha_fin).getTime() -
+            new Date(dto.fecha_inicio).getTime()) /
+            86400000,
+        );
+        if (dias > restriction.max_dias_garantia) {
+          throw new BadRequestException(
+            `La garantía no puede superar ${restriction.max_dias_garantia} días para este producto`,
+          );
+        }
+      }
+    }
 
     const rows = await this.dataSource.query<GarantiaRow[]>(
       `INSERT INTO garantias (id_reparacion, fecha_inicio, fecha_fin, estado)
@@ -159,8 +190,8 @@ export class GarantiasService {
         `INSERT INTO reparaciones
            (id_cliente, id_tecnico, id_sede, marca, modelo, imei,
             esta_encendido, checklist_estado, diagnostico_tecnico,
-            fecha_estimada, id_estado, id_garantia_reclamada)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            fecha_estimada, id_estado, id_garantia_reclamada, tipo_accion)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          RETURNING id_reparacion`,
         [
           garantia.id_cliente,
@@ -176,6 +207,7 @@ export class GarantiasService {
           dto.fecha_estimada ?? null,
           estadoInicial.id_estado,
           idGarantia,
+          dto.tipo_accion ?? 'reparacion',
         ],
       );
       nuevaReparacionId = inserted.id_reparacion;

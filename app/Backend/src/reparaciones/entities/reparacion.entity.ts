@@ -110,6 +110,14 @@ export class Reparacion {
   })
   tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
 
+  @Column({
+    name: 'tipo_accion',
+    type: 'varchar',
+    length: 20,
+    default: 'reparacion',
+  })
+  tipo_accion: 'diagnostico' | 'reparacion';
+
   // Array JSONB de fotos subidas a R2 por etapa del servicio técnico.
   @Column({ name: 'fotos', type: 'jsonb', nullable: true })
   fotos: { url: string; etapa: string; created_at: string }[] | null;

@@ -15,10 +15,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn, formatNum } from "@/lib/utils"
 import { getEstadisticas, type EstadisticasHoy } from "@/lib/api/ventas"
 import { getSession } from "@/lib/api/auth"
+import { getRendimientoHoy, type RendimientoHoy } from "@/lib/api/empleados"
 import { AdminDashboard } from "./_components/AdminDashboard"
 import { TecnicoDashboard } from "./_components/TecnicoDashboard"
 import { AbastecedorDashboard } from "./_components/AbastecedorDashboard"
 import { PropietarioDashboard } from "./_components/PropietarioDashboard"
+import { DashboardSkeleton } from "./_components/DashboardSkeleton"
 
 const SALES_ROLES = ["vendedor", "propietario", "gerente"]
 
@@ -66,12 +68,16 @@ function moneyChange(hoy: number, ayer: number): { label: string; positive: bool
 export default function DashboardPage() {
   const [stats, setStats] = useState<EstadisticasHoy | null>(null)
   const [error, setError] = useState(false)
+  const [rendimientoHoy, setRendimientoHoy] = useState<RendimientoHoy | null>(null)
   const session = useSyncExternalStore(noopSubscribe, getSession, () => null)
   const today = useSyncExternalStore(noopSubscribe, formatToday, () => "")
 
   useEffect(() => {
     if (session && SALES_ROLES.includes(session.rol)) {
       getEstadisticas().then(setStats).catch(() => setError(true))
+    }
+    if (session && session.rol === "vendedor") {
+      getRendimientoHoy().then(setRendimientoHoy).catch(() => undefined)
     }
   }, [session])
 
@@ -119,6 +125,7 @@ export default function DashboardPage() {
   }, [stats])
 
   const rol = session?.rol
+  if (!session) return <DashboardSkeleton />
   if (rol === "admin" || rol === "administrador") return <AdminDashboard />
   if (rol === "abastecedor") return <AbastecedorDashboard />
   if (rol === "tecnico") return <TecnicoDashboard />
@@ -194,6 +201,41 @@ export default function DashboardPage() {
               </BlurFade>
             ))}
       </div>
+
+      {/* ── Meta del día ── */}
+      {rendimientoHoy?.meta_diaria != null && (
+        <BlurFade delay={0.22} duration={0.35}>
+          <div className="mb-8 rounded-2xl border border-border bg-card p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+              Meta del día
+            </p>
+            <div className="flex items-end justify-between mb-2">
+              <span className="text-2xl font-bold">
+                S/ {Number(rendimientoHoy.total_hoy).toFixed(2)}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                / S/ {Number(rendimientoHoy.meta_diaria).toFixed(2)}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  (rendimientoHoy.porcentaje ?? 0) >= 100
+                    ? "bg-green-500"
+                    : (rendimientoHoy.porcentaje ?? 0) >= 70
+                    ? "bg-yellow-400"
+                    : "bg-red-400",
+                )}
+                style={{ width: `${Math.min(rendimientoHoy.porcentaje ?? 0, 100)}%` }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-right text-muted-foreground">
+              {rendimientoHoy.porcentaje ?? 0}% completado
+            </p>
+          </div>
+        </BlurFade>
+      )}
 
       {/* ── Bottom section ── */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">

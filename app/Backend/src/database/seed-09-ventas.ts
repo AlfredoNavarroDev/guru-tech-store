@@ -81,10 +81,16 @@ export async function seedVentas(qr: QueryRunner): Promise<void> {
   console.log('  OK - 11 pagos (ventas 1-10 + adelanto reparacion 1)');
   console.log('    Venta 5:  efectivo  S/105.00 (cable x2 + cargador)');
   console.log('    Venta 6:  yape      S/85.00  (auriculares)');
-  console.log('    Venta 7:  tarjeta   S/65.00  (fundas iPhone + Samsung, sede 2)');
-  console.log('    Venta 8:  efectivo  S/71.00  (soporte x2 + limpiador, anónimo)');
+  console.log(
+    '    Venta 7:  tarjeta   S/65.00  (fundas iPhone + Samsung, sede 2)',
+  );
+  console.log(
+    '    Venta 8:  efectivo  S/71.00  (soporte x2 + limpiador, anónimo)',
+  );
   console.log('    Venta 9:  tarjeta   S/130.00 (SSD externo, sede 2)');
   console.log('    Venta 10: yape      S/88.00  (power bank con promo 20%)');
-  console.log('    Rep 1:    efectivo  S/60.00  adelanto → saldo pendiente S/60.00');
+  console.log(
+    '    Rep 1:    efectivo  S/60.00  adelanto → saldo pendiente S/60.00',
+  );
   console.log('[Seed 09] Completado.\n');
 }

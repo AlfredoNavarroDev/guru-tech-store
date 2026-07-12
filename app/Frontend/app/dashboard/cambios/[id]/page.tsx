@@ -30,6 +30,16 @@ function fmtDate(iso: string | Date) {
   }
 }
 
+function safePdfUrl(url: string | undefined | null): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'https:' ? url : null
+  } catch {
+    return null
+  }
+}
+
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 
 function DetailSkeleton() {
@@ -94,10 +104,10 @@ export default function CambioDetailPage({
     try {
       const result = await emitirBoletaCambio(cambioId)
       setBoleta(result)
-      toast.success(`Boleta ${result.numero} emitida correctamente`)
+      toast.success(`Nota de Venta ${result.numero} emitida correctamente`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido"
-      toast.error(`No se pudo emitir la boleta: ${msg}`)
+      toast.error(`No se pudo emitir la nota de venta: ${msg}`)
     } finally {
       setEmitting(false)
     }
@@ -199,10 +209,9 @@ export default function CambioDetailPage({
                     className={cn(
                       "mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold",
                       diferencia > 0
-                        ? "text-[var(--color-lime)]"
+                        ? "bg-bg-dark text-lime"
                         : "bg-gray-100 text-gray-600",
                     )}
-                    style={diferencia > 0 ? { background: "var(--color-bg-dark)" } : undefined}
                   >
                     <span>{diferencia > 0 ? "Diferencia cobrada" : "Sin diferencia"}</span>
                     {diferencia > 0 && <span>+S/ {diferencia.toFixed(2)}</span>}
@@ -227,7 +236,7 @@ export default function CambioDetailPage({
                         onClick={() =>
                           router.push(`/dashboard/ventas/${cambio.id_venta_origen}`)
                         }
-                        className="flex items-center gap-1 font-mono text-sm font-medium text-blue-600 hover:underline"
+                        className="flex items-center gap-1 font-mono text-sm font-medium text-lime-dark hover:underline"
                       >
                         #{cambio.id_venta_origen}
                         <ArrowRight className="h-3 w-3" />
@@ -270,7 +279,7 @@ export default function CambioDetailPage({
             <BlurFade delay={0.20} duration={0.4}>
               <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
                 <div className="border-b border-gray-100 px-5 py-4">
-                  <h2 className="text-sm font-semibold text-gray-900">Boleta</h2>
+                  <h2 className="text-sm font-semibold text-gray-900">Nota de Venta</h2>
                 </div>
                 <div className="p-5">
                   {boletaLoading ? (
@@ -284,21 +293,21 @@ export default function CambioDetailPage({
                           <FileText className="h-4 w-4 text-green-600" />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Número de boleta</p>
+                          <p className="text-xs text-gray-500">Número de nota de venta</p>
                           <p className="font-mono text-sm font-semibold text-gray-900">{boleta.numero}</p>
                         </div>
                       </div>
-                      {boleta.url_pdf ? (
+                      {safePdfUrl(boleta.url_pdf) ? (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => window.open(boleta.url_pdf!, "_blank")}
+                            onClick={() => window.open(safePdfUrl(boleta.url_pdf)!, "_blank")}
                             className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                             Ver PDF
                           </button>
                           <a
-                            href={boleta.url_pdf}
+                            href={safePdfUrl(boleta.url_pdf)!}
                             download={`boleta-${boleta.numero}.pdf`}
                             className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
                           >
@@ -314,12 +323,12 @@ export default function CambioDetailPage({
                     <div className="space-y-3">
                       <div className="flex items-center gap-3 text-gray-500">
                         <Ban className="h-4 w-4" />
-                        <p className="text-sm">Sin boleta registrada</p>
+                        <p className="text-sm">Sin nota de venta registrada</p>
                       </div>
                       <button
                         onClick={handleEmitirBoleta}
                         disabled={emitting || loading}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-dark px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-lime-dark/90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {emitting ? (
                           <>
@@ -329,7 +338,7 @@ export default function CambioDetailPage({
                         ) : (
                           <>
                             <FileText className="h-4 w-4" />
-                            Emitir Boleta de Cambio
+                            Emitir Nota de Venta
                           </>
                         )}
                       </button>

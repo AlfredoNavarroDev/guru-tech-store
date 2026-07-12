@@ -1,12 +1,12 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-// Entidad de boleta (comprobante fiscal). Vinculada a venta o reparación (XOR).
-@Entity('boletas')
-export class Boleta {
+// Entidad de nota de venta (comprobante fiscal). Vinculada a venta o reparación (XOR).
+@Entity('notas_venta')
+export class NotaVenta {
   @PrimaryGeneratedColumn({ name: 'id_boleta' })
   id_boleta: number;
 
-  // B{sede}-{secuencial}. Unique para evitar duplicados.
+  // NV{sede}-{secuencial}. Unique para evitar duplicados.
   @Column({ length: 20, unique: true })
   numero: string;
 
@@ -18,7 +18,7 @@ export class Boleta {
   })
   fecha_emision: Date;
 
-  // Venta origen. null si es boleta de reparación.
+  // Venta origen. null si es nota de reparación.
   @Column({ name: 'id_venta', type: 'int', nullable: true })
   id_venta: number | null;
 
@@ -26,7 +26,7 @@ export class Boleta {
   @Column({ name: 'id_reparacion', type: 'int', nullable: true })
   id_reparacion: number | null;
 
-  // Cambio de producto origen. null si es boleta de venta o reparación.
+  // Cambio de producto origen. null si es nota de venta o reparación.
   @Column({ name: 'id_cambio', type: 'int', nullable: true })
   id_cambio: number | null;
 

@@ -5,6 +5,17 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 
 // Extiende PaginationDto con filtros específicos del stock (todos opcionales).
 export class QueryStockDto extends PaginationDto {
+  // Sede a consultar. Solo la usa el propietario (sin sede fija); el abastecedor consulta su propia sede.
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'FK → Sedes.id_sede (solo propietario)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id_sede?: number;
+
   // Permite filtrar entre ítems de tipo 'producto' o 'repuesto'.
   @ApiPropertyOptional({ enum: ['producto', 'repuesto'] })
   @IsOptional()

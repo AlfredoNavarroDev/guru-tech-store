@@ -1,4 +1,11 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DataSource, EntityManager } from 'typeorm';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -14,6 +21,7 @@ import {
   ItemStockInsuficienteException,
 } from '../common/exceptions';
 import { AjusteStockDto } from './dto/ajuste-stock.dto';
+import { UploadImagenItemDto } from './dto/upload-imagen-item.dto';
 
 // Forma de cada fila que devuelven las queries SQL de ítems.
 interface ItemRow {
@@ -55,7 +63,21 @@ const itemSelect = (stockParamIdx: number) => `
 // Servicio principal del módulo de ítems: opera con SQL nativo sobre DataSource para mayor control.
 @Injectable()
 export class ItemsService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly s3: S3Client;
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
+  ) {
+    this.s3 = new S3Client({
+      region: 'auto',
+      endpoint: `https://${config.get<string>('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: config.get<string>('R2_ACCESS_KEY_ID', ''),
+        secretAccessKey: config.get<string>('R2_SECRET_ACCESS_KEY', ''),
+      },
+    });
+  }
 
   // Crea el ítem, vincula sus categorías y registra el inventario inicial en la sede, todo en una sola transacción.
   async create(dto: CreateItemDto, idSede: number): Promise<ItemResponseDto> {
@@ -342,6 +364,70 @@ export class ItemsService {
     return this.dataSource.query(
       `SELECT id_marca, nombre FROM marcas ORDER BY nombre`,
     );
+  }
+
+  async findSedes(): Promise<{ id_sede: number; nombre: string }[]> {
+    return this.dataSource.query(
+      `SELECT id_sede, nombre FROM sedes ORDER BY id_sede`,
+    );
+  }
+
+  async uploadImagen(
+    id: number,
+    dto: UploadImagenItemDto,
+  ): Promise<{ url: string }> {
+    const exists = await this.dataSource.query(
+      `SELECT id_item FROM items WHERE id_item = $1`,
+      [id],
+    );
+    if (!exists.length) throw new NotFoundException(`Ítem ${id} no encontrado`);
+
+    const buffer = Buffer.from(dto.imagen_base64, 'base64');
+    const extMap: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+    };
+    const ext = extMap[dto.content_type] ?? 'jpg';
+    const key = `fotos/items/${id}-${Date.now()}.${ext}`;
+    const r2 = this.getR2Config();
+
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: dto.content_type,
+      }),
+    );
+
+    const url = `${r2.publicUrl}/${key}`;
+    await this.dataSource.query(
+      `UPDATE items SET imagen_url = $1 WHERE id_item = $2`,
+      [url, id],
+    );
+
+    return { url };
+  }
+
+  private getR2Config(): { bucket: string; publicUrl: string } {
+    const required = [
+      'R2_ACCOUNT_ID',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME',
+      'R2_PUBLIC_URL',
+    ] as const;
+    const missing = required.filter((k) => !this.config.get<string>(k));
+    if (missing.length > 0) {
+      throw new InternalServerErrorException(
+        `Configuración R2 incompleta: ${missing.join(', ')}`,
+      );
+    }
+    return {
+      bucket: this.config.get<string>('R2_BUCKET_NAME')!,
+      publicUrl: this.config.get<string>('R2_PUBLIC_URL')!,
+    };
   }
 
   // Convierte la fila SQL cruda al DTO de respuesta, normalizando tipos numéricos y la lista de categorías.

@@ -21,6 +21,7 @@ import { getSession } from "@/lib/api/auth"
 import { cn, fmtFecha, repId } from "@/lib/utils"
 import { ApiError } from "@/lib/api/client"
 import { getReparaciones, type ReparacionResponse } from "@/lib/api/reparaciones"
+import { getRendimientoHoy, type RendimientoHoy } from "@/lib/api/empleados"
 import { EstadoBadge, ESTADO_LABEL } from "@/components/tecnico/EstadoBadge"
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -47,11 +48,12 @@ function formatToday() {
 export function TecnicoDashboard() {
   const router = useRouter()
 
-  const [reparaciones, setReparaciones] = useState<ReparacionResponse[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [error, setError]               = useState<string | null>(null)
-  const [filtroDb, setFiltroDb]         = useState<string | null>(null)
-  const [search, setSearch]             = useState("")
+  const [reparaciones, setReparaciones]       = useState<ReparacionResponse[]>([])
+  const [loading, setLoading]                 = useState(true)
+  const [error, setError]                     = useState<string | null>(null)
+  const [filtroDb, setFiltroDb]               = useState<string | null>(null)
+  const [search, setSearch]                   = useState("")
+  const [rendimientoHoy, setRendimientoHoy]   = useState<RendimientoHoy | null>(null)
 
   const session   = useSyncExternalStore(noopSubscribe, getSession, () => null)
   const today     = useSyncExternalStore(noopSubscribe, formatToday, () => "")
@@ -71,6 +73,10 @@ export function TecnicoDashboard() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    getRendimientoHoy().then(setRendimientoHoy).catch(() => undefined)
+  }, [])
 
   const activas    = reparaciones.filter((r) => r.estado !== "entregado").length
   const reparando  = reparaciones.filter((r) => r.estado === "reparacion").length
@@ -181,6 +187,41 @@ export function TecnicoDashboard() {
               <span>
                 {listos} equipo{listos > 1 ? "s" : ""} listo{listos > 1 ? "s" : ""} para entrega.
               </span>
+            </div>
+          </BlurFade>
+        )}
+
+        {/* Meta del día */}
+        {rendimientoHoy?.meta_diaria != null && (
+          <BlurFade delay={0.31} duration={0.3}>
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Meta del día
+              </p>
+              <div className="flex items-end justify-between mb-2">
+                <span className="text-2xl font-bold">
+                  S/ {Number(rendimientoHoy.total_hoy).toFixed(2)}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  / S/ {Number(rendimientoHoy.meta_diaria).toFixed(2)}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    (rendimientoHoy.porcentaje ?? 0) >= 100
+                      ? "bg-green-500"
+                      : (rendimientoHoy.porcentaje ?? 0) >= 70
+                      ? "bg-yellow-400"
+                      : "bg-red-400",
+                  )}
+                  style={{ width: `${Math.min(rendimientoHoy.porcentaje ?? 0, 100)}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-right text-muted-foreground">
+                {rendimientoHoy.porcentaje ?? 0}% completado
+              </p>
             </div>
           </BlurFade>
         )}
