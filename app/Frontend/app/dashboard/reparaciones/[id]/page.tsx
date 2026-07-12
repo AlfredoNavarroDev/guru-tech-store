@@ -69,7 +69,7 @@ export default function ReparacionDetailPage({
   const [showSticky, setShowSticky]       = useState(false)
   const [savingEntrega, setSavingEntrega] = useState(false)
   const [showEntregaModal, setShowEntregaModal] = useState(false)
-  const [diasGarantia, setDiasGarantia]         = useState(30)
+  const [diasGarantia, setDiasGarantia]         = useState(15)
   const headerCardRef                     = useRef<HTMLDivElement>(null)
 
   const loadDetail = useCallback(async () => {

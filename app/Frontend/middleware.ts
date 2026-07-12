@@ -17,7 +17,7 @@ function decodeJwt(token: string): JwtPayload | null {
 }
 
 const ROUTE_ROLES: [string, string[]][] = [
-  ['/dashboard/empleados',   ['admin', 'administrador']],
+  ['/dashboard/empleados',   ['admin', 'administrador', 'propietario']],
   ['/dashboard/compras',     ['abastecedor']],
   ['/dashboard/proveedores', ['abastecedor', 'propietario']],
   ['/dashboard/stock',       ['abastecedor', 'propietario']],

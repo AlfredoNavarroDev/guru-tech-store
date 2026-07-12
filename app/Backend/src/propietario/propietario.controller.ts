@@ -18,6 +18,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 import { ReportesQueryDto } from './dto/reportes-query.dto';
+import { ReportesPdfQueryDto } from './dto/reportes-pdf-query.dto';
 
 @ApiTags('propietario')
 @ApiBearerAuth()
@@ -96,5 +97,18 @@ export class PropietarioController {
   @ApiQuery({ name: 'fecha_hasta', required: false, type: String })
   getReportes(@Query() query: ReportesQueryDto) {
     return this.propietarioService.getReportes(query);
+  }
+
+  @Get('reportes/pdf')
+  @ApiOperation({
+    summary: 'Propietario — genera o recupera PDF de reporte desde R2',
+  })
+  @ApiQuery({ name: 'tipo', required: true, enum: ['ventas', 'reparaciones', 'ventas-reparaciones', 'compras'] })
+  @ApiQuery({ name: 'id_sede', required: false, type: Number })
+  @ApiQuery({ name: 'fecha_desde', required: false, type: String })
+  @ApiQuery({ name: 'fecha_hasta', required: false, type: String })
+  @ApiOkResponse({ schema: { properties: { url: { type: 'string' } } } })
+  getReportesPdf(@Query() query: ReportesPdfQueryDto): Promise<{ url: string }> {
+    return this.propietarioService.getReportePdf(query.tipo, query);
   }
 }

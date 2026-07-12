@@ -7,6 +7,7 @@ export type FrecuenciaPago = 'semanal' | 'quincenal' | 'mensual';
 export interface Empleado {
   id_empleado: number;
   id_sede: number;
+  sede_nombre?: string;
   id_rol: number;
   rol_nombre?: string;
   tipo_documento: TipoDocumento;
@@ -47,6 +48,7 @@ export interface CreateEmpleadoInput {
   frecuencia_pago?: FrecuenciaPago;
   es_extranjero?: boolean;
   direccion_completa?: string;
+  id_sede?: number;
 }
 
 export type UpdateEmpleadoInput = Partial<

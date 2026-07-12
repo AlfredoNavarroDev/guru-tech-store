@@ -50,8 +50,8 @@ export class EmpleadosService {
       nombre_completo: dto.nombre_completo,
       id_rol: dto.id_rol,
       password_hash,
-      // La sede proviene del token JWT del admin, no del body.
-      id_sede: currentUser.id_sede!,
+      // Propietario puede especificar sede vía dto; admin siempre usa la propia.
+      id_sede: (dto.id_sede ?? currentUser.id_sede)!,
       telefono: dto.telefono ?? null,
       sueldo_soles: dto.sueldo_soles ?? null,
       frecuencia_pago: dto.frecuencia_pago ?? 'semanal',
@@ -69,11 +69,13 @@ export class EmpleadosService {
   ): Promise<PaginatedResult<EmpleadoResponseDto>> {
     const qb = this.empleadosRepo
       .createQueryBuilder('e')
-      // Filtra por sede del admin para evitar acceso cruzado entre sedes.
-      .where('e.id_sede = :id_sede', { id_sede: currentUser.id_sede! })
       .orderBy('e.nombre_completo', 'ASC')
       .skip((query.page - 1) * query.limit)
       .take(query.limit);
+
+    if (currentUser.rol !== 'propietario') {
+      qb.where('e.id_sede = :id_sede', { id_sede: currentUser.id_sede! });
+    }
 
     if (query.id_rol !== undefined) {
       qb.andWhere('e.id_rol = :id_rol', { id_rol: query.id_rol });
@@ -86,8 +88,21 @@ export class EmpleadosService {
     }
 
     const [items, total] = await qb.getManyAndCount();
+
+    const sedeIds = [...new Set(items.map((e) => e.id_sede).filter(Boolean))] as number[];
+    let sedeNames: Record<number, string> = {};
+    if (sedeIds.length) {
+      const rows = await this.dataSource.query<{ id_sede: number; nombre: string }[]>(
+        `SELECT id_sede, nombre FROM sedes WHERE id_sede = ANY($1)`,
+        [sedeIds],
+      );
+      sedeNames = Object.fromEntries(rows.map((r) => [r.id_sede, r.nombre]));
+    }
+
     return {
-      items: items.map((empleado) => this.toResponse(empleado)),
+      items: items.map((empleado) =>
+        this.toResponse(empleado, empleado.id_sede ? sedeNames[empleado.id_sede] : undefined),
+      ),
       total,
       page: query.page,
       limit: query.limit,
@@ -95,13 +110,15 @@ export class EmpleadosService {
     };
   }
 
-  // Busca empleado por ID garantizando que pertenece a la sede del admin.
+  // Busca empleado por ID garantizando que pertenece a la sede del admin (propietario ve todas).
   async findOne(
     id: number,
     currentUser: JwtPayload,
   ): Promise<EmpleadoResponseDto> {
     const empleado = await this.empleadosRepo.findOne({
-      where: { id_empleado: id, id_sede: currentUser.id_sede! },
+      where: currentUser.rol === 'propietario'
+        ? { id_empleado: id }
+        : { id_empleado: id, id_sede: currentUser.id_sede! },
     });
     if (!empleado) throw new EmpleadoNotFoundException(id);
     return this.toResponse(empleado);
@@ -153,22 +170,25 @@ export class EmpleadosService {
     });
   }
 
-  // Helper interno: carga la entidad completa con validación de sede.
+  // Helper interno: carga la entidad completa con validación de sede (propietario omite filtro).
   private async findEntity(
     id: number,
     currentUser: JwtPayload,
   ): Promise<Empleado> {
     const empleado = await this.empleadosRepo.findOne({
-      where: { id_empleado: id, id_sede: currentUser.id_sede! },
+      where: currentUser.rol === 'propietario'
+        ? { id_empleado: id }
+        : { id_empleado: id, id_sede: currentUser.id_sede! },
     });
     if (!empleado) throw new EmpleadoNotFoundException(id);
     return empleado;
   }
 
   // Elimina password_hash antes de devolver el empleado al cliente.
-  private toResponse(empleado: Empleado): EmpleadoResponseDto {
-    const safe = { ...empleado } as Partial<Empleado>;
+  private toResponse(empleado: Empleado, sede_nombre?: string): EmpleadoResponseDto {
+    const safe = { ...empleado } as Partial<Empleado> & { sede_nombre?: string };
     delete safe.password_hash;
+    if (sede_nombre !== undefined) safe.sede_nombre = sede_nombre;
     return safe as EmpleadoResponseDto;
   }
 
@@ -206,6 +226,8 @@ export class EmpleadosService {
     }
   }
 
+  // Rendimiento del mes para vendedores y técnicos de la sede.
+  // Calcula ingresos hoy y el mejor día del mes usando CTEs independientes, luego los une.
   async getRendimiento(user: JwtPayload): Promise<EmpleadoRendimientoDto[]> {
     const idSede = user.id_sede!;
 
@@ -306,6 +328,8 @@ export class EmpleadosService {
     );
   }
 
+  // KPI personal del día: total generado hoy vs meta diaria configurada para el rol.
+  // Vendedores usan suma de importe_venta; técnicos usan monto_cotizado de reparaciones terminadas.
   async getRendimientoHoy(user: JwtPayload): Promise<RendimientoHoyDto> {
     let total_hoy = 0;
 

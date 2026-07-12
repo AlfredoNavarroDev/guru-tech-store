@@ -29,6 +29,7 @@ const vendedorNavLinks = [
 const propietarioNavLinks = [
   { href: "/dashboard",               label: "Resumen",       icon: LayoutDashboard },
   { href: "/dashboard/reportes",      label: "Reportes",      icon: BarChart2 },
+  { href: "/dashboard/empleados",     label: "Empleados",     icon: UserRound },
   { href: "/dashboard/clientes",      label: "Clientes",      icon: UserRound },
   { href: "/dashboard/stock",         label: "Inventario",    icon: Boxes },
   { href: "/dashboard/proveedores",   label: "Proveedores",   icon: Truck },

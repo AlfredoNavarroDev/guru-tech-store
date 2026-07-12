@@ -10,13 +10,12 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as Handlebars from 'handlebars';
-import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DataSource, Repository } from 'typeorm';
 import { NotaVenta } from './entities/nota-venta.entity';
 import type { JwtPayload } from '../common/types';
+import { PdfService } from '../common/pdf.service';
 
 // Fila de v_boleta_venta: una por cada ítem de la venta.
 interface BolVistaRow {
@@ -200,6 +199,7 @@ export class NotasVentaService implements OnModuleInit {
     private readonly boletaRepo: Repository<NotaVenta>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
+    private readonly pdfService: PdfService,
   ) {
     // Cliente S3 compatible con Cloudflare R2 (endpoint propio, región 'auto').
     this.s3 = new S3Client({
@@ -300,7 +300,7 @@ export class NotasVentaService implements OnModuleInit {
           total,
         );
         const html = this.templateFn(data);
-        const pdfBuffer = await this.generatePdf(html);
+        const pdfBuffer = await this.pdfService.generateFromHtml(html);
         const key = `boletas/ventas/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
@@ -475,7 +475,7 @@ export class NotasVentaService implements OnModuleInit {
           total,
         );
         const html = this.templateReparacionFn(data);
-        const pdfBuffer = await this.generatePdf(html);
+        const pdfBuffer = await this.pdfService.generateFromHtml(html);
         const key = `boletas/reparaciones/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
@@ -557,7 +557,7 @@ export class NotasVentaService implements OnModuleInit {
           cambioRow,
         );
         const html = this.cambioTemplateFn(templateData);
-        const pdfBuffer = await this.generatePdf(html);
+        const pdfBuffer = await this.pdfService.generateFromHtml(html);
         const key = `boletas/cambios/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
@@ -962,38 +962,4 @@ export class NotasVentaService implements OnModuleInit {
     return `${prefix}-${String(seq).padStart(7, '0')}`;
   }
 
-  // Lanza Puppeteer (Chromium headless) y genera PDF A4 del HTML recibido.
-  private async generatePdf(html: string): Promise<Buffer> {
-    // @sparticuz/chromium ships a Linux ELF binary — won't run on macOS natively.
-    // Fall back to system Chrome on macOS or a custom path via env var.
-    const isMac = process.platform === 'darwin';
-    const executablePath =
-      process.env.CHROMIUM_EXECUTABLE_PATH ??
-      (isMac
-        ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-        : await chromium.executablePath());
-    const args = isMac
-      ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-      : [
-          ...chromium.args,
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-        ];
-    const headless = isMac ? true : chromium.headless;
-
-    const browser = await puppeteer.launch({
-      args,
-      executablePath,
-      headless,
-    });
-    try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'load' });
-      const pdf = await page.pdf({ format: 'A4', printBackground: true });
-      return Buffer.from(pdf);
-    } finally {
-      await browser.close();
-    }
-  }
 }

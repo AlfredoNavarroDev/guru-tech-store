@@ -16,33 +16,39 @@ interface JwtPayload {
   nombre: string;
 }
 
+// Servicio de promociones. Propietario ve todas; administrador solo su sede.
 @Injectable()
 export class PromocionesService {
   constructor(private readonly dataSource: DataSource) {}
 
+  // Lista promociones con datos enriquecidos (ítem, categoría, sede, creador).
+  // Propietario ve todo; administrador solo su sede o promociones globales (id_sede IS NULL).
   async findAll(user: JwtPayload): Promise<object[]> {
+    const creatorSubquery = `(
+      SELECT r.nombre_rol FROM empleados e2
+      JOIN roles r ON r.id_rol = e2.id_rol
+      WHERE e2.id_empleado = p.created_by LIMIT 1
+    ) AS created_by_rol`;
+    const baseSelect = `
+      SELECT p.*, i.nombre AS item_nombre, c.nombre_categoria, s.nombre AS sede_nombre,
+             e.nombre_completo AS creado_por_nombre, ${creatorSubquery}
+      FROM promociones p
+      LEFT JOIN items i ON i.id_item = p.id_item_afectado
+      LEFT JOIN categorias c ON c.id_categoria = p.id_categoria_afectada
+      LEFT JOIN sedes s ON s.id_sede = p.id_sede
+      LEFT JOIN empleados e ON e.id_empleado = p.created_by`;
+
     if (user.rol === 'propietario') {
-      return this.dataSource.query(
-        `SELECT p.*, i.nombre AS item_nombre, c.nombre_categoria, s.nombre AS sede_nombre
-         FROM promociones p
-         LEFT JOIN items i ON i.id_item = p.id_item_afectado
-         LEFT JOIN categorias c ON c.id_categoria = p.id_categoria_afectada
-         LEFT JOIN sedes s ON s.id_sede = p.id_sede
-         ORDER BY p.created_at DESC`,
-      );
+      return this.dataSource.query(`${baseSelect} ORDER BY p.created_at DESC`);
     }
     return this.dataSource.query(
-      `SELECT p.*, i.nombre AS item_nombre, c.nombre_categoria, s.nombre AS sede_nombre
-       FROM promociones p
-       LEFT JOIN items i ON i.id_item = p.id_item_afectado
-       LEFT JOIN categorias c ON c.id_categoria = p.id_categoria_afectada
-       LEFT JOIN sedes s ON s.id_sede = p.id_sede
-       WHERE p.id_sede = $1 OR p.id_sede IS NULL
-       ORDER BY p.created_at DESC`,
+      `${baseSelect} WHERE p.id_sede = $1 OR p.id_sede IS NULL ORDER BY p.created_at DESC`,
       [user.id_sede],
     );
   }
 
+  // Evita solapamiento de promociones activas/pausadas sobre el mismo ítem o categoría
+  // en el mismo período y sede. excludeId omite la propia promoción al editar.
   private async checkConflict(
     idItem: number | null,
     idCategoria: number | null,
@@ -77,6 +83,8 @@ export class PromocionesService {
     }
   }
 
+  // Crea promoción. Administrador hereda su sede; propietario puede especificar cualquiera.
+  // Valida que no aplique a ítem Y categoría simultáneamente y que no haya conflicto de fechas.
   async create(
     dto: CreatePromocionDto,
     user: JwtPayload,
@@ -101,8 +109,8 @@ export class PromocionesService {
     const [row] = await this.dataSource.query<{ id_promocion: number }[]>(
       `INSERT INTO promociones
          (id_sede, nombre, id_item_afectado, id_categoria_afectada,
-          valor_descuento, tipo_descuento, fecha_inicio, fecha_fin, dia_semana)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          valor_descuento, tipo_descuento, fecha_inicio, fecha_fin, dia_semana, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING id_promocion`,
       [
         id_sede,
@@ -114,11 +122,14 @@ export class PromocionesService {
         dto.fecha_inicio ?? null,
         dto.fecha_fin ?? null,
         dto.dia_semana ?? null,
+        user.sub,
       ],
     );
     return row;
   }
 
+  // Actualiza campos de la promoción. Verifica acceso antes de modificar.
+  // Si el nuevo estado es 'activa', re-valida conflictos de solapamiento.
   async update(
     id: number,
     dto: UpdatePromocionDto,
@@ -173,6 +184,7 @@ export class PromocionesService {
     );
   }
 
+  // Eliminación lógica: cambia estado a 'cancelada' en vez de borrar el registro.
   async remove(id: number, user: JwtPayload): Promise<void> {
     await this.assertAccess(id, user);
     await this.dataSource.query(
@@ -181,6 +193,8 @@ export class PromocionesService {
     );
   }
 
+  // Carga la promoción y verifica permisos de acceso.
+  // Administrador no puede editar promociones creadas por el propietario ni de otras sedes.
   private async assertAccess(
     id: number,
     user: JwtPayload,
@@ -191,6 +205,7 @@ export class PromocionesService {
     fecha_inicio: string | null;
     fecha_fin: string | null;
     estado: string;
+    created_by: number | null;
   }> {
     const [promo] = await this.dataSource.query<
       {
@@ -200,15 +215,26 @@ export class PromocionesService {
         fecha_inicio: string | null;
         fecha_fin: string | null;
         estado: string;
+        created_by: number | null;
       }[]
     >(
-      `SELECT id_sede, id_item_afectado, id_categoria_afectada, fecha_inicio, fecha_fin, estado
+      `SELECT id_sede, id_item_afectado, id_categoria_afectada, fecha_inicio, fecha_fin, estado, created_by
        FROM promociones WHERE id_promocion = $1`,
       [id],
     );
     if (!promo) throw new NotFoundException(`Promocion #${id} not found`);
-    if (user.rol === 'administrador' && promo.id_sede !== user.id_sede) {
-      throw new ForbiddenException();
+    if (user.rol === 'administrador') {
+      if (promo.created_by) {
+        const [creatorIsOwner] = await this.dataSource.query<{ id_rol: number }[]>(
+          `SELECT e2.id_rol FROM empleados e2
+           JOIN roles r ON r.id_rol = e2.id_rol
+           WHERE e2.id_empleado = $1 AND r.nombre_rol = 'propietario'
+           LIMIT 1`,
+          [promo.created_by],
+        );
+        if (creatorIsOwner) throw new ForbiddenException();
+      }
+      if (promo.id_sede !== user.id_sede) throw new ForbiddenException();
     }
     return promo;
   }

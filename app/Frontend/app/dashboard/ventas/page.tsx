@@ -14,7 +14,6 @@ import {
   User,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
-import { Dialog } from "@/components/ui/dialog"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -242,7 +241,7 @@ function DetailPanel({ v, ventaId, onClose, onNavigate, className }: DetailPanel
         </div>
         <button
           onClick={onClose}
-          className="hidden sm:block rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           aria-label="Cerrar panel"
         >
           <X className="h-4 w-4" />
@@ -399,23 +398,17 @@ export default function VentasPage() {
     [summaries, selectedVentaId],
   )
 
+  function handleRowClick(id: number) {
+    // Mobile: navigate directly (no sidebar available below lg breakpoint)
+    if (window.innerWidth < 1024) {
+      router.push(`/dashboard/ventas/${id}`)
+    } else {
+      setSelectedVentaId(selectedVentaId === id ? null : id)
+    }
+  }
+
   return (
     <div className="min-h-full bg-bg-main p-4 sm:p-6 lg:p-8">
-      {/* Mobile backdrop — at root to avoid stacking context from BlurFade transforms */}
-      <AnimatePresence>
-        {selectedVentaId !== null && (
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-            onClick={() => setSelectedVentaId(null)}
-          />
-        )}
-      </AnimatePresence>
-
       {/* ── header ── */}
       <BlurFade delay={0} duration={0.4}>
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -593,11 +586,7 @@ export default function VentasPage() {
                               v={v}
                               selected={selectedVentaId === v.id_venta}
                               delay={delay}
-                              onClick={() =>
-                                setSelectedVentaId(
-                                  selectedVentaId === v.id_venta ? null : v.id_venta,
-                                )
-                              }
+                              onClick={() => handleRowClick(v.id_venta)}
                             />
                           )
                         })}
@@ -638,7 +627,7 @@ export default function VentasPage() {
             )}
           </div>
 
-          {/* Detail panel — desktop */}
+          {/* Detail panel — desktop only */}
           <AnimatePresence>
             {selectedVentaId !== null && (
               <motion.div
@@ -661,25 +650,6 @@ export default function VentasPage() {
         </div>
 
       </BlurFade>
-
-      {/* Detail panel — mobile dialog (at root to escape BlurFade stacking context) */}
-      <Dialog
-        open={selectedVentaId !== null}
-        onClose={() => setSelectedVentaId(null)}
-      >
-        <div
-          className="flex flex-col bg-white rounded-t-2xl border border-gray-200 border-b-0 border-x-0 shadow-xl"
-          style={{ maxHeight: "85dvh" }}
-        >
-          <DetailPanel
-            v={selectedVenta}
-            ventaId={selectedVentaId!}
-            onClose={() => setSelectedVentaId(null)}
-            onNavigate={() => router.push(`/dashboard/ventas/${selectedVentaId}`)}
-            className="w-full flex-1 min-h-0 rounded-none border-none shadow-none bg-transparent"
-          />
-        </div>
-      </Dialog>
     </div>
   )
 }

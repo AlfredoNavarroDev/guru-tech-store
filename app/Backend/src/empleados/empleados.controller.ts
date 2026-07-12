@@ -36,17 +36,18 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/types';
 
-// Controlador de empleados (HU-05). Solo accesible por administradores.
+// Controlador de empleados (HU-05). Accesible por administradores y propietarios.
 @ApiTags('empleados')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('administrador')
+@Roles('administrador', 'propietario')
 @Controller('empleados')
 export class EmpleadosController {
   constructor(private readonly empleadosService: EmpleadosService) {}
 
-  // Registra un nuevo empleado en la sede del administrador autenticado.
+  // Registra un nuevo empleado. Admin: usa su propia sede. Propietario: puede especificar id_sede.
   @Post()
+  @Roles('administrador', 'propietario')
   @ApiOperation({ summary: 'HU-05 — Registrar nuevo empleado en la sede' })
   @ApiCreatedResponse({ type: EmpleadoResponseDto })
   create(

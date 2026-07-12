@@ -85,7 +85,6 @@ export default function VentaPage() {
   const [clienteSearch, setClienteSearch] = useState("")
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
   const [selectedCliente, setSelectedCliente] = useState<ClienteVista | null>(null)
-  const [sinCliente, setSinCliente] = useState(false)
   const clienteDropdownRef = useRef<HTMLDivElement>(null)
   const clientesLoadedRef = useRef(false)
 
@@ -204,11 +203,6 @@ export default function VentaPage() {
   async function handleConfirmSale() {
     if (cartItems.length === 0 || submittingRef.current) return
 
-    if (!sinCliente && !selectedCliente) {
-      toast.error("Selecciona o crea un cliente para registrar la venta")
-      return
-    }
-
     if (montoDescuento > 0 && !justificacionDescuento.trim()) {
       toast.error("Ingresa el motivo del descuento")
       return
@@ -236,7 +230,7 @@ export default function VentaPage() {
           : {}
 
       const venta = await createVenta({
-        ...(!sinCliente && selectedCliente ? { id_cliente: selectedCliente.id_cliente } : {}),
+        ...(selectedCliente ? { id_cliente: selectedCliente.id_cliente } : {}),
         items: cartItems.map((item) => ({
           id_item: item.id_item,
           cantidad: Number(item.cantidad),
@@ -464,30 +458,10 @@ export default function VentaPage() {
             <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <div className="mb-3 flex items-center gap-2">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Cliente</h2>
-                {!sinCliente && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-500">Requerido</span>
-                )}
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400">Opcional</span>
               </div>
 
-              <div className="flex items-center gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSinCliente(prev => !prev)
-                    if (!sinCliente) setSelectedCliente(null)
-                  }}
-                  className={cn(
-                    "text-xs px-3 py-1.5 rounded-full border transition-colors",
-                    sinCliente
-                      ? "bg-muted border-muted-foreground/30 text-foreground"
-                      : "border-border text-muted-foreground hover:border-muted-foreground/50"
-                  )}
-                >
-                  {sinCliente ? "✓ Sin cliente registrado" : "Sin cliente registrado"}
-                </button>
-              </div>
-
-              {!sinCliente && selectedCliente ? (
+              {selectedCliente ? (
                 <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 uppercase">
                     {selectedCliente.nombre_completo.charAt(0)}
@@ -509,7 +483,7 @@ export default function VentaPage() {
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-              ) : !sinCliente ? (
+              ) : (
                 <div className="flex flex-col gap-2">
                   <div className="relative" ref={clienteDropdownRef}>
                     <div className="relative">
@@ -636,7 +610,7 @@ export default function VentaPage() {
                     )}
                   </AnimatePresence>
                 </div>
-              ) : null}
+              )}
             </div>
           </BlurFade>
 

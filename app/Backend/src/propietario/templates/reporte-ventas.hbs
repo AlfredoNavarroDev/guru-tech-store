@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #020617; }
+    body { font-family: 'Plus Jakarta Sans', Arial, sans-serif; color: #191C1E; background: #fff; font-size: 13px; display: flex; flex-direction: column; min-height: 100vh; }
+
+    .header-wrap { background: #020617; position: relative; overflow: hidden; height: 160px; }
+    .geo-white { position: absolute; top: 0; left: 0; width: 230px; height: 160px; background: #ffffff; clip-path: polygon(0 0, 62% 0, 32% 100%, 0 100%); }
+    .geo-blue { position: absolute; top: 0; left: 70px; width: 240px; height: 160px; background: #2563eb; clip-path: polygon(18% 0, 100% 0, 74% 100%, 0 100%); }
+    .header-brand { position: absolute; right: 48px; top: 50%; transform: translateY(-50%); text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .brand-logo { height: 72px; width: auto; object-fit: contain; max-width: 220px; }
+    .brand-name { font-size: 28px; font-weight: 800; color: #ffffff; letter-spacing: 1px; line-height: 1; }
+    .brand-sub { font-size: 9px; color: #64748B; letter-spacing: 3px; text-transform: uppercase; }
+    .brand-ruc { font-size: 10px; color: #ACF847; font-weight: 600; letter-spacing: 0.5px; }
+
+    .doc-bar { background: #1e3a5f; padding: 10px 48px; display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+    .doc-bar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #64748B; }
+    .doc-bar-value { font-size: 14px; font-weight: 800; color: #ACF847; letter-spacing: 0.5px; }
+    .doc-bar-sep { width: 1px; height: 16px; background: #334155; }
+    .doc-bar-date { font-size: 12px; color: #94A3B8; font-weight: 500; }
+
+    .doc-body { padding: 0 48px; flex: 1; }
+
+    .meta-row { display: flex; gap: 32px; margin-bottom: 28px; }
+    .meta-cell { display: flex; flex-direction: column; gap: 2px; }
+    .meta-key { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #64748B; }
+    .meta-val { font-size: 13px; font-weight: 600; color: #191C1E; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #2563eb; color: #ffffff; padding: 10px 14px; font-size: 12px; font-weight: 700; font-style: italic; text-align: left; }
+    thead th.right { text-align: right; }
+    tbody tr { border-bottom: 1px solid #E2E8F0; }
+    tbody tr:nth-child(even) { background: #F8FAFC; }
+    tbody td { padding: 10px 14px; font-size: 12px; color: #334155; }
+    tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .total-final-row { background: #2563eb; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 0; }
+    .total-final-row .t-label { font-size: 12px; font-weight: 700; font-style: italic; color: #ffffff; }
+    .total-final-row .t-value { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; color: #ACF847; }
+
+    .footer { background: #020617; margin-top: 32px; padding: 14px 48px; text-align: center; }
+    .footer-main { font-size: 15px; font-style: italic; font-weight: 700; color: #ffffff; }
+    .footer-sub { font-size: 10px; color: #475569; margin-top: 5px; letter-spacing: 0.5px; }
+    .footer-contacts { display: flex; justify-content: center; gap: 32px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #1e3a5f; }
+    .footer-contact-item { font-size: 10px; color: #475569; }
+    .footer-contact-item strong { color: #64748B; }
+  </style>
+</head>
+<body>
+
+  <div class="header-wrap">
+    <div class="geo-white"></div>
+    <div class="geo-blue"></div>
+    <div class="header-brand">
+      {{#if logoBase64}}<img src="{{logoBase64}}" alt="Guru Tech Solutions" class="brand-logo" />{{/if}}
+      <div class="brand-name">GURU TECH</div>
+      <div class="brand-sub">Solutions</div>
+      <div class="brand-ruc">RUC: 10601005048</div>
+    </div>
+  </div>
+
+  <div class="doc-bar">
+    <span class="doc-bar-label">Reporte de Ventas</span>
+    <div class="doc-bar-sep"></div>
+    <span class="doc-bar-value">{{desde}} — {{hasta}}</span>
+    <div class="doc-bar-sep"></div>
+    <span class="doc-bar-date">{{generadoEn}}</span>
+  </div>
+
+  <div class="doc-body">
+    <div class="meta-row">
+      <div class="meta-cell"><span class="meta-key">Sede</span><span class="meta-val">{{sedeNombre}}</span></div>
+      <div class="meta-cell"><span class="meta-key">Total registros</span><span class="meta-val">{{ventas.length}} días</span></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th class="right">N° Ventas</th>
+          <th class="right">Ingresos (S/)</th>
+          <th class="right">Ticket Prom. (S/)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each ventas}}
+        <tr>
+          <td>{{this.fecha}}</td>
+          <td class="right">{{this.total_ventas}}</td>
+          <td class="right">{{this.ingresos}}</td>
+          <td class="right">{{this.ticket_prom}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <div class="total-final-row">
+      <span class="t-label">Total período &nbsp;|&nbsp; {{totalVentas}} ventas</span>
+      <span class="t-value">S/ {{totalIngresosVentas}}</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-main">Guru Tech Solutions — Reporte de Ventas</div>
+    <div class="footer-sub">Período: {{desde}} al {{hasta}} · Generado el {{generadoEn}}</div>
+    <div class="footer-contacts">
+      <span class="footer-contact-item"><strong>Sede:</strong> {{sedeNombre}}</span>
+      <span class="footer-contact-item"><strong>RUC:</strong> 10601005048</span>
+    </div>
+  </div>
+
+</body>
+</html>

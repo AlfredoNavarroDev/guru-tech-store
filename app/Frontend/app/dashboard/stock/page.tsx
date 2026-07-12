@@ -88,8 +88,8 @@ export default function StockPage() {
       <BlurFade delay={0} duration={0.4}>
         <div className="mb-8">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
-              <Layers className="h-4 w-4 text-gray-900" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#020617]">
+              <Layers className="h-4 w-4 text-lime" />
             </div>
             <h1 className="text-2xl font-bold text-text-heading">Stock</h1>
           </div>
@@ -202,7 +202,7 @@ export default function StockPage() {
                         className={cn(
                           "rounded-full px-2 py-0.5 text-xs font-medium",
                           s.tipo === "producto"
-                            ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                            ? "bg-cyan-50 text-[#06B6D4] ring-1 ring-cyan-200"
                             : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
                         )}
                       >

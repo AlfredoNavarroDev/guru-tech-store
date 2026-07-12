@@ -30,6 +30,8 @@ export interface DatePickerProps {
   placeholder?: string
   className?: string
   align?: "left" | "right"
+  maxDate?: string
+  minDate?: string
 }
 
 export function DatePicker({
@@ -38,6 +40,8 @@ export function DatePicker({
   placeholder = "Seleccionar fecha",
   className,
   align = "left",
+  maxDate,
+  minDate,
 }: DatePickerProps) {
   const today = new Date()
   const todayISO = toISO(today.getFullYear(), today.getMonth(), today.getDate())
@@ -73,9 +77,22 @@ export function DatePicker({
   }
 
   function selectDay(day: number) {
-    onChange?.(toISO(viewYear, viewMonth, day))
+    const iso = toISO(viewYear, viewMonth, day)
+    if (maxDate && iso > maxDate) return
+    if (minDate && iso < minDate) return
+    onChange?.(iso)
     setOpen(false)
   }
+
+  const maxY = maxDate ? parseInt(maxDate.split("-")[0]) : null
+  const maxM = maxDate ? parseInt(maxDate.split("-")[1]) - 1 : null
+  const nextMonthDisabled = maxY !== null && maxM !== null &&
+    (viewYear > maxY || (viewYear === maxY && viewMonth >= maxM))
+
+  const minY = minDate ? parseInt(minDate.split("-")[0]) : null
+  const minM = minDate ? parseInt(minDate.split("-")[1]) - 1 : null
+  const prevMonthDisabled = minY !== null && minM !== null &&
+    (viewYear < minY || (viewYear === minY && viewMonth <= minM))
 
   const total = daysInMonth(viewYear, viewMonth)
   const first = firstDayOfMonth(viewYear, viewMonth)
@@ -114,7 +131,13 @@ export function DatePicker({
             <button
               type="button"
               onClick={prevMonth}
-              className="flex h-7 w-7 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-accent-cyan/10 hover:text-accent-cyan"
+              disabled={prevMonthDisabled}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-xl transition-colors",
+                prevMonthDisabled
+                  ? "cursor-not-allowed text-gray-200"
+                  : "text-text-muted hover:bg-accent-cyan/10 hover:text-accent-cyan"
+              )}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -124,7 +147,13 @@ export function DatePicker({
             <button
               type="button"
               onClick={nextMonth}
-              className="flex h-7 w-7 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-accent-cyan/10 hover:text-accent-cyan"
+              disabled={nextMonthDisabled}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-xl transition-colors",
+                nextMonthDisabled
+                  ? "cursor-not-allowed text-gray-200"
+                  : "text-text-muted hover:bg-accent-cyan/10 hover:text-accent-cyan"
+              )}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -146,18 +175,22 @@ export function DatePicker({
               const iso = toISO(viewYear, viewMonth, day)
               const isSelected = iso === value
               const isToday = iso === todayISO
+              const isDisabled = (maxDate ? iso > maxDate : false) || (minDate ? iso < minDate : false)
               return (
                 <button
                   key={iso}
                   type="button"
                   onClick={() => selectDay(day)}
+                  disabled={isDisabled}
                   className={cn(
                     "mx-auto flex h-8 w-8 items-center justify-center rounded-xl text-sm transition-colors",
-                    isSelected
-                      ? "bg-primary-lime font-bold text-black"
-                      : isToday
-                        ? "font-bold text-accent-cyan ring-2 ring-accent-cyan"
-                        : "text-text-heading hover:bg-gray-100"
+                    isDisabled
+                      ? "cursor-not-allowed text-gray-300"
+                      : isSelected
+                        ? "bg-primary-lime font-bold text-black"
+                        : isToday
+                          ? "font-bold text-accent-cyan ring-2 ring-accent-cyan"
+                          : "text-text-heading hover:bg-gray-100"
                   )}
                 >
                   {day}

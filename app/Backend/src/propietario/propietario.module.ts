@@ -2,9 +2,10 @@
 import { Module } from '@nestjs/common';
 import { PropietarioController } from './propietario.controller';
 import { PropietarioService } from './propietario.service';
+import { PdfService } from '../common/pdf.service';
 
 @Module({
   controllers: [PropietarioController],
-  providers: [PropietarioService],
+  providers: [PropietarioService, PdfService],
 })
 export class PropietarioModule {}

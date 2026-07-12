@@ -3,27 +3,48 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { BarChart2, Download, FileText, TrendingUp, Wrench, ShoppingBag, Users, Package } from "lucide-react"
+import { BarChart2, Download, TrendingUp, Wrench, ShoppingBag, Users, Package } from "lucide-react"
 import { motion } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
 import { DatePicker } from "@/components/ui/date-picker"
 import { cn, formatNum } from "@/lib/utils"
 import {
   getReportes,
+  getReportePdf,
   type ReporteData,
   type ReporteDia,
   type ReporteEmpleado,
+  type ReportePdfTipo,
 } from "@/lib/api/propietario"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
 function firstDayOfMonth(): string {
   const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0]
+  return localDateStr(new Date(d.getFullYear(), d.getMonth(), 1))
 }
 
 function today(): string {
-  return new Date().toISOString().split("T")[0]
+  return localDateStr(new Date())
+}
+
+const MONTHS_ES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
+
+function formatDateEs(iso: string): string {
+  const [y, m, d] = iso.split("-")
+  return `${parseInt(d)} ${MONTHS_ES[parseInt(m) - 1]} ${y}`
+}
+
+function shortDateEs(iso: string): string {
+  const [, m, d] = iso.split("-")
+  return `${parseInt(d)} ${MONTHS_ES[parseInt(m) - 1]}`
 }
 
 function exportCsv(filename: string, rows: string[][]): void {
@@ -37,36 +58,78 @@ function exportCsv(filename: string, rows: string[][]): void {
   URL.revokeObjectURL(url)
 }
 
-function exportPdf(): void {
-  window.print()
-}
+// ── Bar chart ────────────────────────────────────────────────────────────────
 
-// ── Mini bar chart ───────────────────────────────────────────────────────────
+const CHART_H = 160
 
 function BarSpark({ dias }: { dias: ReporteDia[] }) {
-  if (dias.length === 0) return <p className="text-xs text-gray-400">Sin datos</p>
+  if (dias.length === 0) return <p className="text-xs text-gray-400 mt-3">Sin datos</p>
+
   const max = Math.max(...dias.map((d) => d.ingresos), 1)
+  const mid = max / 2
+  const showEvery = dias.length > 20 ? 4 : dias.length > 10 ? 2 : 1
+
   return (
-    <div className="flex items-end gap-0.5 h-16 mt-2">
-      {dias.map((d) => {
-        const pct = (d.ingresos / max) * 100
-        return (
-          <div key={d.fecha} className="flex flex-1 flex-col items-center gap-0.5 group relative">
-            <motion.div
-              className="w-full rounded-t-sm bg-blue-500"
-              style={{ minHeight: 2 }}
-              initial={{ height: 0 }}
-              animate={{ height: `${pct}%` }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            />
-            <div className="pointer-events-none absolute bottom-full mb-1 hidden group-hover:block z-10">
-              <div className="rounded-lg bg-gray-900 px-2 py-1 text-[10px] text-white whitespace-nowrap shadow-lg">
-                {d.fecha}: S/{formatNum(d.ingresos)}
-              </div>
-            </div>
+    <div className="mt-4 flex gap-2">
+      {/* Y-axis */}
+      <div className="flex flex-col justify-between items-end shrink-0 pb-6 text-[10px] text-gray-400 tabular-nums" style={{ height: CHART_H + 24 }}>
+        <span>S/{formatNum(max)}</span>
+        <span>S/{formatNum(mid)}</span>
+        <span>0</span>
+      </div>
+
+      {/* Bars + X-axis */}
+      <div className="flex-1 flex flex-col">
+        {/* Grid + bars */}
+        <div className="relative flex items-end gap-px" style={{ height: CHART_H }}>
+          {/* Grid lines */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="w-full border-t border-gray-100" />
+            ))}
           </div>
-        )
-      })}
+
+          {dias.map((d, i) => {
+            const pct = Math.max((d.ingresos / max) * 100, d.ingresos > 0 ? 1 : 0)
+            return (
+              <div
+                key={d.fecha}
+                className="group relative flex-1 h-full"
+              >
+                {/* Bar */}
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 rounded-t bg-[#06B6D4] group-hover:bg-cyan-400 transition-colors"
+                  style={{ height: `${pct}%`, minHeight: d.ingresos > 0 ? 2 : 0 }}
+                  initial={{ height: 0 }}
+                  animate={{ height: `${pct}%` }}
+                  transition={{ duration: 0.4, delay: i * 0.01, ease: "easeOut" }}
+                />
+
+                {/* Tooltip */}
+                <div className="pointer-events-none absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:flex z-20 flex-col items-center">
+                  <div className="rounded-lg bg-gray-900 px-2.5 py-1.5 text-[11px] text-white whitespace-nowrap shadow-xl">
+                    <p className="font-semibold">{shortDateEs(d.fecha)}</p>
+                    <p className="text-cyan-400">S/ {formatNum(d.ingresos)}</p>
+                    {d.total_ventas > 0 && <p className="text-gray-400">{d.total_ventas} venta{d.total_ventas !== 1 ? "s" : ""}</p>}
+                  </div>
+                  <div className="w-2 h-2 rotate-45 bg-gray-900 -mt-1" />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* X-axis labels */}
+        <div className="flex gap-px mt-1.5">
+          {dias.map((d, i) => (
+            <div key={d.fecha} className="flex-1 flex justify-center overflow-hidden">
+              {i % showEvery === 0 && (
+                <span className="text-[9px] text-gray-400 leading-none">{shortDateEs(d.fecha)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -122,16 +185,16 @@ function VentasSection({ data }: { data: ReporteData }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-900">Ventas · {data.desde} — {data.hasta}</h3>
+        <h3 className="text-sm font-bold text-gray-900">Ventas · {formatDateEs(data.desde)} — {formatDateEs(data.hasta)}</h3>
         <button onClick={handleExport} className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
           <Download className="h-3 w-3" />
           CSV
         </button>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <KpiCard label="Total ventas"    value={String(totalVentas)}            icon={TrendingUp} color="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-700/20" />
+        <KpiCard label="Total ventas"    value={String(totalVentas)}            icon={TrendingUp} color="bg-gradient-to-br from-[#020617] to-[#131B2E] border-white/5" />
         <KpiCard label="Ingresos"        value={`S/ ${formatNum(totalIngresos)}`} icon={TrendingUp} color="bg-gradient-to-br from-[#020617] to-[#131B2E] border-white/5" />
-        <KpiCard label="Ticket promedio" value={totalVentas > 0 ? `S/ ${formatNum(totalIngresos / totalVentas)}` : "–"} icon={TrendingUp} color="bg-gradient-to-br from-violet-600 to-violet-700 border-violet-700/20" />
+        <KpiCard label="Ticket promedio" value={totalVentas > 0 ? `S/ ${formatNum(totalIngresos / totalVentas)}` : "–"} icon={TrendingUp} color="bg-gradient-to-br from-[#020617] to-[#0f172a] border-white/5" />
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Ingresos por día</p>
@@ -166,14 +229,14 @@ function ReparacionesSection({ data }: { data: ReporteData }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-900">Reparaciones · {data.desde} — {data.hasta}</h3>
+        <h3 className="text-sm font-bold text-gray-900">Reparaciones · {formatDateEs(data.desde)} — {formatDateEs(data.hasta)}</h3>
         <button onClick={handleExport} className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
           <Download className="h-3 w-3" />
           CSV
         </button>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <KpiCard label="Total reparaciones" value={String(totalReps)}              icon={Wrench} color="bg-gradient-to-br from-violet-600 to-violet-700 border-violet-700/20" />
+        <KpiCard label="Total reparaciones" value={String(totalReps)}              icon={Wrench} color="bg-gradient-to-br from-[#020617] to-[#131B2E] border-white/5" />
         <KpiCard label="Ingresos"           value={`S/ ${formatNum(totalIngresos)}`} icon={Wrench} color="bg-gradient-to-br from-[#020617] to-[#131B2E] border-white/5" />
       </div>
       {data.reparaciones.length > 0 && (
@@ -208,9 +271,9 @@ function ReparacionesSection({ data }: { data: ReporteData }) {
 function ComprasSection({ data }: { data: ReporteData }) {
   return (
     <div className="space-y-5">
-      <h3 className="text-sm font-bold text-gray-900">Compras · {data.desde} — {data.hasta}</h3>
+      <h3 className="text-sm font-bold text-gray-900">Compras · {formatDateEs(data.desde)} — {formatDateEs(data.hasta)}</h3>
       <div className="grid grid-cols-2 gap-3">
-        <KpiCard label="Total órdenes" value={String(data.compras.total_compras)}          icon={ShoppingBag} color="bg-gradient-to-br from-amber-500 to-amber-600 border-amber-600/20" />
+        <KpiCard label="Total órdenes" value={String(data.compras.total_compras)}          icon={ShoppingBag} color="bg-gradient-to-br from-[#020617] to-[#131B2E] border-white/5" />
         <KpiCard label="Monto total"   value={`S/ ${formatNum(data.compras.monto_total)}`} icon={ShoppingBag} color="bg-gradient-to-br from-[#020617] to-[#131B2E] border-white/5" />
       </div>
     </div>
@@ -242,7 +305,7 @@ function EmpleadosSection({ data }: { data: ReporteData }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-900">Rendimiento · {data.desde} — {data.hasta}</h3>
+        <h3 className="text-sm font-bold text-gray-900">Rendimiento · {formatDateEs(data.desde)} — {formatDateEs(data.hasta)}</h3>
         <button onClick={handleExport} className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
           <Download className="h-3 w-3" />
           CSV
@@ -267,7 +330,7 @@ function EmpleadosSection({ data }: { data: ReporteData }) {
                   </div>
                   <div className="mt-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                     <motion.div
-                      className="h-full rounded-full bg-blue-500"
+                      className="h-full rounded-full bg-[#06B6D4]"
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ delay: i * 0.04, duration: 0.5, ease: "easeOut" }}
@@ -328,6 +391,27 @@ export default function ReportesPage() {
   const [data,      setData]      = useState<ReporteData | null>(null)
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState<string | null>(null)
+  const [loadingPdf,     setLoadingPdf]     = useState(false)
+  const [loadingResumen, setLoadingResumen] = useState(false)
+
+  const handleExportPdf = useCallback(async (tipo: ReportePdfTipo) => {
+    const isResumen = tipo === 'ventas-reparaciones'
+    if (isResumen) setLoadingResumen(true)
+    else setLoadingPdf(true)
+    try {
+      const url = await getReportePdf(tipo, {
+        fecha_desde: applied.desde,
+        fecha_hasta: applied.hasta,
+        id_sede: idSede,
+      })
+      window.open(url, '_blank')
+    } catch {
+      setError('No se pudo generar el PDF. Intenta de nuevo.')
+    } finally {
+      if (isResumen) setLoadingResumen(false)
+      else setLoadingPdf(false)
+    }
+  }, [applied, idSede])
 
   const fetchData = useCallback(async (fd: string, fh: string, sede: number | null) => {
     setLoading(true)
@@ -346,6 +430,10 @@ export default function ReportesPage() {
     void fetchData(applied.desde, applied.hasta, idSede)
   }, [applied, idSede, fetchData])
 
+  useEffect(() => {
+    if (desde && hasta && hasta < desde) setHasta(desde)
+  }, [desde])
+
   function handleFilter(e: React.FormEvent) {
     e.preventDefault()
     setApplied({ desde, hasta })
@@ -357,21 +445,48 @@ export default function ReportesPage() {
       <BlurFade delay={0} duration={0.4}>
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
-              <BarChart2 className="h-4 w-4 text-gray-900" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#020617]">
+              <BarChart2 className="h-4 w-4 text-lime" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-text-heading">Reportes</h1>
               <p className="text-sm text-gray-500">Análisis por período y sede</p>
             </div>
           </div>
-          <button
-            onClick={exportPdf}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors print:hidden"
-          >
-            <FileText className="h-4 w-4" />
-            Exportar PDF
-          </button>
+          <div className="flex items-center gap-2 print:hidden">
+            {(tab === 'ventas' || tab === 'reparaciones' || tab === 'compras') && (
+              <button
+                onClick={() => void handleExportPdf(tab as ReportePdfTipo)}
+                disabled={loadingPdf}
+                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingPdf ? (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Exportar PDF
+              </button>
+            )}
+            <button
+              onClick={() => void handleExportPdf('ventas-reparaciones')}
+              disabled={loadingResumen}
+              className="flex items-center gap-2 rounded-xl bg-[#020617] px-4 py-2 text-sm font-medium text-white hover:bg-[#0f172a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingResumen ? (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+              ) : (
+                <BarChart2 className="h-4 w-4" />
+              )}
+              Resumen ejecutivo
+            </button>
+          </div>
         </div>
       </BlurFade>
 
@@ -380,11 +495,11 @@ export default function ReportesPage() {
         <form onSubmit={handleFilter} className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm print:hidden">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Desde</label>
-            <DatePicker value={desde || undefined} onChange={(v) => setDesde(v ?? "")} placeholder="Fecha inicio" />
+            <DatePicker value={desde || undefined} onChange={(v) => setDesde(v ?? "")} placeholder="Fecha inicio" maxDate={today()} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Hasta</label>
-            <DatePicker value={hasta || undefined} onChange={(v) => setHasta(v ?? "")} placeholder="Fecha fin" align="right" />
+            <DatePicker value={hasta || undefined} onChange={(v) => setHasta(v ?? "")} placeholder="Fecha fin" align="right" minDate={desde || undefined} maxDate={today()} />
           </div>
           <button
             type="submit"

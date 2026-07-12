@@ -216,7 +216,7 @@ function ItemPickerCombobox({ items, selectedId, onChange, disabled }: ItemPicke
 
   return (
     <div ref={containerRef} className="relative">
-      <div className={cn(baseCls, "border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent")}>
+      <div className={cn(baseCls, "border-gray-300 focus-within:ring-2 focus-within:ring-[#06B6D4] focus-within:border-transparent")}>
         <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
         <input
           ref={inputRef}
@@ -341,7 +341,7 @@ function CategoriaPickerCombobox({ categorias, selectedId, onChange, disabled }:
 
   return (
     <div ref={containerRef} className="relative">
-      <div className={cn(baseCls, "border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent")}>
+      <div className={cn(baseCls, "border-gray-300 focus-within:ring-2 focus-within:ring-[#06B6D4] focus-within:border-transparent")}>
         <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
         <input
           ref={inputRef}
@@ -392,7 +392,7 @@ function CategoriaPickerCombobox({ categorias, selectedId, onChange, disabled }:
 // ─── Form ───────────────────────────────────────────────────────────────────
 
 const inputCls =
-  "h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 outline-none transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+  "h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 outline-none transition-colors focus:ring-2 focus:ring-[#06B6D4] focus:border-transparent disabled:opacity-50"
 const labelCls = "block text-xs font-medium text-gray-600 mb-1.5"
 
 const EMPTY_FORM: CreatePromocionInput = {
@@ -622,7 +622,10 @@ function CreateForm({ sedeId, isPropietario, onCancel, onSaved, bare }: CreateFo
             <label className={labelCls}>Fecha inicio (opcional)</label>
             <DatePicker
               value={form.fecha_inicio || undefined}
-              onChange={(v) => set("fecha_inicio", v ?? "")}
+              onChange={(v) => {
+                set("fecha_inicio", v ?? "")
+                if (form.fecha_fin && v && form.fecha_fin < v) set("fecha_fin", "")
+              }}
               placeholder="Sin fecha inicio"
               className="w-full"
             />
@@ -635,6 +638,7 @@ function CreateForm({ sedeId, isPropietario, onCancel, onSaved, bare }: CreateFo
               value={form.fecha_fin || undefined}
               onChange={(v) => set("fecha_fin", v ?? "")}
               placeholder="Sin fecha fin"
+              minDate={form.fecha_inicio || undefined}
               className="w-full"
             />
           </div>
@@ -733,6 +737,7 @@ export default function PromocionesPage() {
 
   const session = useSyncExternalStore(noopSubscribe, getSession, () => null)
   const isPropietario = session?.rol === "propietario"
+  const isAdmin = session?.rol === "administrador"
 
   useEffect(() => {
     let cancelled = false
@@ -796,7 +801,10 @@ export default function PromocionesPage() {
     }
   }
 
-  const canToggle = (p: Promocion) => p.estado === "activa" || p.estado === "pausada"
+  const canModify = (p: Promocion) =>
+    isPropietario || !(isAdmin && p.created_by_rol === "propietario")
+  const canToggle = (p: Promocion) =>
+    canModify(p) && (p.estado === "activa" || p.estado === "pausada")
 
   return (
     <div className="bg-bg-main min-h-full p-4 sm:p-6 lg:p-8">
@@ -805,8 +813,8 @@ export default function PromocionesPage() {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
-                <Tag className="h-4 w-4 text-gray-900" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#020617]">
+                <Tag className="h-4 w-4 text-lime" />
               </div>
               <h1 className="text-2xl font-bold text-text-heading">Promociones</h1>
             </div>
@@ -871,7 +879,7 @@ export default function PromocionesPage() {
           <select
             value={estadoFilter}
             onChange={(e) => setEstadoFilter(e.target.value as typeof estadoFilter)}
-            className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none transition-colors focus:border-transparent focus:ring-2 focus:ring-blue-500"
+            className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none transition-colors focus:border-transparent focus:ring-2 focus:ring-[#06B6D4]"
           >
             <option value="todos">Todos los estados</option>
             <option value="activa">Activas</option>
@@ -965,6 +973,9 @@ export default function PromocionesPage() {
                           · Solo {diaSemanaLabel(promo.dia_semana)}
                         </span>
                       )}
+                      {promo.creado_por_nombre && (
+                        <span className="text-xs text-gray-400">· {promo.creado_por_nombre}</span>
+                      )}
                     </div>
                   </div>
 
@@ -1019,7 +1030,7 @@ export default function PromocionesPage() {
                         </Tooltip>
                       )}
 
-                      {promo.estado !== "cancelada" && (
+                      {promo.estado !== "cancelada" && canModify(promo) && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button

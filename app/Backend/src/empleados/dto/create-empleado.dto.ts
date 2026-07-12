@@ -96,4 +96,11 @@ export class CreateEmpleadoDto {
   @IsString()
   @MaxLength(500)
   direccion_completa?: string;
+
+  // Solo usado por propietario para asignar sede al empleado. Admin siempre usa su propia sede.
+  @ApiPropertyOptional({ example: 1, description: 'Sede destino (solo propietario)' })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  id_sede?: number;
 }

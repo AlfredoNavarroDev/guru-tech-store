@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { AlertCircle, Lock, Loader2 } from 'lucide-react'
+import { AlertCircle, ChevronLeft, ChevronRight, Lock, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import {
   getRestricciones,
@@ -16,6 +17,8 @@ import {
 import { getItems, getCategorias } from '@/lib/api/items'
 
 type Tab = 'items' | 'categorias'
+
+const PAGE_SIZE = 10
 
 // ─── Toggle ─────────────────────────────────────────────────────────────────
 
@@ -77,6 +80,14 @@ export default function RestriccionesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+
+  function switchTab(t: Tab) {
+    setTab(t)
+    setPage(1)
+    setSearch('')
+  }
 
   async function loadData() {
     setLoading(true)
@@ -151,14 +162,18 @@ export default function RestriccionesPage() {
     [],
   )
 
+  const q = search.trim().toLowerCase()
+  const filteredItems = q ? (data?.items ?? []).filter((i) => i.nombre.toLowerCase().includes(q)) : (data?.items ?? [])
+  const filteredCategorias = q ? (data?.categorias ?? []).filter((c) => c.nombre_categoria.toLowerCase().includes(q)) : (data?.categorias ?? [])
+
   return (
     <div className="bg-bg-main min-h-full p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <BlurFade delay={0} duration={0.45}>
         <div className="mb-8">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gray-100">
-              <Lock className="h-4 w-4 text-gray-900" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#020617]">
+              <Lock className="h-4 w-4 text-lime" />
             </div>
             <h1 className="text-2xl font-bold text-text-heading">Restricciones</h1>
           </div>
@@ -174,7 +189,7 @@ export default function RestriccionesPage() {
           {(['items', 'categorias'] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => switchTab(t)}
               className={cn(
                 'rounded-xl px-5 py-2 text-sm font-semibold transition-colors',
                 tab === t
@@ -185,6 +200,19 @@ export default function RestriccionesPage() {
               {t === 'items' ? 'Ítems' : 'Categorías'}
             </button>
           ))}
+        </div>
+      </BlurFade>
+
+      {/* Search */}
+      <BlurFade delay={0.08} duration={0.45}>
+        <div className="relative mb-5">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder={tab === 'items' ? 'Buscar ítem...' : 'Buscar categoría...'}
+            className="pl-9 bg-white"
+          />
         </div>
       </BlurFade>
 
@@ -224,7 +252,7 @@ export default function RestriccionesPage() {
       {!loading && !error && data && tab === 'items' && (
         <BlurFade delay={0.1} duration={0.4}>
           <div className="space-y-2">
-            {data.items.map((item) => {
+            {filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((item) => {
               const isSaving = saving === `item-${item.id_item}`
               return (
                 <div
@@ -258,7 +286,7 @@ export default function RestriccionesPage() {
                       max={3650}
                       value={item.max_dias_garantia ?? ''}
                       disabled={isSaving}
-                      placeholder="Sin límite"
+                      placeholder="15 (por defecto)"
                       onChange={(e) => {
                         const v = e.target.value === '' ? null : parseInt(e.target.value, 10)
                         if (v === null || (v >= 1 && v <= 3650)) handleItemChange(item, 'max_dias_garantia', v)
@@ -269,9 +297,9 @@ export default function RestriccionesPage() {
                 </div>
               )
             })}
-            {data.items.length === 0 && (
+            {filteredItems.length === 0 && (
               <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-200 bg-white py-16 text-center">
-                <p className="text-sm text-gray-400">No hay ítems en el catálogo</p>
+                <p className="text-sm text-gray-400">{q ? 'Sin resultados' : 'No hay ítems en el catálogo'}</p>
               </div>
             )}
           </div>
@@ -282,7 +310,7 @@ export default function RestriccionesPage() {
       {!loading && !error && data && tab === 'categorias' && (
         <BlurFade delay={0.1} duration={0.4}>
           <div className="space-y-2">
-            {data.categorias.map((cat) => {
+            {filteredCategorias.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((cat) => {
               const isSaving = saving === `cat-${cat.id_categoria}`
               return (
                 <div
@@ -316,7 +344,7 @@ export default function RestriccionesPage() {
                       max={3650}
                       value={cat.max_dias_garantia ?? ''}
                       disabled={isSaving}
-                      placeholder="Sin límite"
+                      placeholder="15 (por defecto)"
                       onChange={(e) => {
                         const v = e.target.value === '' ? null : parseInt(e.target.value, 10)
                         if (v === null || (v >= 1 && v <= 3650)) handleCatChange(cat, 'max_dias_garantia', v)
@@ -327,14 +355,45 @@ export default function RestriccionesPage() {
                 </div>
               )
             })}
-            {data.categorias.length === 0 && (
+            {filteredCategorias.length === 0 && (
               <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-200 bg-white py-16 text-center">
-                <p className="text-sm text-gray-400">No hay categorías en el catálogo</p>
+                <p className="text-sm text-gray-400">{q ? 'Sin resultados' : 'No hay categorías en el catálogo'}</p>
               </div>
             )}
           </div>
         </BlurFade>
       )}
+
+      {/* Pagination */}
+      {!loading && !error && data && (() => {
+        const total = tab === 'items' ? filteredItems.length : filteredCategorias.length
+        const totalPages = Math.ceil(total / PAGE_SIZE)
+        if (totalPages <= 1) return null
+        return (
+          <div className="mt-4 flex items-center justify-between">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Anterior
+            </button>
+            <span className="text-xs text-gray-500">
+              Página <span className="font-semibold text-gray-900">{page}</span> de{' '}
+              <span className="font-semibold text-gray-900">{totalPages}</span>
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Siguiente
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )
+      })()}
     </div>
   )
 }

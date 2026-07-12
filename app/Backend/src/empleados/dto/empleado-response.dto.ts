@@ -14,6 +14,10 @@ export class EmpleadoResponseDto {
   id_sede: number;
 
   @Expose()
+  @ApiPropertyOptional({ example: 'Lima Centro' })
+  sede_nombre?: string;
+
+  @Expose()
   @ApiProperty({ example: 3 })
   id_rol: number;
 

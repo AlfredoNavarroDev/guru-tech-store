@@ -365,7 +365,7 @@ export class ReparacionesService {
       estadoNuevo.nombre === 'entregado' &&
       !reparacion.raw.id_garantia_reclamada
     ) {
-      const dias = dto.dias_garantia ?? 30;
+      const dias = dto.dias_garantia ?? 15;
       const existing = await this.dataSource.query<{ id_garantia: number }[]>(
         `SELECT id_garantia FROM garantias WHERE id_reparacion = $1`,
         [id],

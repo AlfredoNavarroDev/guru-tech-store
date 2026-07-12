@@ -16,6 +16,9 @@ export interface Promocion {
   dia_semana: number | null;
   estado: 'activa' | 'pausada' | 'vencida' | 'cancelada';
   created_at: string;
+  created_by: number | null;
+  creado_por_nombre: string | null;
+  created_by_rol: string | null;
 }
 
 export interface CreatePromocionInput {

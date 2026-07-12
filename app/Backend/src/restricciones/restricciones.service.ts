@@ -7,10 +7,15 @@ export interface RestrictionResult {
   max_dias_garantia: number | null;
 }
 
+// Servicio de restricciones: controla si un ítem puede cambiarse y el máximo de días de garantía.
+// Las restricciones se aplican a nivel de ítem específico o a toda una categoría.
 @Injectable()
 export class RestriccionesService {
   constructor(private readonly dataSource: DataSource) {}
 
+  // Resuelve la restricción efectiva de un ítem: primero busca a nivel ítem,
+  // si no existe busca por categoría. Para max_dias_garantia retorna el mínimo
+  // entre todas las categorías del ítem (la más restrictiva gana).
   async resolveItemRestriction(
     id_item: number,
   ): Promise<RestrictionResult | null> {
@@ -34,6 +39,7 @@ export class RestriccionesService {
       .filter((v): v is number => v !== null);
 
     return {
+      // Si cualquier categoría marca es_no_cambiable, el ítem no es cambiable.
       es_no_cambiable: catRows.some((r) => r.es_no_cambiable),
       max_dias_garantia:
         diasValues.length > 0
@@ -42,6 +48,8 @@ export class RestriccionesService {
     };
   }
 
+  // Crea o actualiza la restricción a nivel de ítem específico.
+  // ON CONFLICT garantiza idempotencia (puede llamarse varias veces).
   async upsertItemRestriccion(
     id_item: number,
     dto: UpsertRestriccionDto,
@@ -57,6 +65,8 @@ export class RestriccionesService {
     );
   }
 
+  // Crea o actualiza la restricción a nivel de categoría completa.
+  // Aplica a todos los ítems de esa categoría que no tengan restricción propia.
   async upsertCategoriaRestriccion(
     id_categoria: number,
     dto: UpsertRestriccionDto,
@@ -76,6 +86,7 @@ export class RestriccionesService {
     );
   }
 
+  // Devuelve todas las restricciones activas agrupadas por tipo (ítems y categorías).
   async findAll(): Promise<{
     items: Array<RestrictionResult & { id_item: number; nombre: string }>;
     categorias: Array<

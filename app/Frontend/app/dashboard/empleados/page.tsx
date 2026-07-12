@@ -44,6 +44,7 @@ import {
   type TipoDocumento,
   type UpdateEmpleadoInput,
 } from "@/lib/api/empleados"
+import { getSedes, type Sede } from "@/lib/api/items"
 import { cn } from "@/lib/utils"
 
 const PAGE_SIZE = 10
@@ -179,9 +180,11 @@ interface EmployeeFormProps {
   onSaved: () => void
   bare?: boolean
   isSelf?: boolean
+  isPropietario?: boolean
 }
 
-function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: EmployeeFormProps) {
+function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf, isPropietario }: EmployeeFormProps) {
+  const [sedes, setSedes] = useState<Sede[]>([])
   const [form, setForm] = useState<CreateEmpleadoInput>(() => ({
     ...EMPTY_CREATE,
     tipo_documento: empleado?.tipo_documento ?? EMPTY_CREATE.tipo_documento,
@@ -197,6 +200,12 @@ function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: Emplo
   }))
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (isPropietario && mode === "create") {
+      getSedes().then(setSedes).catch(() => {})
+    }
+  }, [isPropietario, mode])
 
   function set<K extends keyof CreateEmpleadoInput>(key: K, value: CreateEmpleadoInput[K]) {
     setForm((prev) => {
@@ -220,6 +229,10 @@ function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: Emplo
         setError(documentError)
         return
       }
+      if (isPropietario && !form.id_sede) {
+        setError("Selecciona una sede para el empleado.")
+        return
+      }
     }
 
     const optional = {
@@ -239,6 +252,7 @@ function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: Emplo
           nombre_completo: form.nombre_completo.trim(),
           id_rol: Number(form.id_rol),
           password: form.nro_documento.trim(),
+          ...(isPropietario && form.id_sede ? { id_sede: Number(form.id_sede) } : {}),
           ...optional,
         })
         toast.success("Empleado creado")
@@ -329,6 +343,25 @@ function EmployeeForm({ mode, empleado, onCancel, onSaved, bare, isSelf }: Emplo
               ))}
             </select>
           </div>
+
+          {isPropietario && mode === "create" && (
+            <div>
+              <label className={labelCls}>
+                Sede <span className="text-red-500">*</span>
+              </label>
+              <select
+                disabled={submitting}
+                value={form.id_sede ?? ""}
+                onChange={(event) => set("id_sede", event.target.value ? Number(event.target.value) : undefined)}
+                className={cn(inputCls, "cursor-pointer appearance-none")}
+              >
+                <option value="">Seleccionar sede</option>
+                {sedes.map((s) => (
+                  <option key={s.id_sede} value={s.id_sede}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="sm:col-span-2">
             <label className={labelCls}>
@@ -548,6 +581,7 @@ export default function AdminEmpleadosPage() {
 
   const session = useSyncExternalStore(noopSubscribe, getSession, () => null)
   const currentUserId = useMemo(() => decodeUserId(session?.access_token), [session?.access_token])
+  const isPropietario = session?.rol === "propietario"
 
   useEffect(() => {
     let cancelled = false
@@ -678,7 +712,7 @@ export default function AdminEmpleadosPage() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
           >
-            <EmployeeForm mode="create" onCancel={closePanel} onSaved={reload} />
+            <EmployeeForm mode="create" onCancel={closePanel} onSaved={reload} isPropietario={isPropietario} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -848,6 +882,11 @@ export default function AdminEmpleadosPage() {
                           </span>
                           {empleado.telefono && (
                             <span className="text-xs text-gray-400">· {empleado.telefono}</span>
+                          )}
+                          {isPropietario && empleado.sede_nombre && (
+                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
+                              {empleado.sede_nombre}
+                            </span>
                           )}
                         </div>
                       </div>

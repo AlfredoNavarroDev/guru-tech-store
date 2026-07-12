@@ -123,20 +123,17 @@ export class GarantiasService {
         await this.restriccionesService.resolveItemRestriction(
           repuesto.id_item,
         );
-      if (
-        restriction?.max_dias_garantia !== null &&
-        restriction?.max_dias_garantia !== undefined
-      ) {
-        const dias = Math.ceil(
-          (new Date(dto.fecha_fin).getTime() -
-            new Date(dto.fecha_inicio).getTime()) /
-            86400000,
+      const DEFAULT_MAX_DIAS = 15;
+      const maxDias = restriction?.max_dias_garantia ?? DEFAULT_MAX_DIAS;
+      const dias = Math.ceil(
+        (new Date(dto.fecha_fin).getTime() -
+          new Date(dto.fecha_inicio).getTime()) /
+          86400000,
+      );
+      if (dias > maxDias) {
+        throw new BadRequestException(
+          `La garantía no puede superar ${maxDias} días para este producto`,
         );
-        if (dias > restriction.max_dias_garantia) {
-          throw new BadRequestException(
-            `La garantía no puede superar ${restriction.max_dias_garantia} días para este producto`,
-          );
-        }
       }
     }
 

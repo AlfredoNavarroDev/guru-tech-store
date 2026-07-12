@@ -366,12 +366,15 @@ export class ItemsService {
     );
   }
 
+  // Devuelve todas las sedes ordenadas por id (para selectores en el frontend).
   async findSedes(): Promise<{ id_sede: number; nombre: string }[]> {
     return this.dataSource.query(
       `SELECT id_sede, nombre FROM sedes ORDER BY id_sede`,
     );
   }
 
+  // Sube imagen de ítem a Cloudflare R2 y actualiza imagen_url en la tabla items.
+  // La clave incluye un timestamp para evitar colisiones al actualizar la imagen.
   async uploadImagen(
     id: number,
     dto: UploadImagenItemDto,
@@ -410,6 +413,7 @@ export class ItemsService {
     return { url };
   }
 
+  // Valida las 5 variables de entorno de R2 y devuelve bucket + publicUrl. Falla rápido si faltan.
   private getR2Config(): { bucket: string; publicUrl: string } {
     const required = [
       'R2_ACCOUNT_ID',

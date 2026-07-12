@@ -22,4 +22,8 @@ export class VentaRecienteDto {
   @Expose()
   @ApiProperty({ example: 380.0 })
   total: number;
+
+  @Expose()
+  @ApiProperty({ example: 'Sede Norte' })
+  sede_nombre: string;
 }

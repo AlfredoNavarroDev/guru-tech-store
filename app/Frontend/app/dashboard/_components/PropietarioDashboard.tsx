@@ -13,6 +13,7 @@ import {
   type ResumenHoy, type VentaReciente, type TopProducto, type EmpleadoVsMeta,
 } from "@/lib/api/propietario"
 import { getEmpleadosRendimiento, type EmpleadoRendimiento } from "@/lib/api/empleados"
+import { getSedes } from "@/lib/api/sedes"
 import { RendimientoRow } from "./shared/RendimientoRow"
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ export function PropietarioDashboard() {
   const [loadingProductos, setLoadingProductos]  = useState(true)
   const [loadingEquipo,    setLoadingEquipo]     = useState(true)
   const [loadingMeta,      setLoadingMeta]       = useState(true)
+  const [sedeName,         setSedeName]          = useState<string>('Todas las sedes')
 
   const [errorKpi,       setErrorKpi]       = useState(false)
   const [errorVentas,    setErrorVentas]    = useState(false)
@@ -71,6 +73,13 @@ export function PropietarioDashboard() {
   const [errorEquipo,    setErrorEquipo]    = useState(false)
 
   useEffect(() => {
+    if (idSede !== null) {
+      getSedes()
+        .then(list => setSedeName(list.find(s => s.id_sede === idSede)?.nombre ?? 'Sede desconocida'))
+        .catch(() => setSedeName('Sede desconocida'))
+    } else {
+      setSedeName('Todas las sedes')
+    }
     getResumenHoy(idSede)
       .then(setResumen).catch(() => setErrorKpi(true))
       .finally(() => setLoadingKpi(false))
@@ -139,12 +148,13 @@ export function PropietarioDashboard() {
               {!loadingKpi && !errorKpi && resumen && (
                 <p className="mt-1 text-[10px] text-text-on-dark">ventas + reparaciones</p>
               )}
+              <p className="mt-2 text-[10px] font-medium text-white/40 truncate">📍 {sedeName}</p>
             </div>
 
             {/* Ingresos mes */}
-            <div className="rounded-xl border border-white/5 bg-linear-to-br from-blue-600 to-blue-700 p-4 shadow-sm">
+            <div className="rounded-xl border border-white/5 bg-linear-to-br from-[#020617] to-[#131B2E] p-4 shadow-sm">
               <div className="flex items-start justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">Ingresos del mes</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-text-on-dark">Ingresos del mes</p>
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10">
                   <ShoppingCart className="h-4 w-4 text-white" />
                 </div>
@@ -156,13 +166,14 @@ export function PropietarioDashboard() {
               </p>
               {!loadingKpi && !errorKpi && ingresosMesDelta && (
                 <div className="mt-2 flex items-center gap-1.5">
-                  <span className={cn("flex items-center gap-0.5 text-xs font-semibold", ingresosMesDelta.positive ? "text-blue-300" : "text-red-400")}>
+                  <span className={cn("flex items-center gap-0.5 text-xs font-semibold", ingresosMesDelta.positive ? "text-[#06B6D4]" : "text-red-400")}>
                     {ingresosMesDelta.positive ? <ArrowUpRight className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                     {ingresosMesDelta.label}
                   </span>
-                  <span className="text-xs text-blue-200">vs mes ant.</span>
+                  <span className="text-xs text-text-on-dark">vs mes ant.</span>
                 </div>
               )}
+              <p className="mt-2 text-[10px] font-medium text-white/40 truncate">📍 {sedeName}</p>
             </div>
 
             {/* Ticket promedio */}
@@ -174,6 +185,7 @@ export function PropietarioDashboard() {
                   : (errorKpi || !resumen) ? "?" : <>S/ <NumberTicker value={resumen.ticket_promedio} decimalPlaces={2} /></>}
               </p>
               <p className="mt-1 text-xs text-gray-400">por venta</p>
+              <p className="mt-2 text-[10px] font-medium text-gray-300 truncate">📍 {sedeName}</p>
             </div>
 
             {/* Transacciones hoy */}
@@ -194,6 +206,7 @@ export function PropietarioDashboard() {
                   {resumen.ventas_hoy} venta{resumen.ventas_hoy !== 1 ? "s" : ""} · {resumen.transacciones_hoy - resumen.ventas_hoy} reparac.
                 </p>
               )}
+              <p className="mt-2 text-[10px] font-medium text-gray-300 truncate">📍 {sedeName}</p>
             </div>
           </section>
         </BlurFade>
@@ -223,8 +236,8 @@ export function PropietarioDashboard() {
               ) : resumen && resumen.ingresos_total_hoy > 0 ? (
                 <div className="space-y-5">
                   {[
-                    { label: "🛒 Ventas", valor: resumen.ingresos_ventas_hoy, color: "bg-blue-500", bg: "bg-blue-50", pct: Math.round(resumen.ingresos_ventas_hoy / resumen.ingresos_total_hoy * 100), count: `${resumen.ventas_hoy} transacciones` },
-                    { label: "🔧 Reparaciones", valor: resumen.ingresos_reparaciones_hoy, color: "bg-violet-500", bg: "bg-violet-50", pct: Math.round(resumen.ingresos_reparaciones_hoy / resumen.ingresos_total_hoy * 100), count: `${resumen.transacciones_hoy - resumen.ventas_hoy} reparaciones` },
+                    { label: "🛒 Ventas", valor: resumen.ingresos_ventas_hoy, color: "bg-[#06B6D4]", bg: "bg-cyan-50", pct: Math.round(resumen.ingresos_ventas_hoy / resumen.ingresos_total_hoy * 100), count: `${resumen.ventas_hoy} transacciones` },
+                    { label: "🔧 Reparaciones", valor: resumen.ingresos_reparaciones_hoy, color: "bg-lime", bg: "bg-lime/10", pct: Math.round(resumen.ingresos_reparaciones_hoy / resumen.ingresos_total_hoy * 100), count: `${resumen.transacciones_hoy - resumen.ventas_hoy} reparaciones` },
                   ].map((src) => (
                     <div key={src.label}>
                       <div className="flex items-baseline justify-between mb-1.5">
@@ -252,6 +265,7 @@ export function PropietarioDashboard() {
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
                 <h2 className="text-sm font-bold text-gray-900">Rendimiento del equipo · hoy</h2>
+                <span className="text-[10px] font-medium text-gray-400">📍 {sedeName}</span>
                 <span className="ml-auto text-[10px] font-semibold uppercase text-gray-400">Ingresos · Mejor día</span>
               </div>
               {loadingEquipo ? (
@@ -349,7 +363,10 @@ export function PropietarioDashboard() {
                               <span className="text-sm font-medium text-gray-900">{v.cliente ?? "Anónimo"}</span>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 text-sm text-gray-400">{v.vendedor}</td>
+                          <td className="px-5 py-3.5">
+                            <p className="text-sm text-gray-400">{v.vendedor}</p>
+                            {v.sede_nombre && <p className="text-[10px] font-medium text-gray-300 mt-0.5">{v.sede_nombre}</p>}
+                          </td>
                           <td className="px-5 py-3.5 text-right text-sm font-semibold tabular-nums text-gray-900">
                             S/{formatNum(v.total)}
                           </td>
@@ -398,9 +415,10 @@ export function PropietarioDashboard() {
                       <span className="text-sm font-bold text-gray-300 w-4 shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{p.nombre}</p>
-                        <div className="mt-1 h-1.5 rounded-full bg-blue-50 overflow-hidden">
+                        {p.sede_nombre && <p className="text-[10px] font-medium text-gray-300 mt-0.5">{p.sede_nombre}</p>}
+                        <div className="mt-1 h-1.5 rounded-full bg-cyan-50/30 overflow-hidden">
                           <motion.div
-                            className="h-full rounded-full bg-blue-500"
+                            className="h-full rounded-full bg-[#06B6D4]"
                             initial={{ width: 0 }}
                             animate={{ width: `${p.pct}%` }}
                             transition={{ delay: i * 0.05 + 0.2, duration: 0.5, ease: "easeOut" }}
@@ -443,6 +461,7 @@ export function PropietarioDashboard() {
                       <div>
                         <p className="text-sm font-medium text-gray-900">{emp.nombre_completo}</p>
                         <p className="text-xs text-gray-400 capitalize">{emp.nombre_rol}</p>
+                        {emp.sede_nombre && <p className="text-[10px] text-gray-300 mt-0.5">📍 {emp.sede_nombre}</p>}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">

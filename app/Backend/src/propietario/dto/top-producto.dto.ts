@@ -26,4 +26,8 @@ export class TopProductoDto {
   @Expose()
   @ApiProperty({ example: 100 })
   pct: number;
+
+  @Expose()
+  @ApiProperty({ example: 'Sede Norte', nullable: true })
+  sede_nombre: string | null;
 }

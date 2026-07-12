@@ -15,20 +15,22 @@ export interface ResumenHoy {
 }
 
 export interface VentaReciente {
-  id_venta: number
-  hora:     string
-  cliente:  string | null
-  vendedor: string
-  total:    number
+  id_venta:   number
+  hora:       string
+  cliente:    string | null
+  vendedor:   string
+  total:      number
+  sede_nombre?: string
 }
 
 export interface TopProducto {
-  id_item:  number
-  nombre:   string
-  sku:      string
-  unidades: number
-  ingresos: number
-  pct:      number
+  id_item:     number
+  nombre:      string
+  sku:         string
+  unidades:    number
+  ingresos:    number
+  pct:         number
+  sede_nombre?: string | null
 }
 
 export interface EmpleadoVsMeta {
@@ -37,6 +39,7 @@ export interface EmpleadoVsMeta {
   nombre_rol:         string
   total_hoy:          number
   meta_ventas_diaria: number
+  sede_nombre?:       string
 }
 
 export interface ReporteDia {
@@ -99,4 +102,18 @@ export function getReportes(params: {
   if (params.fecha_hasta) qs.set('fecha_hasta', params.fecha_hasta)
   const q = qs.toString()
   return authRequest<ReporteData>(`propietario/reportes${q ? `?${q}` : ''}`)
+}
+
+export type ReportePdfTipo = 'ventas' | 'reparaciones' | 'ventas-reparaciones' | 'compras'
+
+export async function getReportePdf(
+  tipo: ReportePdfTipo,
+  params: { fecha_desde: string; fecha_hasta: string; id_sede?: number | null },
+): Promise<string> {
+  const qs = new URLSearchParams({ tipo })
+  if (params.id_sede != null) qs.set('id_sede', String(params.id_sede))
+  if (params.fecha_desde) qs.set('fecha_desde', params.fecha_desde)
+  if (params.fecha_hasta) qs.set('fecha_hasta', params.fecha_hasta)
+  const data = await authRequest<{ url: string }>(`propietario/reportes/pdf?${qs.toString()}`)
+  return data.url
 }
