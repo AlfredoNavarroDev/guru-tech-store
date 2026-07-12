@@ -182,9 +182,9 @@ export class GarantiasService {
       const repRepo = manager.getRepository(Reparacion);
       const garRepo = manager.getRepository(Garantia);
 
-      const nuevaRep = await repRepo.save(
+      const nuevaRep = (await repRepo.save(
         repRepo.create({
-          id_cliente: garantia.id_cliente,
+          id_cliente: garantia.id_cliente!,
           id_tecnico: user.sub,
           id_sede: user.id_sede,
           // Los campos del equipo se heredan de la reparación original si no se sobreescriben.
@@ -199,7 +199,7 @@ export class GarantiasService {
           id_garantia_reclamada: idGarantia,
           tipo_accion: dto.tipo_accion ?? 'reparacion',
         }),
-      );
+      )) as Reparacion;
       nuevaReparacionId = nuevaRep.id_reparacion;
 
       // Marca la garantía como invalidada indicando qué reparación la consumió.
