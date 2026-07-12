@@ -4,6 +4,10 @@ export class UpdateViewsForRefactor1781000000002 implements MigrationInterface {
   name = 'UpdateViewsForRefactor1781000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP VIEW IF EXISTS v_vendedor_catalogo CASCADE`);
+    await queryRunner.query(`DROP VIEW IF EXISTS v_propietario_empleados_global CASCADE`);
+    await queryRunner.query(`DROP VIEW IF EXISTS v_gerente_empleados CASCADE`);
+    await queryRunner.query(`DROP VIEW IF EXISTS v_abastecedor_stock_actual CASCADE`);
     // v_propietario_empleados_global — roles (STRING_AGG) → rol (scalar)
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_propietario_empleados_global AS

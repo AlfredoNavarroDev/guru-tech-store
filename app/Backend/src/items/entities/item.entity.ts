@@ -36,7 +36,7 @@ export class Item {
   @Column('varchar', { name: 'calidad', length: 30, nullable: true })
   calidad: string | null;
 
-  @Column({ name: 'imagen_url', length: 500, nullable: true })
+  @Column('varchar', { name: 'imagen_url', length: 500, nullable: true })
   imagen_url: string | null;
 
   @Column({

@@ -519,10 +519,13 @@ export class NotasVentaService implements OnModuleInit {
   ): Promise<NotaVenta> {
     await this.assertCambioInSede(idCambio, user.id_sede!);
 
-    const [cambioRow] = await this.dataSource.query<CambioBolRow[]>(
-      `SELECT * FROM v_boleta_cambio WHERE id_cambio = $1 AND id_sede = $2`,
-      [idCambio, user.id_sede!],
-    );
+    const cambioRow = await this.dataSource
+      .createQueryBuilder()
+      .select('vc.*')
+      .from('v_boleta_cambio', 'vc')
+      .where('vc.id_cambio = :idCambio', { idCambio })
+      .andWhere('vc.id_sede = :idSede', { idSede: user.id_sede! })
+      .getRawOne<CambioBolRow>();
     if (!cambioRow)
       throw new NotFoundException(`Cambio ${idCambio} no encontrado`);
 
@@ -613,19 +616,28 @@ export class NotasVentaService implements OnModuleInit {
     total: number;
     subtotal: number;
   }> {
-    const rows = await this.dataSource.query<BolVistaRow[]>(
-      `SELECT * FROM v_boleta_venta WHERE id_venta = $1${
-        idEmpleado !== undefined ? ' AND id_empleado = $2' : ''
-      }`,
-      idEmpleado !== undefined ? [idVenta, idEmpleado] : [idVenta],
-    );
+    const qb = this.dataSource
+      .createQueryBuilder()
+      .select('bv.*')
+      .from('v_boleta_venta', 'bv')
+      .where('bv.id_venta = :idVenta', { idVenta });
+
+    if (idEmpleado !== undefined) {
+      qb.andWhere('bv.id_empleado = :idEmpleado', { idEmpleado });
+    }
+
+    const rows = await qb.getRawMany<BolVistaRow>();
     if (!rows.length)
       throw new NotFoundException(`Venta ${idVenta} no encontrada`);
 
-    const pagosRows = await this.dataSource.query<PagoRow[]>(
-      `SELECT metodo_pago, monto FROM Pagos WHERE id_venta = $1 ORDER BY fecha_pago ASC`,
-      [idVenta],
-    );
+    const pagosRows = await this.dataSource
+      .createQueryBuilder()
+      .select('p.metodo_pago AS "metodo_pago"')
+      .addSelect('p.monto AS "monto"')
+      .from('Pagos', 'p')
+      .where('p.id_venta = :idVenta', { idVenta })
+      .orderBy('p.fecha_pago', 'ASC')
+      .getRawMany<PagoRow>();
 
     const head = rows[0];
     const subtotal = rows.reduce((s, r) => s + Number(r.importe), 0);
@@ -650,11 +662,14 @@ export class NotasVentaService implements OnModuleInit {
     idVenta: number,
     idEmpleado: number,
   ): Promise<void> {
-    const rows = await this.dataSource.query<{ id_venta: number }[]>(
-      `SELECT id_venta FROM Ventas WHERE id_venta = $1 AND id_empleado = $2`,
-      [idVenta, idEmpleado],
-    );
-    if (!rows.length)
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('v.id_venta')
+      .from('Ventas', 'v')
+      .where('v.id_venta = :idVenta', { idVenta })
+      .andWhere('v.id_empleado = :idEmpleado', { idEmpleado })
+      .getRawOne<{ id_venta: number }>();
+    if (!row)
       throw new NotFoundException(`Venta ${idVenta} no encontrada`);
   }
 
@@ -663,11 +678,14 @@ export class NotasVentaService implements OnModuleInit {
     idReparacion: number,
     idSede: number,
   ): Promise<void> {
-    const rows = await this.dataSource.query<{ id_reparacion: number }[]>(
-      `SELECT id_reparacion FROM reparaciones WHERE id_reparacion = $1 AND id_sede = $2`,
-      [idReparacion, idSede],
-    );
-    if (!rows.length)
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('r.id_reparacion')
+      .from('reparaciones', 'r')
+      .where('r.id_reparacion = :idReparacion', { idReparacion })
+      .andWhere('r.id_sede = :idSede', { idSede })
+      .getRawOne<{ id_reparacion: number }>();
+    if (!row)
       throw new NotFoundException(`Reparación ${idReparacion} no encontrada`);
   }
 
@@ -676,11 +694,14 @@ export class NotasVentaService implements OnModuleInit {
     idCambio: number,
     idSede: number,
   ): Promise<void> {
-    const rows = await this.dataSource.query<{ id_cambio: number }[]>(
-      `SELECT id_cambio FROM cambios_producto WHERE id_cambio = $1 AND id_sede = $2`,
-      [idCambio, idSede],
-    );
-    if (!rows.length)
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('c.id_cambio')
+      .from('cambios_producto', 'c')
+      .where('c.id_cambio = :idCambio', { idCambio })
+      .andWhere('c.id_sede = :idSede', { idSede })
+      .getRawOne<{ id_cambio: number }>();
+    if (!row)
       throw new NotFoundException(`Cambio ${idCambio} no encontrado`);
   }
 
@@ -695,17 +716,24 @@ export class NotasVentaService implements OnModuleInit {
     total: number;
     subtotal: number;
   }> {
-    const rows = await this.dataSource.query<BolReparacionRow[]>(
-      `SELECT * FROM v_boleta_reparacion WHERE id_reparacion = $1 AND id_sede = $2`,
-      [idReparacion, idSede],
-    );
+    const rows = await this.dataSource
+      .createQueryBuilder()
+      .select('br.*')
+      .from('v_boleta_reparacion', 'br')
+      .where('br.id_reparacion = :idReparacion', { idReparacion })
+      .andWhere('br.id_sede = :idSede', { idSede })
+      .getRawMany<BolReparacionRow>();
     if (!rows.length)
       throw new NotFoundException(`Reparación ${idReparacion} no encontrada`);
 
-    const pagosRows = await this.dataSource.query<PagoRow[]>(
-      `SELECT metodo_pago, monto FROM pagos WHERE id_reparacion = $1 ORDER BY fecha_pago ASC`,
-      [idReparacion],
-    );
+    const pagosRows = await this.dataSource
+      .createQueryBuilder()
+      .select('p.metodo_pago AS "metodo_pago"')
+      .addSelect('p.monto AS "monto"')
+      .from('pagos', 'p')
+      .where('p.id_reparacion = :idReparacion', { idReparacion })
+      .orderBy('p.fecha_pago', 'ASC')
+      .getRawMany<PagoRow>();
 
     const head = rows[0];
     // monto_cotizado = mano de obra/servicio; subtotal suma repuestos usados.
@@ -954,11 +982,13 @@ export class NotasVentaService implements OnModuleInit {
     prefijo: 'NV' | 'C' = 'NV',
   ): Promise<string> {
     const prefix = `${prefijo}${String(idSede).padStart(3, '0')}`;
-    const rows = await this.dataSource.query<{ total: string }[]>(
-      `SELECT COUNT(*) AS total FROM notas_venta WHERE numero LIKE $1`,
-      [`${prefix}-%`],
-    );
-    const seq = parseInt(rows[0].total, 10) + 1;
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(*)', 'total')
+      .from('notas_venta', 'nv')
+      .where('nv.numero LIKE :prefix', { prefix: `${prefix}-%` })
+      .getRawOne<{ total: string }>();
+    const seq = parseInt(row!.total, 10) + 1;
     return `${prefix}-${String(seq).padStart(7, '0')}`;
   }
 

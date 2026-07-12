@@ -109,15 +109,30 @@ const reparacionRows = [
   },
 ];
 
+const makeQb = (getRawOneResult?: unknown, getRawManyResult: unknown[] = []) => ({
+  select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  from: jest.fn().mockReturnThis(),
+  innerJoin: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  offset: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn().mockResolvedValue(getRawOneResult),
+  getRawMany: jest.fn().mockResolvedValue(getRawManyResult),
+});
+
 describe('NotasVentaService', () => {
   let service: NotasVentaService;
   let boletaRepo: ReturnType<typeof createMockRepository>;
-  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let dataSource: { createQueryBuilder: jest.Mock; transaction: jest.Mock };
   let configService: { get: jest.Mock };
 
   beforeEach(async () => {
     boletaRepo = createMockRepository();
-    dataSource = { query: jest.fn(), transaction: jest.fn() };
+    dataSource = { createQueryBuilder: jest.fn(), transaction: jest.fn() };
     configService = {
       get: jest.fn().mockImplementation((key: string, def?: string) => {
         const config: Record<string, string> = {
@@ -154,11 +169,11 @@ describe('NotasVentaService', () => {
     pagos = [{ metodo_pago: 'efectivo', monto: '1000' }],
     count = '0',
   } = {}) {
-    dataSource.query
-      .mockResolvedValueOnce(owned ? [{ id_venta: 1 }] : [])
-      .mockResolvedValueOnce(rows)
-      .mockResolvedValueOnce(pagos)
-      .mockResolvedValueOnce([{ total: count }]);
+    dataSource.createQueryBuilder = jest.fn()
+      .mockReturnValueOnce(makeQb(owned ? { id_venta: 1 } : undefined)) // assertVentaOwnedByUser
+      .mockReturnValueOnce(makeQb(undefined, rows))                       // queryDatosVenta rows
+      .mockReturnValueOnce(makeQb(undefined, pagos))                      // queryDatosVenta pagosRows
+      .mockReturnValueOnce(makeQb({ total: count }));                     // generarNumero
   }
 
   function mockTransaction(overrides: Record<string, unknown> = {}) {
@@ -194,7 +209,7 @@ describe('NotasVentaService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValueOnce([{ id_venta: 1 }]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb({ id_venta: 1 }));
       boletaRepo.findOne.mockResolvedValue({ id_boleta: 1, id_venta: 1 });
 
       await expect(service.emitir(1, mockUser)).rejects.toBeInstanceOf(
@@ -203,7 +218,7 @@ describe('NotasVentaService', () => {
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValueOnce([{ id_venta: 1 }]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb({ id_venta: 1 }));
       boletaRepo.findOne.mockResolvedValue(null);
       configService.get.mockImplementation((key: string, def?: string) => {
         const config: Record<string, string> = {
@@ -247,24 +262,30 @@ describe('NotasVentaService', () => {
 
       await service.emitir(1, mockUser);
 
-      const [sql, params] = dataSource.query.mock.calls[1];
-      expect(sql).toContain('id_venta = $1');
-      expect(sql).toContain('id_empleado = $2');
-      expect(params).toEqual([1, mockUser.sub]);
+      // createQueryBuilder call index 1 → queryDatosVenta rows QB (after assertVentaOwnedByUser)
+      const rowsQb = (dataSource.createQueryBuilder as jest.Mock).mock.results[1].value;
+      expect(rowsQb.where).toHaveBeenCalledWith(
+        expect.stringContaining('id_venta'),
+        expect.objectContaining({ idVenta: 1 }),
+      );
+      expect(rowsQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('id_empleado'),
+        expect.objectContaining({ idEmpleado: mockUser.sub }),
+      );
     });
   });
 
   describe('findByVenta', () => {
     it('valida', async () => {
       const boleta = { id_boleta: 1, id_venta: 1, total: 1000 };
-      dataSource.query.mockResolvedValueOnce([{ id_venta: 1 }]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb({ id_venta: 1 }));
       boletaRepo.findOne.mockResolvedValue(boleta);
 
       await expect(service.findByVenta(1, mockUser)).resolves.toEqual(boleta);
     });
 
     it('valida', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb(undefined));
 
       await expect(service.findByVenta(1, mockUser)).rejects.toBeInstanceOf(
         NotFoundException,
@@ -300,16 +321,16 @@ describe('NotasVentaService', () => {
     };
 
     it('cambio de otra sede → NotFoundException', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb(undefined));
       await expect(service.emitirParaCambio(7, mockUser)).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('cambio ya tiene boleta → ConflictException', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_cambio: 7 }]) // assertCambioInSede
-        .mockResolvedValueOnce([mockCambioRow]); // main data fetch
+      dataSource.createQueryBuilder = jest.fn()
+        .mockReturnValueOnce(makeQb({ id_cambio: 7 })) // assertCambioInSede
+        .mockReturnValueOnce(makeQb(mockCambioRow));    // main data fetch
       boletaRepo.findOne.mockResolvedValueOnce({ id_boleta: 99 });
       await expect(service.emitirParaCambio(7, mockUser)).rejects.toThrow(
         ConflictException,
@@ -317,10 +338,10 @@ describe('NotasVentaService', () => {
     });
 
     it('emite boleta, sube a R2, persiste con prefijo C', async () => {
-      dataSource.query
-        .mockResolvedValueOnce([{ id_cambio: 7 }]) // assertCambioInSede
-        .mockResolvedValueOnce([mockCambioRow]) // main data fetch
-        .mockResolvedValueOnce([{ total: '0' }]); // generarNumero COUNT
+      dataSource.createQueryBuilder = jest.fn()
+        .mockReturnValueOnce(makeQb({ id_cambio: 7 })) // assertCambioInSede
+        .mockReturnValueOnce(makeQb(mockCambioRow))     // main data fetch
+        .mockReturnValueOnce(makeQb({ total: '0' }));   // generarNumero COUNT
 
       boletaRepo.findOne.mockResolvedValueOnce(null);
       boletaRepo.create.mockImplementation((dto) => ({ ...dto, id_boleta: 5 }));
@@ -357,14 +378,14 @@ describe('NotasVentaService', () => {
 
   describe('findByCambio', () => {
     it('cambio de otra sede → NotFoundException', async () => {
-      dataSource.query.mockResolvedValueOnce([]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb(undefined));
       await expect(service.findByCambio(7, mockUser)).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('cambio sin boleta → NotFoundException', async () => {
-      dataSource.query.mockResolvedValueOnce([{ id_cambio: 7 }]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb({ id_cambio: 7 }));
       boletaRepo.findOne.mockResolvedValueOnce(null);
       await expect(service.findByCambio(7, mockUser)).rejects.toThrow(
         NotFoundException,
@@ -372,7 +393,7 @@ describe('NotasVentaService', () => {
     });
 
     it('boleta encontrada → la devuelve', async () => {
-      dataSource.query.mockResolvedValueOnce([{ id_cambio: 7 }]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb({ id_cambio: 7 }));
       boletaRepo.findOne.mockResolvedValueOnce({
         id_boleta: 5,
         numero: 'C002-0000001',
@@ -392,11 +413,11 @@ describe('NotasVentaService', () => {
       pagos = [{ metodo_pago: 'efectivo', monto: '150' }],
       count = '0',
     } = {}) {
-      dataSource.query
-        .mockResolvedValueOnce(inSede ? [{ id_reparacion: 5 }] : [])
-        .mockResolvedValueOnce(rows)
-        .mockResolvedValueOnce(pagos)
-        .mockResolvedValueOnce([{ total: count }]);
+      dataSource.createQueryBuilder = jest.fn()
+        .mockReturnValueOnce(makeQb(inSede ? { id_reparacion: 5 } : undefined)) // assertReparacionInSede
+        .mockReturnValueOnce(makeQb(undefined, rows))                             // queryDatosReparacion rows
+        .mockReturnValueOnce(makeQb(undefined, pagos))                            // queryDatosReparacion pagosRows
+        .mockReturnValueOnce(makeQb({ total: count }));                           // generarNumero
     }
 
     function mockReparacionTransaction() {
@@ -417,7 +438,7 @@ describe('NotasVentaService', () => {
     });
 
     it('reparacion ya tiene boleta → ConflictException', async () => {
-      dataSource.query.mockResolvedValueOnce([{ id_reparacion: 5 }]);
+      dataSource.createQueryBuilder = jest.fn().mockReturnValueOnce(makeQb({ id_reparacion: 5 }));
       boletaRepo.findOne.mockResolvedValue({ id_boleta: 1, id_reparacion: 5 });
       await expect(
         service.emitirParaReparacion(5, mockUser),

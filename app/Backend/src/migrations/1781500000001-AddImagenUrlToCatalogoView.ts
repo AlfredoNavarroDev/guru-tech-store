@@ -4,6 +4,7 @@ export class AddImagenUrlToCatalogoView1781500000001 implements MigrationInterfa
   name = 'AddImagenUrlToCatalogoView1781500000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP VIEW IF EXISTS v_vendedor_catalogo CASCADE`);
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_vendedor_catalogo AS
       WITH promo_vigente AS (

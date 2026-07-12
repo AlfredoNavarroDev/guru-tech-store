@@ -56,7 +56,7 @@ export class SingleRoleMultiCategory1781000000001 implements MigrationInterface 
       ALTER TABLE items
         DROP CONSTRAINT IF EXISTS fk_items_categoria,
         DROP CONSTRAINT IF EXISTS chk_categoria_solo_producto,
-        DROP COLUMN IF EXISTS id_categoria
+        DROP COLUMN IF EXISTS id_categoria CASCADE
     `);
 
     // 8. Add trigger to enforce min 1 category for productos

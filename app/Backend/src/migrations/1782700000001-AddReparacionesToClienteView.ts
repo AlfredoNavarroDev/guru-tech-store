@@ -2,6 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddReparacionesToClienteView1782700000001 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP VIEW IF EXISTS v_vendedor_clientes CASCADE`);
     await queryRunner.query(`
       CREATE OR REPLACE VIEW v_vendedor_clientes AS
       SELECT
