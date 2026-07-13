@@ -206,7 +206,7 @@
     <div class="geo-blue"></div>
     <div class="header-brand">
       {{#if logoBase64}}
-      <img src="{{logoBase64}}" alt="Guru Tech Solutions" class="brand-logo" />
+      <img src="{{logoBase64}}" alt="Guru Tech Store" class="brand-logo" />
       {{/if}}
       <div class="brand-lockup">
         <div class="brand-name">GURU TECH</div>
@@ -218,7 +218,7 @@
 
   <!-- Boleta bar -->
   <div class="boleta-bar">
-    <span class="boleta-bar-label">Boleta de Servicio Técnico</span>
+    <span class="boleta-bar-label">{{#if esDiagnostico}}Nota de Diagnóstico{{else}}Nota de Reparación{{/if}}</span>
     <div class="boleta-bar-sep"></div>
     <span class="boleta-bar-num">{{numero}}</span>
     <div class="boleta-bar-sep"></div>
@@ -275,7 +275,7 @@
           <span class="eq-v">{{equipo}}</span>
         </div>
         <div class="eq-cell">
-          <span class="eq-k">Tipo de servicio</span>
+          <span class="eq-k">{{#if esDiagnostico}}Tipo de diagnóstico{{else}}Tipo de servicio{{/if}}</span>
           <span class="eq-v">{{tipoServicio}}</span>
         </div>
         <div class="eq-cell">
@@ -334,7 +334,7 @@
           {{/each}}
         </div>
         {{/if}}
-        <div class="doc-note">Documento emitido por Guru Tech Solutions · Conserve este comprobante</div>
+        <div class="doc-note">Documento emitido por Guru Tech Store · Conserve este comprobante</div>
       </div>
 
       <div class="totals-panel">
@@ -361,7 +361,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    <div class="footer-main">¡Gracias por confiar en Guru Tech Solutions!</div>
+    <div class="footer-main">¡Gracias por confiar en Guru Tech Store!</div>
     <div class="footer-sub">Boleta de Servicio Técnico N° {{numero}}</div>
     {{#if sedeDireccion}}
     <div class="footer-contacts">

@@ -21,11 +21,10 @@ export class AuditInterceptor implements NestInterceptor {
 
     // set_config con tercer parámetro true = LOCAL (dura solo el request actual).
     if (request.user?.sub) {
-      await this.dataSource
-        .createQueryBuilder()
-        .select(`set_config('app.actor_id', :id, true)`, 'v')
-        .setParameter('id', String(request.user.sub))
-        .getRawOne();
+      await this.dataSource.query(
+        `SELECT set_config('app.actor_id', $1, true)`,
+        [String(request.user.sub)],
+      );
     }
 
     return next.handle();

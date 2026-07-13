@@ -1,7 +1,7 @@
 "use client"
 
 import { Monitor, Wrench, Layers } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { cn } from "@/lib/utils"
 import { useNuevaReparacion } from "../_context/nueva-reparacion.context"
 
@@ -20,6 +20,14 @@ export function Step3TipoServicio() {
     setRepuestos,
   } = useNuevaReparacion()
 
+  function handleTipoAccion(value: "reparacion" | "diagnostico") {
+    setTipoAccion(value)
+    if (value === "diagnostico") {
+      setRepuestos(() => [])
+      setFechaEst("")
+    }
+  }
+
   function handleTipoServicio(value: "software" | "hardware" | "mixto") {
     setTipoServicio(value)
     if (value === "software") setRepuestos(() => [])
@@ -37,7 +45,7 @@ export function Step3TipoServicio() {
             <button
               key={val}
               type="button"
-              onClick={() => setTipoAccion(val)}
+              onClick={() => handleTipoAccion(val)}
               className={cn(
                 "rounded-xl border py-2.5 text-sm font-medium transition-colors",
                 tipoAccion === val
@@ -104,17 +112,19 @@ export function Step3TipoServicio() {
               className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-text-heading placeholder:text-gray-400 focus:border-[#020617]/50 focus:outline-none focus:ring-2 focus:ring-[#020617]/10"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-text-muted">
-              Fecha estimada de entrega
-            </label>
-            <Input
-              type="date"
-              value={fechaEst}
-              onChange={(e) => setFechaEst(e.target.value)}
-              className="rounded-xl"
-            />
-          </div>
+          {tipoAccion !== "diagnostico" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-muted">
+                Fecha estimada de entrega
+              </label>
+              <DatePicker
+                value={fechaEst || undefined}
+                onChange={(v) => setFechaEst(v ?? "")}
+                placeholder="Seleccionar fecha"
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

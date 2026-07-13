@@ -599,7 +599,7 @@ export default function LandingPage() {
               <p className="text-xs font-extrabold uppercase tracking-widest text-text-heading">
                 Guru Tech Store
               </p>
-              <p className="mt-1 text-xs text-text-muted">© 2026 Guru Tech Dev.</p>
+              <p className="mt-1 text-xs text-text-muted">© 2026 Guru Tech Dev · Alfredo Navarro Dev.</p>
             </div>
             <div className="flex flex-wrap gap-6">
               {["Política de Privacidad", "Términos de Servicio", "Seguridad", "Estado"].map((l) => (

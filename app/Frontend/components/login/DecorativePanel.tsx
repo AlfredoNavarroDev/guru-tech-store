@@ -55,7 +55,7 @@ export function DecorativePanel() {
 
       {/* Bottom: copyright */}
       <p className="relative z-10 text-xs text-white/40">
-        Guru Tech Dev · © 2026
+        Guru Tech Dev · Alfredo Navarro Dev · © 2026
       </p>
     </div>
   )

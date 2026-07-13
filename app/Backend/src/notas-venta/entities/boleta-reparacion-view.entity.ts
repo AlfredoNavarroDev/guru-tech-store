@@ -19,6 +19,7 @@ export class BoletaReparacionView {
   @ViewColumn() marca: string | null;
   @ViewColumn() modelo: string | null;
   @ViewColumn() tipo_servicio: string | null;
+  @ViewColumn() tipo_accion: string;
   @ViewColumn() diagnostico_tecnico: string | null;
   @ViewColumn() fecha_estimada: string | null;
   @ViewColumn() producto: string | null;

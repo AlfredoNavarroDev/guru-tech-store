@@ -66,6 +66,7 @@ interface BolReparacionRow {
   marca: string | null;
   modelo: string | null;
   tipo_servicio: 'software' | 'hardware' | 'mixto' | null;
+  tipo_accion: 'diagnostico' | 'reparacion';
   diagnostico_tecnico: string | null;
   fecha_estimada: string | null;
   // Repuesto join (nullable — LEFT JOIN)
@@ -169,6 +170,7 @@ interface BoletaReparacionTemplateData {
   clienteNroDoc: string | null;
   equipo: string;
   tipoServicio: string;
+  esDiagnostico: boolean;
   diagnostico: string | null;
   fechaIngreso: string;
   fechaEstimada: string | null;
@@ -301,7 +303,7 @@ export class NotasVentaService implements OnModuleInit {
         );
         const html = this.templateFn(data);
         const pdfBuffer = await this.pdfService.generateFromHtml(html);
-        const key = `boletas/ventas/${boleta.numero}.pdf`;
+        const key = `notas-venta/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
             Bucket: r2Config.bucket,
@@ -476,7 +478,7 @@ export class NotasVentaService implements OnModuleInit {
         );
         const html = this.templateReparacionFn(data);
         const pdfBuffer = await this.pdfService.generateFromHtml(html);
-        const key = `boletas/reparaciones/${boleta.numero}.pdf`;
+        const key = `notas-reparacion/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
             Bucket: r2Config.bucket,
@@ -561,7 +563,7 @@ export class NotasVentaService implements OnModuleInit {
         );
         const html = this.cambioTemplateFn(templateData);
         const pdfBuffer = await this.pdfService.generateFromHtml(html);
-        const key = `boletas/cambios/${boleta.numero}.pdf`;
+        const key = `notas-cambio/${boleta.numero}.pdf`;
         await this.s3.send(
           new PutObjectCommand({
             Bucket: r2Config.bucket,
@@ -634,7 +636,7 @@ export class NotasVentaService implements OnModuleInit {
       .createQueryBuilder()
       .select('p.metodo_pago AS "metodo_pago"')
       .addSelect('p.monto AS "monto"')
-      .from('Pagos', 'p')
+      .from('pagos', 'p')
       .where('p.id_venta = :idVenta', { idVenta })
       .orderBy('p.fecha_pago', 'ASC')
       .getRawMany<PagoRow>();
@@ -665,7 +667,7 @@ export class NotasVentaService implements OnModuleInit {
     const row = await this.dataSource
       .createQueryBuilder()
       .select('v.id_venta')
-      .from('Ventas', 'v')
+      .from('ventas', 'v')
       .where('v.id_venta = :idVenta', { idVenta })
       .andWhere('v.id_empleado = :idEmpleado', { idEmpleado })
       .getRawOne<{ id_venta: number }>();
@@ -780,9 +782,12 @@ export class NotasVentaService implements OnModuleInit {
       hardware: 'Hardware',
       mixto: 'Mixto',
     };
-    const tipoServicio = head.tipo_servicio
-      ? (tipoServicioMap[head.tipo_servicio] ?? '—')
-      : '—';
+    const esDiagnostico = head.tipo_accion === 'diagnostico';
+    const tipoServicio = esDiagnostico
+      ? 'Diagnóstico'
+      : head.tipo_servicio
+        ? (tipoServicioMap[head.tipo_servicio] ?? '—')
+        : '—';
 
     const tieneRepuestos = head.producto !== null;
     const repuestosSinPrecio = tieneRepuestos
@@ -811,6 +816,7 @@ export class NotasVentaService implements OnModuleInit {
       clienteNroDoc: head.cliente_nro_doc,
       equipo,
       tipoServicio,
+      esDiagnostico,
       diagnostico: head.diagnostico_tecnico,
       fechaIngreso: new Date(head.fecha_ingreso).toLocaleDateString('es-PE', {
         timeZone: 'America/Lima',

@@ -159,7 +159,7 @@ export function LoginCard() {
             Volver al inicio
           </Link>
           <p className="text-xs uppercase tracking-widest text-gray-400">
-            Guru Tech Dev · © 2026
+            Guru Tech Dev · Alfredo Navarro Dev · © 2026
           </p>
         </div>
       </div>

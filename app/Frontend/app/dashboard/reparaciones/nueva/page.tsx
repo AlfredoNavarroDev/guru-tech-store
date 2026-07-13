@@ -48,7 +48,7 @@ function WizardContent() {
     pagos,
   } = useNuevaReparacion()
 
-  const skipRepuestos = tipoServicio === "software"
+  const skipRepuestos = tipoServicio === "software" || tipoAccion === "diagnostico"
   const visibleSteps = skipRepuestos
     ? ALL_STEPS.filter((s) => !s.conditional)
     : ALL_STEPS

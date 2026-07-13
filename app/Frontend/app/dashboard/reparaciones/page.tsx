@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import {
   Plus, Wrench, AlertCircle,
-  ChevronLeft, ChevronRight, Search, User,
+  ChevronLeft, ChevronRight, Search, User, Stethoscope,
 } from "lucide-react"
 import { motion } from "motion/react"
 import { BlurFade } from "@/components/ui/blur-fade"
@@ -23,6 +23,12 @@ const ESTADO_FILTROS: { label: string; id: number | null }[] = [
   { label: "En reparación",      id: 2 },
   { label: "Listo para entrega", id: 3 },
   { label: "Entregado",          id: 4 },
+]
+
+const TIPO_ACCION_FILTROS: { label: string; value: "reparacion" | "diagnostico" | null }[] = [
+  { label: "Todos",        value: null },
+  { label: "Reparación",   value: "reparacion" },
+  { label: "Diagnóstico",  value: "diagnostico" },
 ]
 
 const AVATAR_COLORS = [
@@ -50,10 +56,11 @@ export default function ReparacionesPage() {
   const [page, setPage]                 = useState(1)
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState<string | null>(null)
-  const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
-  const [search, setSearch]             = useState("")
+  const [filtroEstado, setFiltroEstado]       = useState<number | null>(null)
+  const [filtroTipo, setFiltroTipo]           = useState<"reparacion" | "diagnostico" | null>(null)
+  const [search, setSearch]                   = useState("")
 
-  const load = useCallback(async (p: number, idEstado: number | null) => {
+  const load = useCallback(async (p: number, idEstado: number | null, tipo: "reparacion" | "diagnostico" | null) => {
     setLoading(true)
     setError(null)
     try {
@@ -61,6 +68,7 @@ export default function ReparacionesPage() {
         page: p,
         limit: PAGE_SIZE,
         ...(idEstado !== null ? { id_estado: idEstado } : {}),
+        ...(tipo !== null ? { tipo_accion: tipo } : {}),
       })
       setItems(res.items)
       setTotal(res.total)
@@ -72,13 +80,18 @@ export default function ReparacionesPage() {
   }, [])
 
   useEffect(() => {
-    void load(page, filtroEstado)
-  }, [load, page, filtroEstado])
+    void load(page, filtroEstado, filtroTipo)
+  }, [load, page, filtroEstado, filtroTipo])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   function handleFiltro(id: number | null) {
     setFiltroEstado(id)
+    setPage(1)
+  }
+
+  function handleFiltroTipo(value: "reparacion" | "diagnostico" | null) {
+    setFiltroTipo(value)
     setPage(1)
   }
 
@@ -163,7 +176,7 @@ export default function ReparacionesPage() {
 
       {/* Estado filter chips */}
       <BlurFade delay={0.06} duration={0.4}>
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2">
           {ESTADO_FILTROS.map((f) => (
             <button
               key={String(f.id)}
@@ -172,6 +185,22 @@ export default function ReparacionesPage() {
                 "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                 filtroEstado === f.id
                   ? "bg-[#020617] text-white shadow-sm"
+                  : "bg-white border border-gray-200 text-gray-600 hover:border-gray-400",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {TIPO_ACCION_FILTROS.map((f) => (
+            <button
+              key={String(f.value)}
+              onClick={() => handleFiltroTipo(f.value)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                filtroTipo === f.value
+                  ? "bg-blue-600 text-white shadow-sm"
                   : "bg-white border border-gray-200 text-gray-600 hover:border-gray-400",
               )}
             >
@@ -298,6 +327,17 @@ export default function ReparacionesPage() {
                               {[r.marca, r.modelo].filter(Boolean).join(" ") || "Equipo sin especificar"}
                             </span>
                             <EstadoBadge estado={r.estado} size="sm" />
+                            {r.tipo_accion === "diagnostico" ? (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                                <Stethoscope className="h-3 w-3" />
+                                Diagnóstico
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                                <Wrench className="h-3 w-3" />
+                                Reparación
+                              </span>
+                            )}
                             {r.tecnico && (
                               <span className="text-xs text-gray-400">· Téc: {r.tecnico}</span>
                             )}

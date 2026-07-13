@@ -168,7 +168,7 @@ export class PropietarioService implements OnModuleInit {
          cliente,
          vendedor,
          total_venta_cabecera AS total,
-         sede_nombre
+         sede AS sede_nombre
        FROM v_vendedor_ventas
        WHERE ($1::int IS NULL OR id_sede = $1)
          AND DATE(fecha_emision AT TIME ZONE 'America/Lima') = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
