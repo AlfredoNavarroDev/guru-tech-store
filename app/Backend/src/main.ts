@@ -26,9 +26,12 @@ async function bootstrap() {
   // Filtro global que unifica el formato JSON de errores.
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Habilita CORS solo para el origen del frontend.
+  // Habilita CORS para uno o varios orígenes (separados por coma en FRONTEND_URL).
+  const corsOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:3001'];
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3001',
+    origin: corsOrigins,
     credentials: true,
   });
 
