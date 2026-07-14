@@ -10,3 +10,4 @@ export * from './compras.exceptions';
 export * from './reparaciones.exceptions';
 export * from './cambios.exceptions';
 export * from './garantias.exceptions';
+export * from './sedes.exceptions';

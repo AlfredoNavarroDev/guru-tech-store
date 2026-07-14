@@ -19,6 +19,7 @@ import {
   StockInsuficienteException,
   VentaNotFoundException,
 } from '../common/exceptions';
+import { assertSedeAbierta } from '../common/utils/sede-horario.util';
 
 // Estructura de la vista que une Ventas + Detalle_Venta + Items + Clientes + Boletas.
 export interface VentaVista {
@@ -61,6 +62,8 @@ export class VentasService {
     dto: CreateVentaDto,
     user: JwtPayload,
   ): Promise<VentaResponseDto> {
+    await assertSedeAbierta(this.dataSource, user.id_sede!);
+
     // Descuento > 0 requiere justificación (auditoría para el propietario).
     if ((dto.monto_descuento ?? 0) > 0 && !dto.justificacion_descuento) {
       throw new DescuentoSinJustificacionException();

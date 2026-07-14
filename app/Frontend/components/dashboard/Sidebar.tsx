@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Receipt, Grid3X3, UserRound,
   LogOut, Plus, Zap, PanelLeftClose, PanelLeftOpen,
   Boxes, ClipboardList, ShieldCheck, Wrench, Truck,
-  ArrowLeftRight, History, Lock, Tag, ShoppingCart, BarChart2,
+  ArrowLeftRight, History, Lock, Tag, ShoppingCart, BarChart2, MapPin,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
@@ -35,6 +35,7 @@ const propietarioNavLinks = [
   { href: "/dashboard/proveedores",   label: "Proveedores",   icon: Truck },
   { href: "/dashboard/restricciones", label: "Restricciones", icon: Lock },
   { href: "/dashboard/promociones",   label: "Promociones",   icon: Tag },
+  { href: "/dashboard/sedes",         label: "Sedes",         icon: MapPin },
 ]
 
 const roleNavLinks = {

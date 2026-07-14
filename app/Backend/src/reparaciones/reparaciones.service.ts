@@ -26,6 +26,7 @@ import {
   RepuestoUsadoNotFoundException,
   StockInsuficienteException,
 } from '../common/exceptions';
+import { assertSedeAbierta } from '../common/utils/sede-horario.util';
 
 // Forma cruda de cada fila devuelta por la vista v_reparacion_lista.
 interface ReparacionRow {
@@ -125,6 +126,8 @@ export class ReparacionesService {
     dto: CreateReparacionDto,
     user: JwtPayload,
   ): Promise<ReparacionResponseDto> {
+    await assertSedeAbierta(this.dataSource, user.id_sede!);
+
     const estadoRow = await this.dataSource
       .createQueryBuilder()
       .select('e.id_estado', 'id_estado')
