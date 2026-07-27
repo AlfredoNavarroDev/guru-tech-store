@@ -110,8 +110,22 @@ export function getCategorias() {
   return authRequest<Categoria[]>('items/categorias')
 }
 
+export function createCategoria(nombre_categoria: string) {
+  return authRequest<Categoria>('items/categorias', {
+    method: 'POST',
+    body: JSON.stringify({ nombre_categoria }),
+  })
+}
+
 export function getMarcas() {
   return authRequest<Marca[]>('items/marcas')
+}
+
+export function createMarca(nombre: string) {
+  return authRequest<Marca>('items/marcas', {
+    method: 'POST',
+    body: JSON.stringify({ nombre }),
+  })
 }
 
 export interface Sede {

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -33,6 +34,8 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
 import { ItemResponseDto } from './dto/item-response.dto';
 import { UploadImagenItemDto } from './dto/upload-imagen-item.dto';
+import { CreateMarcaDto } from './dto/create-marca.dto';
+import { CreateCategoriaDto } from './dto/create-categoria.dto';
 
 // Controlador REST para el módulo de ítems (productos y repuestos).
 // Por defecto solo el rol 'abastecedor' puede acceder; algunos endpoints amplían el acceso a 'tecnico'.
@@ -89,6 +92,24 @@ export class ItemsController {
     return this.itemsService.findCategorias();
   }
 
+  @Post('categorias')
+  @ApiOperation({ summary: 'Registrar nueva categoría' })
+  @ApiBody({ type: CreateCategoriaDto })
+  @ApiCreatedResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        id_categoria: { type: 'number' },
+        nombre_categoria: { type: 'string' },
+      },
+    },
+  })
+  createCategoria(
+    @Body() dto: CreateCategoriaDto,
+  ): Promise<{ id_categoria: number; nombre_categoria: string }> {
+    return this.itemsService.createCategoria(dto);
+  }
+
   // Devuelve el catálogo de marcas para poblar selectores en el frontend.
   @Get('marcas')
   @ApiOperation({ summary: 'Listar todas las marcas disponibles' })
@@ -106,6 +127,24 @@ export class ItemsController {
   })
   findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
     return this.itemsService.findMarcas();
+  }
+
+  @Post('marcas')
+  @ApiOperation({ summary: 'Registrar nueva marca' })
+  @ApiBody({ type: CreateMarcaDto })
+  @ApiCreatedResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        id_marca: { type: 'number' },
+        nombre: { type: 'string' },
+      },
+    },
+  })
+  createMarca(
+    @Body() dto: CreateMarcaDto,
+  ): Promise<{ id_marca: number; nombre: string }> {
+    return this.itemsService.createMarca(dto);
   }
 
   @Get('sedes')

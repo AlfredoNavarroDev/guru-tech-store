@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
@@ -22,6 +23,7 @@ import {
   ItemStockInsuficienteException,
 } from '../common/exceptions';
 import { AjusteStockDto } from './dto/ajuste-stock.dto';
+import { CreateMarcaDto } from './dto/create-marca.dto';
 import { UploadImagenItemDto } from './dto/upload-imagen-item.dto';
 import { Item } from './entities/item.entity';
 import { Marca } from './entities/marca.entity';
@@ -289,8 +291,32 @@ export class ItemsService {
     return this.catRepo.find({ order: { nombre_categoria: 'ASC' } });
   }
 
+  async createCategoria(dto: CreateCategoriaDto): Promise<{ id_categoria: number; nombre_categoria: string }> {
+    try {
+      return await this.catRepo.save({ nombre_categoria: dto.nombre_categoria.trim() });
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e.code === '23505') {
+        throw new ConflictException('Ya existe una categoría con ese nombre');
+      }
+      throw err;
+    }
+  }
+
   async findMarcas(): Promise<{ id_marca: number; nombre: string }[]> {
     return this.marcaRepo.find({ order: { nombre: 'ASC' } });
+  }
+
+  async createMarca(dto: CreateMarcaDto): Promise<{ id_marca: number; nombre: string }> {
+    try {
+      return await this.marcaRepo.save({ nombre: dto.nombre.trim() });
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e.code === '23505') {
+        throw new ConflictException('Ya existe una marca con ese nombre');
+      }
+      throw err;
+    }
   }
 
   async findSedes(): Promise<{ id_sede: number; nombre: string }[]> {

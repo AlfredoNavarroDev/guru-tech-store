@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { X, Loader2 } from "lucide-react"
+import { X, Loader2, Plus } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import { Dialog } from "@/components/ui/dialog"
 import {
   type Item,
@@ -12,6 +13,8 @@ import {
   updateItem,
   getCategorias,
   getMarcas,
+  createMarca,
+  createCategoria,
   uploadImagenItem,
 } from "@/lib/api/items"
 import { ApiError } from "@/lib/api/client"
@@ -68,6 +71,14 @@ export function ItemDrawer({ open, onClose, item, onSaved, initialNombre }: Item
     getMarcas().then(setMarcas).catch(() => {})
   }, [])
 
+  function handleMarcaCreated(m: Marca) {
+    setMarcas((prev) => [...prev, m].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+  }
+
+  function handleCategoriaCreated(c: Categoria) {
+    setCategorias((prev) => [...prev, c].sort((a, b) => a.nombre_categoria.localeCompare(b.nombre_categoria)))
+  }
+
   return (
     <ItemDrawerForm
       key={`${open ? "open" : "closed"}-${item?.id_item ?? "new"}-${categorias.length}`}
@@ -78,6 +89,8 @@ export function ItemDrawer({ open, onClose, item, onSaved, initialNombre }: Item
       initialNombre={initialNombre}
       categorias={categorias}
       marcas={marcas}
+      onMarcaCreated={handleMarcaCreated}
+      onCategoriaCreated={handleCategoriaCreated}
     />
   )
 }
@@ -85,21 +98,36 @@ export function ItemDrawer({ open, onClose, item, onSaved, initialNombre }: Item
 interface ItemDrawerFormProps extends ItemDrawerProps {
   categorias: Categoria[]
   marcas: Marca[]
+  onMarcaCreated: (m: Marca) => void
+  onCategoriaCreated: (c: Categoria) => void
 }
 
-function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categorias, marcas }: ItemDrawerFormProps) {
+function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categorias, marcas, onMarcaCreated, onCategoriaCreated }: ItemDrawerFormProps) {
   const [form, setForm] = useState<CreateItemPayload>(() => {
     const base = buildForm(item, categorias)
     if (!item && initialNombre) base.nombre = initialNombre
     return base
   })
   const [saving, setSaving] = useState(false)
+  const [newMarcaOpen, setNewMarcaOpen] = useState(false)
+  const [newMarcaNombre, setNewMarcaNombre] = useState("")
+  const [newMarcaSaving, setNewMarcaSaving] = useState(false)
+  const [newCategoriaOpen, setNewCategoriaOpen] = useState(false)
+  const [newCategoriaNombre, setNewCategoriaNombre] = useState("")
+  const [newCategoriaSaving, setNewCategoriaSaving] = useState(false)
   const [pendingPhoto, setPendingPhoto] = useState<{ base64: string; contentType: string; preview: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error('Solo se permiten imágenes (JPG, PNG o WebP)')
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
@@ -110,7 +138,6 @@ function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categoria
       })
     }
     reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
   function set<K extends keyof CreateItemPayload>(key: K, value: CreateItemPayload[K]) {
@@ -166,6 +193,42 @@ function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categoria
       setSaving(false)
     }
     onClose()
+  }
+
+  async function handleCreateMarca() {
+    const nombre = newMarcaNombre.trim()
+    if (!nombre) return
+    setNewMarcaSaving(true)
+    try {
+      const created = await createMarca(nombre)
+      onMarcaCreated(created)
+      set('id_marca', created.id_marca)
+      setNewMarcaOpen(false)
+      setNewMarcaNombre("")
+      toast.success(`Marca "${created.nombre}" registrada`)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Error al crear marca")
+    } finally {
+      setNewMarcaSaving(false)
+    }
+  }
+
+  async function handleCreateCategoria() {
+    const nombre = newCategoriaNombre.trim()
+    if (!nombre) return
+    setNewCategoriaSaving(true)
+    try {
+      const created = await createCategoria(nombre)
+      onCategoriaCreated(created)
+      set('categoria_ids', [...(form.categoria_ids ?? []), created.id_categoria])
+      setNewCategoriaOpen(false)
+      setNewCategoriaNombre("")
+      toast.success(`Categoría "${created.nombre_categoria}" registrada`)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Error al crear categoría")
+    } finally {
+      setNewCategoriaSaving(false)
+    }
   }
 
   const inputCls = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text-heading placeholder:text-text-muted focus:border-lime-dark focus:outline-none focus:ring-2 focus:ring-lime-dark/10"
@@ -253,17 +316,72 @@ function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categoria
               </select>
             </div>
             <div>
-              <label className={labelCls}>Marca *</label>
-              <select
-                className={inputCls}
-                value={form.id_marca ?? ''}
-                onChange={(e) => set('id_marca', e.target.value ? Number(e.target.value) : undefined)}
-              >
-                <option value="">Seleccionar marca</option>
-                {marcas.map((m) => (
-                  <option key={m.id_marca} value={m.id_marca}>{m.nombre}</option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls.replace('mb-1', '')}>Marca *</label>
+                {!newMarcaOpen && (
+                  <button
+                    type="button"
+                    onClick={() => { setNewMarcaOpen(true); setNewMarcaNombre("") }}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Nueva
+                  </button>
+                )}
+              </div>
+              <AnimatePresence>
+                {newMarcaOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="flex flex-col gap-1.5"
+                  >
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newMarcaNombre}
+                      onChange={(e) => setNewMarcaNombre(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!newMarcaSaving) void handleCreateMarca() } if (e.key === 'Escape') setNewMarcaOpen(false) }}
+                      placeholder="Nombre de la marca"
+                      maxLength={100}
+                      className={inputCls}
+                      disabled={newMarcaSaving}
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateMarca()}
+                        disabled={newMarcaSaving || !newMarcaNombre.trim()}
+                        className="rounded-lg bg-[#020617] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {newMarcaSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Guardar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewMarcaOpen(false)}
+                        disabled={newMarcaSaving}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {!newMarcaOpen && (
+                <select
+                  className={inputCls}
+                  value={form.id_marca ?? ''}
+                  onChange={(e) => set('id_marca', e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value="">Seleccionar marca</option>
+                  {marcas.map((m) => (
+                    <option key={m.id_marca} value={m.id_marca}>{m.nombre}</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className={labelCls}>Precio compra (S/.) *</label>
@@ -331,32 +449,85 @@ function ItemDrawerForm({ open, onClose, item, onSaved, initialNombre, categoria
             </div>
           </div>
 
-          {categorias.length > 0 && (
-            <div>
-              <label className={labelCls}>
-                Categorías {form.tipo === 'producto' ? '(obligatorio ≥1)' : '(opcional)'}
-              </label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {categorias.map((c) => {
-                  const selected = (form.categoria_ids ?? []).includes(c.id_categoria)
-                  return (
+          <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls.replace('mb-1', '')}>
+                  Categorías {form.tipo === 'producto' ? '(obligatorio ≥1)' : '(opcional)'}
+                </label>
+                {!newCategoriaOpen && (
                   <button
-                      key={c.id_categoria}
-                      type="button"
-                      onClick={() => toggleCategoria(c.id_categoria)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        selected
-                          ? 'bg-lime-dark text-lime'
-                          : 'bg-gray-100 text-text-muted hover:bg-gray-200'
-                      }`}
-                    >
-                      {c.nombre_categoria}
-                    </button>
-                  )
-                })}
+                    type="button"
+                    onClick={() => { setNewCategoriaOpen(true); setNewCategoriaNombre("") }}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Nueva
+                  </button>
+                )}
               </div>
+              <AnimatePresence>
+                {newCategoriaOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="flex flex-col gap-1.5 mb-2"
+                  >
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newCategoriaNombre}
+                      onChange={(e) => setNewCategoriaNombre(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!newCategoriaSaving) void handleCreateCategoria() } if (e.key === 'Escape') setNewCategoriaOpen(false) }}
+                      placeholder="Nombre de la categoría"
+                      maxLength={100}
+                      className={inputCls}
+                      disabled={newCategoriaSaving}
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateCategoria()}
+                        disabled={newCategoriaSaving || !newCategoriaNombre.trim()}
+                        className="rounded-lg bg-[#020617] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {newCategoriaSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Guardar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewCategoriaOpen(false)}
+                        disabled={newCategoriaSaving}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {categorias.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {categorias.map((c) => {
+                    const selected = (form.categoria_ids ?? []).includes(c.id_categoria)
+                    return (
+                    <button
+                        key={c.id_categoria}
+                        type="button"
+                        onClick={() => toggleCategoria(c.id_categoria)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                          selected
+                            ? 'bg-lime-dark text-lime'
+                            : 'bg-gray-100 text-text-muted hover:bg-gray-200'
+                        }`}
+                      >
+                        {c.nombre_categoria}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-          )}
 
         </div>
 

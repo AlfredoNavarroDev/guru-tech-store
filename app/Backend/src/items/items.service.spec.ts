@@ -77,8 +77,14 @@ describe('ItemsService', () => {
       update: jest.fn().mockResolvedValue({}),
       createQueryBuilder: jest.fn().mockReturnValue(makeQb()),
     };
-    marcaRepo = { find: jest.fn().mockResolvedValue([]) };
-    catRepo = { find: jest.fn().mockResolvedValue([]) };
+    marcaRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn().mockResolvedValue({ id_marca: 10, nombre: 'Xiaomi' }),
+    };
+    catRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn().mockResolvedValue({ id_categoria: 5, nombre_categoria: 'Accesorios' }),
+    };
     icRepo = { delete: jest.fn() };
     invSedeRepo = {
       findOne: jest.fn().mockResolvedValue(null),
@@ -271,6 +277,48 @@ describe('ItemsService', () => {
       const result = await service.findMarcas();
       expect(result).toEqual(marcas);
       expect(marcaRepo.find).toHaveBeenCalledWith({ order: { nombre: 'ASC' } });
+    });
+  });
+
+  describe('createMarca', () => {
+    it('creates and returns the new marca', async () => {
+      marcaRepo.save.mockResolvedValue({ id_marca: 10, nombre: 'Xiaomi' });
+      const result = await service.createMarca({ nombre: 'Xiaomi' });
+      expect(marcaRepo.save).toHaveBeenCalledWith({ nombre: 'Xiaomi' });
+      expect(result).toEqual({ id_marca: 10, nombre: 'Xiaomi' });
+    });
+
+    it('trims whitespace from nombre before saving', async () => {
+      marcaRepo.save.mockResolvedValue({ id_marca: 11, nombre: 'Xiaomi' });
+      await service.createMarca({ nombre: '  Xiaomi  ' });
+      expect(marcaRepo.save).toHaveBeenCalledWith({ nombre: 'Xiaomi' });
+    });
+
+    it('throws ConflictException when nombre already exists (error code 23505)', async () => {
+      const pgUniqueError = Object.assign(new Error('unique'), { code: '23505' });
+      marcaRepo.save.mockRejectedValue(pgUniqueError);
+      await expect(service.createMarca({ nombre: 'Apple' })).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('createCategoria', () => {
+    it('creates and returns the new categoria', async () => {
+      catRepo.save.mockResolvedValue({ id_categoria: 5, nombre_categoria: 'Accesorios' });
+      const result = await service.createCategoria({ nombre_categoria: 'Accesorios' });
+      expect(catRepo.save).toHaveBeenCalledWith({ nombre_categoria: 'Accesorios' });
+      expect(result).toEqual({ id_categoria: 5, nombre_categoria: 'Accesorios' });
+    });
+
+    it('trims whitespace from nombre_categoria before saving', async () => {
+      catRepo.save.mockResolvedValue({ id_categoria: 5, nombre_categoria: 'Accesorios' });
+      await service.createCategoria({ nombre_categoria: '  Accesorios  ' });
+      expect(catRepo.save).toHaveBeenCalledWith({ nombre_categoria: 'Accesorios' });
+    });
+
+    it('throws ConflictException when nombre_categoria already exists (error code 23505)', async () => {
+      const pgUniqueError = Object.assign(new Error('unique'), { code: '23505' });
+      catRepo.save.mockRejectedValue(pgUniqueError);
+      await expect(service.createCategoria({ nombre_categoria: 'Accesorios' })).rejects.toThrow(ConflictException);
     });
   });
 });
